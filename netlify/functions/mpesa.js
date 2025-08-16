@@ -1,34 +1,45 @@
 // netlify/functions/mpesa.js
-// This is your secure backend function for handling M-Pesa payments, adapted for Netlify.
+// This version includes enhanced logging to help debug environment variable issues.
 
 const axios = require("axios");
 const admin = require("firebase-admin");
 
-// --- IMPORTANT: FIREBASE SETUP ---
-// To allow Netlify to talk to your Firestore database, you need a Service Account Key.
-// 1. Go to your Firebase project console > Project settings > Service accounts.
-// 2. Click "Generate new private key". A JSON file will be downloaded.
-// 3. Open the JSON file, copy the entire content.
-// 4. In your Netlify project settings (UI), go to Site settings > Build & deploy > Environment.
-// 5. Add a new environment variable:
-//    Key: FIREBASE_SERVICE_ACCOUNT_KEY
-//    Value: PASTE_THE_COPIED_JSON_CONTENT_HERE
+// --- Enhanced Debugging: Log right at the start ---
+console.log("Netlify function starting up...");
 
-// Initialize Firebase Admin only once
-if (admin.apps.length === 0) {
-  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-  });
+// --- Firebase Admin Initialization with Debugging ---
+try {
+  if (admin.apps.length === 0) {
+    console.log("Attempting to initialize Firebase Admin SDK...");
+    if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+      throw new Error("FIREBASE_SERVICE_ACCOUNT_KEY environment variable not found.");
+    }
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    console.log("Firebase Admin SDK initialized successfully.");
+  }
+} catch (error) {
+  console.error("CRITICAL: Failed to initialize Firebase Admin SDK.", error.message);
+  // This will stop the function from proceeding if Firebase setup fails.
+  // We will return an error from the handler if this fails.
 }
+
 const db = admin.firestore();
 
-// --- MPESA CREDENTIALS ---
-// Add these to your Netlify environment variables as well.
+// --- M-PESA CREDENTIALS with Debugging ---
 const consumerKey = process.env.MPESA_CONSUMER_KEY;
 const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
 const shortCode = process.env.MPESA_SHORTCODE;
 const passkey = process.env.MPESA_PASSKEY;
+
+// Log to check if keys are loaded (but not the secret values themselves)
+console.log("MPESA_CONSUMER_KEY loaded:", !!consumerKey);
+console.log("MPESA_CONSUMER_SECRET loaded:", !!consumerSecret);
+console.log("MPESA_SHORTCODE loaded:", !!shortCode);
+console.log("MPESA_PASSKEY loaded:", !!passkey);
+
 
 // M-Pesa Daraja SANDBOX API URLs
 const tokenUrl = "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
@@ -49,22 +60,23 @@ const getAuthToken = async () => {
 
 // Main function handler for Netlify
 exports.handler = async (event, context) => {
-  // Set up CORS headers to allow requests from your website
+  console.log(`Request received for path: ${event.path}`);
+  
   const headers = {
-    'Access-Control-Allow-Origin': '*', // Or specify your website domain for better security
+    'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS'
   };
 
-  // Netlify functions must handle OPTIONS requests for CORS preflight
   if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 204,
-      headers
-    };
+    return { statusCode: 204, headers };
+  }
+  
+  // Check if Firebase failed to initialize earlier
+  if (admin.apps.length === 0) {
+      return { statusCode: 500, headers, body: JSON.stringify({ error: "Backend Firebase service is not configured correctly." }) };
   }
 
-  // Determine which endpoint is being called based on the path
   const path = event.path.replace('/.netlify/functions/mpesa', '');
 
   // --- Endpoint to INITIATE STK PUSH ---
@@ -80,7 +92,6 @@ exports.handler = async (event, context) => {
     const timestamp = new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14);
     const password = Buffer.from(shortCode + passkey + timestamp).toString("base64");
     
-    // The callback URL will be your Netlify function's URL + /mpesaCallback
     const callbackUrl = `${process.env.URL}/.netlify/functions/mpesa/mpesaCallback`;
 
     const payload = {
@@ -102,6 +113,7 @@ exports.handler = async (event, context) => {
       const response = await axios.post(stkPushUrl, payload, {
         headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
       });
+      console.log("STK Push initiated successfully.");
       return { statusCode: 200, headers, body: JSON.stringify(response.data) };
     } catch (error) {
       console.error("Error initiating STK push:", error.response ? error.response.data : error.message);
@@ -145,7 +157,6 @@ exports.handler = async (event, context) => {
     }
   }
 
-  // Fallback for unknown paths
   return {
     statusCode: 404,
     headers,
