@@ -1,0 +1,91 @@
+:root {
+    --primary-green: #4CAF50;
+    --dark-green: #2E7D32;
+}
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f9f9f9;
+}
+h1, h2, h3, h4 {
+    font-family: 'Poppins', sans-serif;
+}
+.hero-gradient {
+    /* Updated to use background image */
+    position: relative; /* Needed for overlay */
+    z-index: 1; /* Ensure content is above background */
+}
+.hero-gradient::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgb(76, 175, 79) 0%, rgb(46, 125, 50) 100%);
+    z-index: -1; /* Place behind content */
+}
+/* Updated product card hover animation */
+.product-card {
+    transition: all 0.3s ease;
+    transform: perspective(1000px) rotateY(0deg);
+}
+
+.product-card:hover {
+    transform: perspective(1000px) rotateY(5deg);
+    box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.15);
+}
+.neumorphic-btn {
+    box-shadow: 5px 5px 10px #d9d9d9, -5px -5px 10px #ffffff;
+}
+.glass-effect {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+/* Glassmorphism for cards/modals */
+.glass-card {
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+}
+/* Cart item animation classes (Tailwind equivalents used in JS) */
+.cart-item-enter {
+    opacity: 0;
+    transform: translateX(-20px);
+}
+.cart-item-enter-active {
+    opacity: 1;
+    transform: translateX(0);
+    transition: all 300ms ease-in;
+}
+.cart-item-exit {
+    opacity: 1;
+}
+.cart-item-exit-active {
+    opacity: 0;
+    transform: translateX(20px);
+    transition: all 300ms ease-out;
+}
+
+/* User dropdown styles */
+#userDropdown {
+    display: none;
+}
+
+#userDropdown.show {
+    display: block;
+}
+
+.user-profile-initials {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #10B981;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin-right: 8px;
+}

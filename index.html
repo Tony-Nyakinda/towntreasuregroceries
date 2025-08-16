@@ -1,0 +1,2196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Town Treasure Groceries - Fresh Market Delivery</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css" />
+    <link rel="stylesheet" href="style.css"> <!-- Link to external CSS -->
+    <!-- html2pdf.js library for generating PDF receipts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="apple-touch-icon" sizes="180x180" href="IMAGE/favicon/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="IMAGE/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="IMAGE/favicon/favicon-16x16.png">
+    <link rel="icon" type="favicon_ico" href="IMAGE/favicon/favicon.ico">
+    <link rel="manifest" href="IMAGE/favicon/site.webmanifest">
+    <style>
+        /* Custom Variables */
+        :root {
+            --primary: #2e7d32;
+            --primary-light: #4caf50;
+            --accent: #ff9800;
+            --light: #f5f7fa;
+            --dark: #1a1a1a;
+        }
+
+        /* Base Body and Font Styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--light);
+            color: #333;
+            overflow-x: hidden; /* Prevent horizontal scroll */
+            padding-bottom: 60px; /* Space for mobile nav */
+        }
+
+        /* Class to hide mobile nav when mobile menu is active */
+        body.mobile-menu-active .mobile-nav {
+            display: none !important;
+        }
+
+        h1, h2, h3, h4, h5 {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+        }
+
+        /* Modern Card Design for Products and Features */
+        .card {
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+            background: white;
+            position: relative;
+            display: flex; /* Ensure flex for content alignment */
+            flex-direction: column; /* Stack content vertically */
+        }
+
+        .card:hover {
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            transform: translateY(-5px);
+        }
+
+        /* Product Image within Card */
+        .card .product-image-container {
+            width: 100%;
+            padding-top: 75%; /* 4:3 Aspect Ratio (height / width * 100%) */
+            position: relative;
+            overflow: hidden;
+            background-color: #f0f0f0; /* Placeholder background */
+        }
+
+        .card .product-image-container img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Ensures image covers the area without distortion */
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
+        }
+
+        /* Hero Section */
+        .hero-section {
+            background: linear-gradient(135deg, rgba(46, 125, 50, 0.95) 0%, rgba(76, 175, 80, 0.95) 100%),
+                        url('IMAGE/shopping-mall.png') center/cover no-repeat; /* Placeholder background image */
+            position: relative;
+            overflow: hidden;
+            padding-top: 3rem; /* Adjusted for mobile nav */
+            padding-bottom: 3rem; /* Adjusted for mobile nav */
+        }
+
+        .hero-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Category Chips */
+        .category-chip {
+            transition: all 0.3s ease;
+            border-radius: 50px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem; /* Adjusted padding */
+        }
+
+        .category-chip:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Floating Action Button */
+        .fab {
+            position: fixed;
+            bottom: 5rem; /* Adjusted for mobile nav */
+            right: 1rem; /* Adjusted for mobile */
+            width: 56px; /* Slightly smaller for mobile */
+            height: 56px; /* Slightly smaller for mobile */
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+            z-index: 100;
+            transition: all 0.3s ease;
+        }
+
+        .fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Testimonial Cards */
+        .testimonial-card {
+            border-radius: 16px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .testimonial-card::before {
+            content: "\201C"; /* Unicode for left double quotation mark */
+            position: absolute;
+            top: -20px;
+            left: 20px;
+            font-size: 5rem;
+            color: rgba(46, 125, 50, 0.1);
+            font-family: Georgia, serif;
+            line-height: 1;
+        }
+
+        /* Mobile Navigation */
+        .mobile-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+            z-index: 90;
+            display: flex; /* Always display flex for mobile */
+            justify-content: space-around;
+            padding: 0.5rem 0;
+        }
+
+        .nav-item {
+            flex: 1;
+            text-align: center;
+            padding: 0.75rem 0;
+            color: #666;
+            transition: all 0.2s ease;
+            position: relative; /* For cart count badge */
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        .nav-item:hover {
+            color: var(--primary);
+        }
+
+        /* Cart Badge */
+        .cart-badge {
+            position: absolute;
+            top: -4px; /* Adjusted to be higher */
+            right: 25%; /* Adjusted for better positioning */
+            background-color: var(--primary); /* Using primary color for consistency */
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: none; /* Hide by default */
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            font-weight: bold;
+            transform: translateX(50%); /* Center the badge over the icon */
+        }
+
+        .cart-badge.visible {
+            display: flex; /* Show when has items */
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 767px) { /* Apply these styles only on screens smaller than md (768px) */
+            .desktop-only {
+                display: none !important;
+            }
+
+            .mobile-only {
+                display: block !important;
+            }
+
+            .mobile-nav {
+                display: flex; /* Ensure it's always flex on mobile */
+                height: 50px; /* Specific height from sdsdsd.txt */
+                padding: 0.25rem 0; /* Reduced padding from sdsdsd.txt */
+            }
+
+            .hero-section {
+                padding-top: 1.2rem; /* Reduced padding for smaller screens */
+                padding-bottom: 1.2rem;
+            }
+
+            .hero-content h1 {
+                font-size: 1.2rem; /* Smaller text for hero heading from sdsdsd.txt */
+                line-height: 1.2;
+                margin-bottom: 0.7rem;
+            }
+
+            .hero-content p {
+                font-size: 0.7rem; /* Slightly smaller text for hero paragraph from sdsdsd.txt */
+                margin-bottom: 1.5rem;
+            }
+
+            .hero-buttons { /* Added class from sdsdsd.txt */
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .hero-button { /* Added class from sdsdsd.txt */
+                width: 100%;
+                padding: 0.8rem 1rem;
+                font-size: 0.95rem;
+            }
+
+            .category-grid {
+                grid-template-columns: repeat(3, 1fr); /* 3 columns on mobile */
+                gap: 0.5rem; /* Reduced gap from sdsdsd.txt */
+            }
+
+            .category-chip {
+                padding: 0.75rem 0.5rem; /* Reduced padding for category chips from sdsdsd.txt */
+            }
+
+            .category-chip .icon-container { /* Added class from sdsdsd.txt */
+                width: 3rem; /* Smaller icon container from sdsdsd.txt */
+                height: 3rem;
+            }
+
+            .category-chip i {
+                font-size: 1.25rem; /* Smaller icons from sdsdsd.txt */
+            }
+
+            .category-chip span {
+                font-size: 0.7rem; /* Smaller category text from sdsdsd.txt */
+            }
+
+            .product-grid {
+                grid-template-columns: repeat(2, 1fr); /* 2 columns on mobile */
+                gap: 0.5rem; /* Reduced gap from sdsdsd.txt */
+            }
+
+            .card {
+                border-radius: 12px; /* Slightly smaller radius from sdsdsd.txt */
+            }
+
+            .card h3 {
+                font-size: 0.95rem; /* Smaller product title from sdsdsd.txt */
+                margin-bottom: 0.25rem;
+            }
+
+            .card .description { /* Added class from sdsdsd.txt */
+                font-size: 0.75rem; /* Smaller product description from sdsdsd.txt */
+                margin-bottom: 0.5rem;
+            }
+
+            .card .price { /* Added class from sdsdsd.txt */
+                font-size: 0.9rem; /* Smaller price text from sdsdsd.txt */
+            }
+
+            .add-to-cart-btn {
+                padding: 0.4rem 0.8rem; /* Smaller add to cart button from sdsdsd.txt */
+                font-size: 0.8rem;
+            }
+
+            .fab {
+                display: none !important; /* Hide FAB on mobile */
+            }
+
+            /* Mobile Menu (Sidebar) - Unified with overlay */
+            #mobileMenu {
+                position: fixed;
+                inset: 0; /* Covers the entire viewport */
+                background-color: rgba(0, 0, 0, 0.5); /* The dark overlay */
+                z-index: 9999; /* Ensures it's on top of everything */
+                display: flex; /* To position the actual menu content */
+                justify-content: flex-start; /* Align the menu content to the left */
+                transform: translateX(-100%); /* Start off-screen */
+                opacity: 0; /* Start invisible */
+                pointer-events: none; /* Not interactive when hidden */
+                transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+            }
+
+            #mobileMenu.is-active {
+                transform: translateX(0); /* Slide in */
+                opacity: 1; /* Become visible */
+                pointer-events: auto; /* Allow interaction */
+            }
+
+            /* The actual sliding content inside the mobileMenu */
+            #mobileMenu .menu-content {
+                width: 75vw; /* Slightly wider for better content display */
+                max-width: 320px; /* Max width for larger screens */
+                background-color: white; /* Background of the menu itself */
+                box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+                height: 100%; /* Take full height to cover lower dashboard */
+                overflow-y: auto; /* Enable scrolling for long content */
+            }
+
+            /* Adjustments for text within modals/sidebars on mobile */
+            .p-4.sm:p-6 {
+                padding: 1rem; /* Default padding for smaller screens */
+            }
+            .text-lg.sm:text-xl {
+                font-size: 1.125rem; /* text-lg */
+            }
+            .text-sm.sm:text-base {
+                font-size: 0.875rem; /* text-sm */
+            }
+            .py-2.px-5 {
+                padding: 0.5rem 1rem; /* Smaller button padding */
+            }
+
+            /* About section from sdsdsd.txt */
+            .about-section {
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+
+            .about-image-container {
+                margin-bottom: 1rem;
+            }
+
+            .about-content h2 {
+                font-size: 1.25rem;
+                margin-bottom: 1rem;
+            }
+
+            .about-content p {
+                font-size: 0.85rem;
+                margin-bottom: 1rem;
+            }
+
+            .feature-item {
+                margin-bottom: 1rem;
+            }
+
+            .feature-item .icon {
+                width: 2.5rem;
+                height: 2.5rem;
+                padding: 0.5rem;
+            }
+
+            .feature-item h4 {
+                font-size: 0.95rem;
+            }
+
+            .feature-item p {
+                font-size: 0.8rem;
+            }
+
+            /* Features section from sdsdsd.txt */
+            .features-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .app-section {
+                flex-direction: column;
+            }
+
+            .app-content {
+                padding: 1rem;
+            }
+
+            .app-content h3 {
+                font-size: 1.1rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .app-content p {
+                font-size: 0.85rem;
+                margin-bottom: 1rem;
+            }
+
+            .app-buttons {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .app-button {
+                padding: 0.6rem 1rem;
+                font-size: 0.85rem;
+            }
+
+            /* Testimonials from sdsdsd.txt */
+            .testimonials h2 {
+                font-size: 1.25rem;
+                margin-bottom: 1rem;
+            }
+
+            .testimonial-card {
+                padding: 1rem;
+            }
+
+            .testimonial-content {
+                font-size: 0.85rem;
+            }
+
+            .testimonial-author {
+                font-size: 0.8rem;
+            }
+
+            /* Contact section from sdsdsd.txt */
+            .contact-section {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .contact-info h3 {
+                font-size: 1.1rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .contact-item {
+                margin-bottom: 1rem;
+            }
+
+            .contact-form h3 {
+                font-size: 1.1rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .floating-label-group {
+                margin-bottom: 1rem;
+            }
+
+            /* Footer from sdsdsd.txt */
+            .footer-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .footer-section {
+                margin-bottom: 1rem;
+            }
+
+            .footer-section h3 {
+                font-size: 1rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .footer-section ul li {
+                margin-bottom: 0.5rem;
+            }
+
+            .footer-section a {
+                font-size: 0.85rem;
+            }
+
+            .footer-bottom {
+                font-size: 0.75rem;
+                padding-top: 1rem;
+            }
+
+            /* Mobile navigation from sdsdsd.txt */
+            .nav-item {
+                padding: 0.5rem 0;
+                font-size: 0.7rem;
+            }
+
+            .nav-item i {
+                font-size: 1.1rem;
+            }
+
+            .cart-badge {
+                top: -3px;
+                right: 25%;
+                width: 16px;
+                height: 16px;
+                font-size: 0.6rem;
+            }
+        }
+
+        @media (min-width: 768px) { /* Desktop styles */
+            .mobile-only {
+                display: none !important;
+            }
+            .desktop-only {
+                display: flex !important; /* Or block, depending on context */
+            }
+            .mobile-nav {
+                display: none;
+            }
+            .fab {
+                bottom: 2rem; /* Original desktop position */
+                right: 2rem;
+                display: flex !important; /* Ensure FAB is visible on desktop */
+            }
+        }
+
+        /* Animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-fadeIn {
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+
+        /* Preloader */
+        #preloader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease-out;
+        }
+
+        #preloader.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .preloader-logo {
+            width: 200px;
+            height: auto;
+            margin-bottom: 20px;
+        }
+
+        .progress-bar-container {
+            width: 200px;
+            height: 8px;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background-color: var(--primary); /* Changed to use theme primary color */
+            border-radius: 4px;
+            animation: progress-animation 2s linear forwards;
+        }
+
+        @keyframes progress-animation {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-light);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary);
+        }
+
+        /* Floating label form */
+        .floating-label-group {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+        .floating-label {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            color: #6b7280;
+            transition: all 0.2s ease;
+            pointer-events: none;
+            background: white;
+            padding: 0 0.3rem;
+        }
+        .floating-input:focus ~ .floating-label,
+        .floating-input:not(:placeholder-shown) ~ .floating-label {
+            top: -0.5rem;
+            left: 0.8rem;
+            font-size: 0.75rem;
+            color: #4b5563;
+            background: white;
+            padding: 0 0.3rem;
+        }
+
+        /* Dropdown styles */
+        .dropdown-menu {
+            position: absolute;
+            top: 100%; /* Position below the button */
+            right: 0;
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            min-width: 180px;
+            z-index: 60; /* Above navbar */
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(10px);
+            transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+        }
+        .dropdown-menu.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+        .profile-pic-placeholder {
+            background-color: #a7f3d0; /* green-200 */
+            color: #065f46; /* green-800 */
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Common styles from sdsdsd.txt */
+        .hero-button {
+            display: inline-block;
+            font-weight: bold;
+            border-radius: 50px;
+            text-align: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .hero-button.shop {
+            background: white;
+            color: var(--primary);
+        }
+
+        .hero-button.contact {
+            background: transparent;
+            border: 2px solid white;
+            color: white;
+        }
+
+        .hero-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .section-title {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 2rem;
+            color: var(--dark);
+        }
+
+        .add-to-cart-btn {
+            background-color: var(--primary-light);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .add-to-cart-btn:hover {
+            background-color: var(--primary);
+        }
+
+        .feature-card {
+            text-align: center;
+            padding: 1.5rem;
+        }
+
+        .feature-icon {
+            width: 4rem;
+            height: 4rem;
+            background-color: rgba(76, 175, 80, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+        }
+
+        .feature-icon i {
+            color: var(--primary);
+            font-size: 1.5rem;
+        }
+
+        .app-section {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .app-image-container {
+            background-color: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .app-image-container img {
+            max-width: 150px;
+        }
+
+        /* Testimonials Container */
+        .testimonials-container {
+            /* Swiper itself manages overflow for its carousel.
+               No specific overflow-x needed here unless you want a native scrollbar
+               in addition to Swiper's functionality, which is usually not desired. */
+            position: relative;
+        }
+
+        /* Testimonial card styling (common for both mobile and desktop) */
+        .testimonial-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            position: relative;
+            height: 100%; /* Ensure consistent height */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .testimonial-card::before {
+            content: "\201C";
+            position: absolute;
+            top: 10px;
+            left: 15px;
+            font-size: 4rem;
+            color: rgba(46, 125, 50, 0.1);
+            font-family: Georgia, serif;
+            line-height: 1;
+        }
+
+        .testimonial-content {
+            position: relative;
+            z-index: 1;
+            font-style: italic;
+            margin-bottom: 1rem;
+            font-size: 0.95rem;
+        }
+
+        .testimonial-author {
+            font-weight: 600;
+            color: var(--primary);
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+
+
+        .newsletter-section {
+            background-color: var(--primary);
+            color: white;
+            padding: 2rem 1rem;
+            text-align: center;
+        }
+
+        .newsletter-form input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 1.25rem;
+        }
+
+        .contact-icon {
+            background-color: rgba(76, 175, 80, 0.1);
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-right: 1rem;
+        }
+
+        .contact-icon i {
+            color: var(--primary);
+        }
+
+        .floating-label-group {
+            position: relative;
+            margin-bottom: 1.25rem;
+        }
+
+        .floating-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+        }
+
+        .floating-label {
+            position: absolute;
+            top: 0.75rem;
+            left: 1rem;
+            color: #777;
+            transition: all 0.2s ease;
+            pointer-events: none;
+            background: white;
+            padding: 0 0.25rem;
+        }
+
+        .floating-input:focus ~ .floating-label,
+        .floating-input:not(:placeholder-shown) ~ .floating-label {
+            top: -0.5rem;
+            left: 0.8rem;
+            font-size: 0.75rem;
+            color: var(--primary);
+        }
+
+        .footer-section h3 {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: white;
+        }
+
+        .footer-section ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .footer-section ul li {
+            margin-bottom: 0.75rem;
+        }
+
+        .footer-section a {
+            color: #ccc;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .footer-section a:hover {
+            color: white;
+        }
+
+        .footer-bottom {
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 1.5rem;
+            text-align: center;
+            color: #aaa;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <!-- Preloader -->
+    <div id="preloader">
+        <img src="IMAGE/Preloader.png" alt="Loading Logo" class="preloader-logo">
+        <div class="progress-bar-container">
+            <div class="progress-bar"></div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="bg-white shadow-md sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <img src="IMAGE/LOG.png" alt="Town Treasure Logo">
+            </div>
+
+            <!-- Desktop Navigation -->
+            <div class="hidden md:flex space-x-6 items-center desktop-only">
+                <a href="index.html" class="text-green-600 font-bold transition duration-300">Home</a>
+                <a href="about.html" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">About Us</a>
+                <a href="catalog.html" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Catalog</a>
+                <a href="#features" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Why Us</a>
+                <a href="testimanial.html" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Testimonials</a>
+                <a href="#contact" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Contact</a>
+                <a href="catalog.html?category=wholesale" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Wholesale</a>
+
+
+                <!-- Login/User Profile Dropdown -->
+                <div class="relative" id="userProfileDropdownContainer">
+                    <button id="userProfileButton" class="hidden flex items-center space-x-2 text-gray-700 hover:text-green-600 font-medium transition duration-300 focus:outline-none">
+                        <img id="userProfilePic" src="" alt="Profile" class="w-8 h-8 rounded-full object-cover hidden">
+                        <div id="userInitials" class="w-8 h-8 rounded-full profile-pic-placeholder text-sm hidden"></div>
+                        <span id="userNameDisplay"></span>
+                        <i class="fas fa-chevron-down text-xs ml-1"></i>
+                    </button>
+                   <a href="login.html" id="loginLink" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition duration-300">Login</a>
+
+                    <div id="userDropdownMenu" class="dropdown-menu absolute right-0 mt-2 py-2 w-48 bg-white rounded-md shadow-xl hidden">
+                        <div class="px-4 py-2 text-sm text-gray-700 border-b border-gray-100 flex items-center">
+                            <img id="dropdownUserProfilePic" src="" alt="Profile" class="w-8 h-8 rounded-full object-cover mr-2 hidden">
+                            <div id="dropdownUserInitials" class="w-8 h-8 rounded-full profile-pic-placeholder text-sm mr-2 hidden"></div>
+                            <div>
+                                <p class="font-bold" id="dropdownUserName"></p>
+                                <p class="text-gray-500" id="dropdownUserEmail"></p>
+                            </div>
+                        </div>
+                        <a href="#" id="myProfileLink" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hidden">My Profile</a>
+                        <a href="admin.html" id="adminLink" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hidden">Admin Dashboard</a>
+                        <button id="logoutDropdownButton" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Logout</button>
+                    </div>
+                </div>
+
+                <button id="mainCartButton" class="relative ml-4" onclick="toggleCart()">
+                    <i class="fas fa-shopping-cart text-xl text-gray-700 hover:text-green-600 transition duration-300"></i>
+                    <span id="cartCount" class="absolute -top-2 -right-2 bg-green-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                </button>
+            </div>
+
+            <!-- Mobile Menu Button -->
+            <button id="mobileMenuButton" class="md:hidden text-gray-600">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+        </div>
+
+        <!-- Mobile Menu (Sidebar) -->
+        <div id="mobileMenu" class="fixed inset-0 transform -translate-x-full transition-transform duration-300 z-[9999] opacity-0 pointer-events-none flex justify-start">
+            <div class="menu-content w-64 bg-white shadow-lg h-full overflow-y-auto">
+                <div class="flex justify-between items-center p-4 border-b border-gray-100">
+                    <h2 class="text-xl font-bold text-gray-800">Menu</h2>
+                    <button id="closeMobileMenuButton" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                <nav class="p-4 space-y-2">
+                    <a href="index.html" class="block py-2 px-3 text-green-600 font-bold hover:bg-gray-100 rounded transition duration-300">Home</a>
+                    <a href="about.html" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">About Us</a>
+                    <a href="catalog.html" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Catalog</a>
+                    <a href="#features" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Why Us</a>
+                    <a href="testimanial.html" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Testimonials</a>
+                    <a href="#contact" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Contact</a>
+                    <a href="catalog.html?category=wholesale" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Wholesale</a>
+
+                    <div class="border-t border-gray-100 pt-2 mt-2">
+                        <!-- Mobile User Profile Section -->
+                        <div id="mobileUserProfileSection" class="hidden flex items-center p-3 space-x-3">
+                            <img id="mobileUserProfilePic" src="" alt="Profile" class="w-10 h-10 rounded-full object-cover hidden">
+                            <div id="mobileUserInitials" class="w-10 h-10 rounded-full profile-pic-placeholder text-lg hidden"></div>
+                            <div class="flex-grow">
+                                <p id="mobileUserNameDisplay" class="font-bold text-gray-800"></p>
+                                <p id="mobileUserEmailDisplay" class="text-sm text-gray-500"></p>
+                            </div>
+                        </div>
+                        <a href="login.html" id="mobileLoginLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Login</a>
+                        <a href="#" id="mobileMyProfileLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300 hidden">My Profile</a>
+                        <a href="admin.html" id="mobileAdminLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300 hidden">Admin Dashboard</a>
+                        <button id="mobileLogoutButton" class="block w-full text-left py-2 px-3 text-red-600 hover:bg-red-50 rounded transition duration-300 hidden">Logout</button>
+                    </div>
+                </nav>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-section text-white py-12 md:py-24">
+        <div class="hero-content flex flex-col md:flex-row items-center">
+            <div class="md:w-1/2 mb-10 md:mb-0 text-center md:text-left animate-fadeIn">
+                <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 leading-tight">Fresh Groceries <br class="hidden sm:inline">Delivered to Your Door</h1>
+                <p class="text-lg mb-8 max-w-lg mx-auto md:mx-0 opacity-90">Farm-fresh produce, pantry staples, and more - delivered in hours, not days. Skip the supermarket queues!</p>
+                <div class="hero-buttons flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 justify-center md:justify-start">
+                    <a href="catalog.html" class="hero-button shop py-3 px-8 rounded-full text-center hover:bg-gray-100 transition duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                        Shop Now <i class="fas fa-arrow-right ml-2"></i>
+                    </a>
+                    <a href="#contact" class="hero-button contact border-2 border-white text-white font-bold py-3 px-8 rounded-full text-center hover:bg-white hover:text-green-600 transition duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                        Contact Us <i class="fas fa-phone ml-2"></i>
+                    </a>
+                </div>
+
+                <div class="mt-10 flex items-center space-x-4 justify-center md:justify-start">
+                    <div class="flex -space-x-2">
+                        <img src="https://randomuser.me/api/portraits/women/12.jpg" class="w-10 h-10 rounded-full border-2 border-white" alt="Customer">
+                        <img src="https://randomuser.me/api/portraits/men/32.jpg" class="w-10 h-10 rounded-full border-2 border-white" alt="Customer">
+                        <img src="https://randomuser.me/api/portraits/women/44.jpg" class="w-10 h-10 rounded-full border-2 border-white" alt="Customer">
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium">Trusted by 5,000+ customers</p>
+                        <div class="flex items-center">
+                            <i class="fas fa-star text-yellow-300"></i>
+                            <i class="fas fa-star text-yellow-300"></i>
+                            <i class="fas fa-star text-yellow-300"></i>
+                            <i class="fas fa-star text-yellow-300"></i>
+                            <i class="fas fa-star text-yellow-300"></i>
+                            <span class="ml-2 text-sm">4.9 (1,234 reviews)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="md:w-1/2 flex justify-center relative mt-10 md:mt-0">
+                <div class="relative w-full max-w-md">
+                    <!-- Static Image for Hero Section -->
+                    <img src="IMAGE/shopping mall.png"
+                         alt="Shopping Mall"
+                         class="w-full h-auto rounded-2xl shadow-xl">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Categories Section -->
+    <section class="py-12 bg-white">
+        <div class="container mx-auto px-4">
+            <h2 class="section-title text-2xl font-bold text-center mb-10">Shop by Category</h2>
+            <div class="category-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <a href="catalog.html?category=fruits" class="category-chip text-center p-4">
+                    <div class="icon-container w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-apple-alt text-2xl text-green-600"></i>
+                    </div>
+                    <span class="font-medium text-gray-800">Fruits</span>
+                </a>
+                <a href="catalog.html?category=vegetables" class="category-chip text-center p-4">
+                    <div class="icon-container w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-carrot text-2xl text-green-600"></i>
+                    </div>
+                    <span class="font-medium text-gray-800">Vegetables</span>
+                </a>
+                <a href="catalog.html?category=dairy" class="category-chip text-center p-4">
+                    <div class="icon-container w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-wine-bottle text-2xl text-green-600"></i>
+                    </div>
+                    <span class="font-medium text-gray-800">Dairy & Eggs</span>
+                </a>
+                <a href="catalog.html?category=meat" class="category-chip text-center p-4">
+                    <div class="icon-container w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-drumstick-bite text-2xl text-green-600"></i>
+                    </div>
+                    <span class="font-medium text-gray-800">Meat & Poultry</span>
+                </a>
+                <a href="catalog.html?category=pantry" class="category-chip text-center p-4">
+                    <div class="icon-container w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-bread-slice text-2xl text-green-600"></i>
+                    </div>
+                    <span class="font-medium text-gray-800">Pantry</span>
+                </a>
+                <a href="catalog.html?category=beverages" class="category-chip text-center p-4">
+                    <div class="icon-container w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-wine-glass-alt text-2xl text-green-600"></i>
+                    </div>
+                    <span class="font-medium text-gray-800">Beverages</span>
+                </a>
+                 <a href="catalog.html?category=gift" class="category-chip text-center p-4">
+                    <div class="icon-container w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-gift text-2xl text-green-600"></i>
+                    </div>
+                    <span class="font-medium text-gray-800">Gift</span>
+                </a>
+                <a href="catalog.html?category=wholesale" class="category-chip text-center p-4">
+                    <div class="icon-container w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-boxes text-2xl text-blue-600"></i>
+                    </div>
+                    <span class="font-medium text-gray-800">Wholesale</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Wholesale Products Section (Moved Here) -->
+    <section id="wholesale-products" class="py-16 bg-white">
+        <div class="container mx-auto px-4">
+            <h2 class="section-title text-2xl font-bold text-center mb-10">Wholesale Deals</h2>
+            <p class="text-center text-gray-600 mb-10 max-w-2xl mx-auto">
+                Looking to buy in bulk? Explore our special wholesale prices for businesses and large families.
+            </p>
+            <div id="wholesaleProductsGrid" class="product-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <!-- Wholesale products will be loaded here by homePage.js -->
+                <div class="col-span-full text-center py-10">
+                    <i class="fas fa-spinner fa-spin text-4xl text-green-600 mb-4"></i>
+                    <p class="text-gray-500">Loading wholesale products...</p>
+                </div>
+            </div>
+            <div class="text-center mt-12">
+                <a href="catalog.html?category=wholesale" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                    View All Wholesale Products <i class="fas fa-arrow-right ml-2"></i>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Featured Products (Now comes after Wholesale) -->
+    <section id="products" class="py-16 bg-gray-50">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-12">
+                <h2 class="section-title text-2xl font-bold text-center md:text-left mb-4 md:mb-0">Fresh From Our Farms</h2>
+                <div class="mt-4 md:mt-0">
+                    <div class="relative">
+                        <select id="featuredCategoryFilter" class="appearance-none bg-white border border-gray-300 rounded-full pl-4 pr-10 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                            <option value="all">All Categories</option>
+                            <option value="fruits">Fruits</option>
+                            <option value="vegetables">Vegetables</option>
+                            <option value="dairy">Dairy & Eggs</option>
+                            <option value="meat">Meat & Poultry</option>
+                            <option value="pantry">Pantry</option>
+                            <option value="beverages">Beverages</option>
+                            <option value="gift">Gift</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="featuredProductsGrid" class="product-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <!-- Product cards will be dynamically inserted here by homePage.js -->
+                <!-- Example Product Card (for structure reference) -->
+                <div class="card">
+                    <div class="product-image-container">
+                        <img src="https://placehold.co/300x225/E0E0E0/333333?text=Product+Image" alt="Product Name">
+                    </div>
+                    <div class="p-4 flex flex-col flex-grow">
+                        <h3 class="font-bold text-lg mb-1">-----------</h3>
+                        <p class="description text-gray-600 text-sm mb-3">Unit/Description</p>
+                        <div class="flex justify-between items-center mt-auto"> <!-- mt-auto pushes price/button to bottom -->
+                            <span class="price font-bold text-green-600">KSh ---</span>
+                            <button class="add-to-cart-btn bg-green-100 hover:bg-green-200 text-green-700 font-medium py-2 px-4 rounded-full transition duration-300">
+                                Add to Cart
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-span-full text-center py-10">
+                    <i class="fas fa-spinner fa-spin text-4xl text-green-600 mb-4"></i>
+                    <p class="text-gray-500">Loading products...</p>
+                </div>
+            </div>
+
+            <div class="text-center mt-12">
+                <a href="catalog.html" class="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full transition duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                    View All Products <i class="fas fa-arrow-right ml-2"></i>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="py-16 bg-white">
+        <div class="container mx-auto px-4">
+            <div class="about-section flex flex-col md:flex-row items-center">
+                <div class="about-image-container md:w-1/2 mb-10 md:mb-0">
+                    <div class="relative rounded-xl overflow-hidden shadow-xl">
+                        <img src="IMAGE/shoping.png"
+                             alt="Our Farm"
+                             class="w-full h-auto">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                        <div class="absolute bottom-0 left-0 right-0 p-4 sm:p-6 text-white">
+                            <h3 class="text-base sm:text-lg font-bold">Our Organic Farm</h3>
+                            <p class="text-sm">Nairobi Highlands</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="about-content md:w-1/2 md:pl-12 mt-8 md:mt-0">
+                    <h2 class="text-2xl font-bold mb-4 sm:mb-6">Our Story</h2>
+                    <p class="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">Founded in 2015, Town Treasure Groceries began with a simple mission: to connect local farmers directly with urban consumers, eliminating middlemen and ensuring fair prices for both producers and customers.</p>
+
+                    <div class="space-y-4">
+                        <div class="feature-item flex items-start">
+                            <div class="icon bg-green-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4 flex-shrink-0">
+                                <i class="fas fa-leaf text-base text-green-600"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-base sm:text-lg mb-1">Sustainable Farming</h4>
+                                <p class="text-gray-600 text-sm sm:text-base">We partner with farms that use organic and sustainable practices to protect our environment.</p>
+                            </div>
+                        </div>
+
+                        <div class="feature-item flex items-start">
+                            <div class="icon bg-green-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4 flex-shrink-0">
+                                <i class="fas fa-truck text-base text-green-600"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-base sm:text-lg mb-1">Fast Delivery</h4>
+                                <p class="text-gray-600 text-sm sm:text-base">Harvested in the morning, delivered to your kitchen by evening - the freshest produce possible.</p>
+                            </div>
+                        </div>
+
+                        <div class="feature-item flex items-start">
+                            <div class="icon bg-green-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4 flex-shrink-0">
+                                <i class="fas fa-hand-holding-heart text-base text-green-600"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-base sm:text-lg mb-1">Community Focus</h4>
+                                <p class="text-gray-600 text-sm sm:text-base">We reinvest 5% of profits into local agricultural education programs.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 sm:mt-8">
+                        <a href="about.html" class="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg transition duration-300 text-sm sm:text-base">
+                            Learn More About Us
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-16 bg-green-50">
+        <div class="container mx-auto px-4">
+            <h2 class="section-title text-2xl font-bold text-center mb-12">Why Choose Town Treasure</h2>
+
+            <div class="features-grid grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="feature-card card p-6 text-center">
+                    <div class="feature-icon w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <i class="fas fa-clock text-2xl text-green-600"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Same-Day Delivery</h3>
+                    <p class="text-gray-600">Order by 2pm and receive your groceries the same evening, straight from our farms to your table.</p>
+                </div>
+
+                <div class="feature-card card p-6 text-center">
+                    <div class="feature-icon w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <i class="fas fa-check-circle text-2xl text-green-600"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Quality Guarantee</h3>
+                    <p class="text-gray-600">Not satisfied? We'll replace or refund any item that doesn't meet your expectations, no questions asked.</p>
+                </div>
+
+                <div class="feature-card card p-6 text-center">
+                    <div class="feature-icon w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <i class="fas fa-seedling text-2xl text-green-600"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Farm Fresh</h3>
+                    <p class="text-gray-600">Our produce is harvested at peak ripeness, ensuring maximum flavor and nutritional value.</p>
+                </div>
+            </div>
+
+            <div class="app-section mt-12 sm:mt-16 bg-white rounded-xl shadow-lg overflow-hidden">
+                <div class="flex flex-col md:flex-row">
+                    <div class="app-content md:w-1/2 p-6 sm:p-8 md:p-12">
+                        <h3 class="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Download Our App</h3>
+                        <p class="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">Get exclusive app-only deals, track your orders in real-time, and manage your shopping lists with ease.</p>
+
+                        <div class="app-buttons flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+                            <a href="#" class="app-button bg-black hover:bg-gray-800 text-white py-2 px-5 rounded-lg flex items-center justify-center transition duration-300 text-sm sm:text-base">
+                                <div>
+                                    <div class="text-xs">Download on the</div>
+                                    <div class="font-bold">App Store</div>
+                                </div>
+                            </a>
+                            <a href="#" class="app-button bg-black hover:bg-gray-800 text-white py-2 px-5 rounded-lg flex items-center justify-center transition duration-300 text-sm sm:text-base">
+                                <div>
+                                    <div class="font-bold">Google Play</div>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="app-image-container md:w-1/2 bg-gray-100 flex items-center justify-center p-6 sm:p-8">
+                        <div class="relative">
+                            <img src="IMAGE/dj.png"
+                                 alt="Mobile App"
+                                 class="w-full max-w-xs mx-auto">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section id="testimonials" class="py-16 bg-gray-50">
+        <div class="container mx-auto px-4">
+            <h2 class="section-title text-2xl font-bold text-center mb-12">What Our Customers Say</h2>
+
+            <!-- Modified container for side scrolling on mobile -->
+            <div class="testimonials-container">
+                <div class="swiper testimonial-swiper">
+                    <div class="swiper-wrapper" id="testimonialsGrid">
+                        <!-- Testimonials will be dynamically inserted here by JavaScript -->
+                        <div class="col-span-full text-center py-10 swiper-slide">
+                            <i class="fas fa-spinner fa-spin text-4xl text-green-600 mb-4"></i>
+                            <p class="text-gray-500">Loading testimonials...</p>
+                        </div>
+                    </div>
+                    <div class="swiper-pagination mt-6"></div>
+                </div>
+            </div>
+
+            <div class="text-center mt-12">
+                <a href="testimanial.html" class="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full transition duration-300">
+                    Read More Reviews
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Newsletter -->
+    <section class="newsletter-section py-12 sm:py-16 bg-green-600 text-white">
+        <div class="container mx-auto px-4">
+            <div class="max-w-3xl mx-auto text-center">
+                <h2 class="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Join Our Community</h2>
+                <p class="text-sm sm:text-base mb-6 sm:mb-8">Subscribe to our newsletter and get 10% off your first order plus weekly deals and recipes straight to your inbox.</p>
+
+                <form class="newsletter-form flex flex-col sm:flex-row gap-3 sm:gap-4 max-w-md mx-auto">
+                    <div class="flex-grow">
+                        <input type="email" placeholder="Your email address" class="w-full px-3 py-2 rounded-lg focus:outline-none text-gray-800 text-sm sm:text-base">
+                    </div>
+                    <button type="submit" class="bg-white hover:bg-gray-100 text-green-600 font-bold py-2 px-5 rounded-lg transition duration-300 whitespace-nowrap text-sm sm:text-base">
+                        Subscribe
+                    </button>
+                </form>
+
+                <p class="text-xs sm:text-sm mt-3 sm:mt-4 text-white/80">We respect your privacy. Unsubscribe at any time.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="py-12 sm:py-16 bg-white">
+        <div class="container mx-auto px-4">
+            <h2 class="section-title text-xl sm:text-2xl font-bold text-center mb-10 sm:mb-12">Contact Us</h2>
+
+            <div class="contact-section grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-12">
+                <div class="contact-info">
+                    <h3 class="text-lg font-bold mb-3 sm:mb-4">Get in Touch</h3>
+                    <p class="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">Have questions or need assistance with your order? Our team is here to help you 7 days a week.</p>
+
+                    <div class="space-y-4">
+                        <div class="contact-item flex items-start">
+                            <div class="contact-icon bg-green-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4">
+                                <i class="fas fa-map-marker-alt text-base text-green-600"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-base sm:text-lg">Address</h4>
+                                <p class="text-gray-600 text-sm sm:text-base">City Park Market, Limuru Road, Nairobi</p>
+                            </div>
+                        </div>
+
+                        <div class="contact-item flex items-start">
+                            <div class="contact-icon bg-green-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4">
+                                <i class="fas fa-phone-alt text-base text-green-600"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-base sm:text-lg">Call Us</h4>
+                                <div class="space-y-1">
+                                    <a href="tel:+254720559925" class="block text-gray-600 hover:text-green-600 transition duration-300 text-sm sm:text-base">+254 720 559925</a>
+                                    <a href="tel:+254708567696" class="block text-gray-600 hover:text-green-600 transition duration-300 text-sm sm:text-base">+254 708 567696</a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="contact-item flex items-start">
+                            <div class="contact-icon bg-green-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4">
+                                <i class="fas fa-envelope text-base text-green-600"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-base sm:text-lg">Email</h4>
+                                <a href="mailto:towntreasuregroceries@gmail.com" class="text-gray-600 hover:text-green-600 transition duration-300 text-sm sm:text-base">towntreasuregroceries@gmail.com</a>
+                            </div>
+                        </div>
+
+                        <div class="contact-item flex items-start">
+                            <div class="contact-icon bg-green-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4">
+                                <i class="fas fa-clock text-base text-green-600"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-base sm:text-lg">Opening Hours</h4>
+                                <p class="text-gray-600 text-sm sm:text-base">Mon-Sat: 8:00 AM - 8:00 PM</p>
+                                <p class="text-gray-600 text-sm sm:text-base">Sun: 9:00 AM - 6:00 PM</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="contact-form mt-8 md:mt-0">
+                    <h3 class="text-lg font-bold mb-3 sm:mb-4">Send Us a Message</h3>
+                    <form id="contactForm" class="space-y-4">
+                        <div class="floating-label-group">
+                            <input type="text" id="name" class="floating-input w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm sm:text-base" placeholder=" " required>
+                            <label for="name" class="floating-label text-sm sm:text-base">Your Name</label>
+                        </div>
+
+                        <div class="floating-label-group">
+                            <input type="email" id="email" class="floating-input w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm sm:text-base" placeholder=" " required>
+                            <label for="email" class="floating-label text-sm sm:text-base">Email Address</label>
+                        </div>
+
+                        <div class="floating-label-group">
+                            <input type="text" id="subject" class="floating-input w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm sm:text-base" placeholder=" ">
+                            <label for="subject" class="floating-label text-sm sm:text-base">Subject</label>
+                        </div>
+
+                        <div class="floating-label-group">
+                            <textarea id="message" rows="4" class="floating-input w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm sm:text-base" placeholder=" " required></textarea>
+                            <label for="message" class="floating-label text-sm sm:text-base">Your Message</label>
+                        </div>
+
+                        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg transition duration-300 text-sm sm:text-base">
+                            Send Message
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Shopping Cart Sidebar -->
+    <div id="cartSidebar" class="fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-lg transform translate-x-full transition-transform duration-300 z-[1000] overflow-y-auto">
+        <div class="p-4 sm:p-6">
+            <div class="flex justify-between items-center mb-4 sm:mb-6">
+                <h2 class="text-lg sm:text-xl font-bold">Your Cart</h2>
+                <button id="closeCartButton" class="text-gray-500 hover:text-gray-700 transition duration-300">
+                    <i class="fas fa-times text-lg sm:text-xl"></i>
+                </button>
+            </div>
+
+            <div id="cartItems" class="space-y-4 mb-4 sm:mb-6">
+                <!-- Cart items will be dynamically inserted here -->
+                <div class="text-center py-8 sm:py-10">
+                    <i class="fas fa-shopping-cart text-2xl sm:text-3xl text-gray-300 mb-3 sm:mb-4"></i>
+                    <p class="text-gray-500 text-sm sm:text-base">Your cart is empty</p>
+                    <a href="catalog.html" id="startShoppingLink" class="inline-block mt-3 sm:mt-4 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-5 rounded-lg transition duration-300 text-sm sm:text-base">
+                        Start Shopping
+                    </a>
+                </div>
+            </div>
+
+            <div id="cartSummary" class="border-t pt-4 hidden">
+                <div class="flex justify-between mb-2 text-sm sm:text-base">
+                    <span class="text-gray-600">Subtotal:</span>
+                    <span id="cartSubtotal" class="font-bold">KSh 0</span>
+                </div>
+                <div class="flex justify-between mb-2 text-sm sm:text-base">
+                    <span class="text-gray-600">Delivery Fee:</span>
+                    <span id="deliveryFee" class="font-bold">KSh 200</span>
+                </div>
+                <div class="flex justify-between mb-4 text-base sm:text-lg">
+                    <span class="text-gray-600">Total:</span>
+                    <span id="cartTotal" class="font-bold text-base sm:text-lg text-green-600">KSh 200</span>
+                </div>
+
+                <button id="proceedToCheckoutBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg transition duration-300 mb-4 pulse-animation text-sm sm:text-base">
+                    Proceed to Checkout
+                </button>
+
+                <p class="text-xs text-gray-500 text-center">Free delivery for orders over KSh 2,000 in City Park & Westlands</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checkout Modal -->
+    <div id="checkoutModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000] hidden">
+        <div class="bg-white rounded-lg w-11/12 sm:w-full md:max-w-md mx-auto overflow-y-auto max-h-[90vh]">
+            <div class="p-4 sm:p-6">
+                <div class="flex justify-between items-center mb-4 sm:mb-6">
+                    <h2 class="text-lg sm:text-xl font-bold">Checkout</h2>
+                    <button id="closeCheckoutButton" class="text-gray-500 hover:text-gray-700 transition duration-300">
+                        <i class="fas fa-times text-lg sm:text-xl"></i>
+                    </button>
+                </div>
+
+                <form id="checkoutForm" class="space-y-3 sm:space-y-4">
+                    <div class="floating-label-group">
+                        <input type="text" id="fullName" class="floating-input w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm sm:text-base" placeholder=" " required>
+                        <label for="fullName" class="floating-label text-sm sm:text-base">Full Name</label>
+                    </div>
+
+                    <div class="floating-label-group">
+                        <input type="tel" id="phone" class="floating-input w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm sm:text-base" placeholder=" " required>
+                        <label for="phone" class="floating-label text-sm sm:text-base">Phone Number</label>
+                    </div>
+
+                    <div class="floating-label-group">
+                        <textarea id="address" rows="3" class="floating-input w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm sm:text-base" placeholder=" " required></textarea>
+                        <label for="address" class="floating-label text-sm sm:text-base">Delivery Address</label>
+                    </div>
+
+                    <!-- Payment Method Selection -->
+                    <div class="mb-4">
+                        <label class="block text-gray-700 font-medium mb-2 text-sm sm:text-base">Payment Method</label>
+                        <div class="flex flex-col space-y-2">
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="paymentMethod" value="mpesa" class="form-radio text-green-600" checked>
+                                <span class="ml-2 text-gray-700 text-sm sm:text-base"><img src="https://upload.wikimedia.org/wikipedia/commons/1/15/M-PESA_LOGO-01.svg" alt="M-Pesa" class="h-6 ml-auto"></span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="paymentMethod" value="card" class="form-radio text-green-600">
+                                <span class="ml-2 text-gray-700 text-sm sm:text-base">Credit/Debit Card</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="paymentMethod" value="bank" class="form-radio text-green-600">
+                                <span class="ml-2 text-gray-700 text-sm sm:text-base">Bank Transfer</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="mpesaPayment" class="p-2 sm:p-3 bg-gray-50 rounded-lg text-sm">
+                        <p class="text-gray-600 mb-2 sm:mb-3">You will receive an MPESA push notification to complete payment after placing your order.</p>
+                        <div class="flex items-center">
+                            <i class="fas fa-info-circle text-yellow-500 mr-2"></i>
+                            <p class="text-gray-600">Ensure your phone is nearby and unlocked</p>
+                        </div>
+                    </div>
+
+                    <div id="cardPayment" class="p-2 sm:p-3 bg-gray-50 rounded-lg hidden text-sm">
+                        <div class="mb-2 sm:mb-3">
+                            <label for="cardNumber" class="block text-gray-700 mb-1">Card Number</label>
+                            <input type="text" id="cardNumber" name="cardNumber" placeholder="1234 5678 9012 3456" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                            </div>
+                        <div class="grid grid-cols-2 gap-3 sm:gap-4">
+                            <div>
+                                <label for="expiry" class="block text-gray-700 mb-1">Expiry Date</label>
+                                <input type="text" id="expiry" name="expiry" placeholder="MM/YY" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                            </div>
+                            <div>
+                                <label for="cvv" class="block text-gray-700 mb-1">CVV</label>
+                                <input type="text" id="cvv" name="cvv" placeholder="123" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="bankPayment" class="p-2 sm:p-3 bg-gray-50 rounded-lg hidden text-sm">
+                        <p class="text-gray-600 mb-2 sm:mb-3">Please transfer the total amount to:</p>
+                        <div class="mb-2">
+                            <p class="font-medium">Bank: Equity Bank</p>
+                            <p class="font-medium">Account Name: Town Treasure Groceries</p>
+                            <p class="font-medium">Account Number: 1234567890</p>
+                        </div>
+                        <p class="text-gray-600">Your order will be processed once payment is confirmed.</p>
+                    </div>
+
+                    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg transition duration-300 text-sm sm:text-base">
+                        Place Order
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Confirmation Modal -->
+    <div id="confirmationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg w-11/12 max-w-md mx-auto p-6 sm:p-8 text-center">
+            <div class="bg-green-100 p-4 sm:p-6 rounded-full inline-block mb-4 sm:mb-6">
+                <i class="fas fa-check-circle text-3xl sm:text-4xl text-green-600"></i>
+            </div>
+            <h2 class="text-lg sm:text-xl font-bold mb-2">Order Confirmed!</h2>
+            <p class="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">Thank you for your order. Your groceries will be delivered soon.</p>
+            <p class="font-medium mb-1 text-sm sm:text-base">Order Number: <span id="orderNumber" class="text-green-600">TTG-2023-0567</span></p>
+            <p class="text-gray-600 mb-6 sm:mb-8 text-sm sm:text-base">Estimated Delivery: <span class="font-medium">Today, 5:00 - 7:00 PM</span></p>
+
+            <div class="flex flex-col space-y-3">
+                <a href="#" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg transition duration-300 text-sm sm:text-base">
+                    Track Order
+                </a>
+                <button id="downloadReceiptBtn" class="bg-white text-green-600 border-2 border-green-600 font-bold py-2 px-5 rounded-lg hover:bg-green-50 transition duration-300 text-sm sm:text-base">
+                    Download Receipt
+                </button>
+                <button id="continueShoppingButton" class="bg-white text-green-600 border-2 border-green-600 font-bold py-2 px-5 rounded-lg hover:bg-green-50 transition duration-300 text-sm sm:text-base">
+                    Continue Shopping
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg transform translate-y-20 transition-transform duration-300 z-50 hidden flex items-center text-sm sm:text-base">
+        <i class="fas fa-check-circle mr-2"></i>
+        <span>Item added to cart!</span>
+    </div>
+
+    <!-- Floating Action Button -->
+    <button id="fabCartButton" class="fab bg-green-600 hover:bg-green-700 text-white shadow-lg transition duration-300 hidden md:flex" onclick="toggleCart()">
+        <i class="fas fa-shopping-cart text-xl"></i>
+        <span id="fabCartCount" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center hidden">0</span>
+    </button>
+
+    <!-- Overlay for cart/checkout modals -->
+    <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden"></div>
+
+    <!-- Custom Alert Modal Structure -->
+    <div id="customAlertModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1001] hidden">
+        <div class="bg-white rounded-lg w-11/12 max-w-sm mx-auto p-6 text-center shadow-lg">
+            <i class="fas fa-info-circle text-green-600 text-4xl mb-4"></i> <!-- Changed to green theme color -->
+            <h3 id="alertModalTitle" class="font-bold text-lg mb-2">Alert</h3>
+            <p id="alertModalMessage" class="text-gray-700 mb-6">This is a custom alert message.</p>
+            <button id="alertModalCloseButton" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300"> <!-- Changed to green theme color -->
+                OK
+            </button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white pt-12 pb-6 sm:pt-16 sm:pb-8">
+        <div class="container mx-auto px-4">
+            <div class="footer-grid grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center space-x-2 mb-4">
+                        <img src="IMAGE/LOG.png" alt="Town Treasure Logo">
+                    </div>
+                    <p class="text-gray-400 mb-4 text-sm sm:text-base">Your Trusted Fresh Food Partner.</p>
+                    <p class="text-gray-400 text-sm sm:text-base">City Park Market, Limuru Road, Nairobi</p>
+                </div>
+
+                <div>
+                    <h3 class="text-base sm:text-lg font-bold mb-3 sm:mb-4">Quick Links</h3>
+                    <ul class="space-y-2 text-sm sm:text-base">
+                        <li><a href="index.html" class="text-gray-400 hover:text-white transition duration-300">Home</a></li>
+                        <li><a href="catalog.html" class="text-gray-400 hover:text-white transition duration-300">Catalog</a></li>
+                        <li><a href="about.html" class="text-gray-400 hover:text-white transition duration-300">About Us</a></li>
+                        <li><a href="index.html#features" class="text-gray-400 hover:text-white transition duration-300">Why Us</a></li>
+                        <li><a href="testimanial.html" class="text-gray-400 hover:text-white transition duration-300">Testimonials</a></li>
+                        <li><a href="index.html#contact" class="text-gray-400 hover:text-white transition duration-300">Contact</a></li>
+                        <li><a href="catalog.html?category=wholesale" class="text-gray-400 hover:text-white transition duration-300">Wholesale</a></li>
+                        <!-- Updated Admin and Login Links -->
+                        <li><a href="login.html" class="text-gray-400 hover:text-white transition duration-300">Login</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="text-base sm:text-lg font-bold mb-3 sm:mb-4">Information</h3>
+                    <ul class="space-y-2 text-sm sm:text-base">
+                        <li><a href="about.html" class="text-gray-400 hover:text-white transition duration-300">About Us</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition duration-300">Privacy Policy</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition duration-300">Terms & Conditions</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition duration-300">Delivery Information</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition duration-300">FAQs</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="text-base sm:text-lg font-bold mb-3 sm:mb-4">Newsletter</h3>
+                    <p class="text-gray-400 mb-4 text-sm sm:text-base">Subscribe to get updates on new products and special offers.</p>
+                    <form class="flex">
+                        <input type="email" placeholder="Your email" class="px-3 py-2 rounded-l-lg focus:outline-none text-gray-800 w-full text-sm sm:text-base">
+                        <button type="submit" class="bg-green-600 text-white px-3 py-2 rounded-r-lg hover:bg-green-700 transition duration-300 text-sm sm:text-base">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="footer-bottom border-t border-gray-700 mt-6 pt-6 sm:mt-8 sm:pt-8 text-center text-xs sm:text-sm text-gray-400">
+                <p>&copy; 2025 Town Treasure Groceries. All rights reserved.</p>
+                <p>Designed by Tony Nyakinda</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Mobile Navigation (Bottom Bar) -->
+    <div class="mobile-nav md:hidden">
+        <a href="index.html" class="nav-item active">
+            <i class="fas fa-home text-xl"></i>
+            <span class="text-xs mt-1">Home</span>
+        </a>
+        <a href="catalog.html" class="nav-item">
+            <i class="fas fa-shopping-basket text-xl"></i>
+            <span class="text-xs mt-1">Catalog</span>
+        </a>
+        <a href="#" class="nav-item relative" id="mobileAccountButton">
+            <img id="mobileBottomProfilePic" src="" alt="Profile" class="w-6 h-6 rounded-full object-cover mx-auto hidden">
+            <div id="mobileBottomUserInitials" class="w-6 h-6 rounded-full profile-pic-placeholder text-xs mx-auto hidden"></div>
+            <span id="mobileBottomUserName" class="text-xs mt-1">Account</span>
+        </a>
+        <a href="#" class="nav-item relative" id="mobileBottomCartButton" onclick="toggleCart(); return false;">
+            <i class="fas fa-shopping-cart text-xl"></i>
+            <span id="mobileBottomCartCount" class="cart-badge">0</span>
+        </a>
+    </div>
+
+    <!-- Script for preloader (moved outside type="module" for immediate execution) -->
+    <script>
+        window.addEventListener('load', () => {
+            const preloader = document.getElementById('preloader');
+            if (preloader) {
+                preloader.classList.add('hidden');
+                document.body.style.overflow = ''; // Restore scrollbar
+            }
+        });
+
+        // Fallback to hide preloader after a delay (e.g., 5 seconds)
+        // This ensures the page is usable even if 'load' event doesn't fire due to external issues.
+        setTimeout(() => {
+            const preloader = document.getElementById('preloader');
+            if (preloader && !preloader.classList.contains('hidden')) {
+                preloader.classList.add('hidden');
+                document.body.style.overflow = '';
+                console.warn("Preloader hidden by timeout fallback.");
+            }
+        }, 5000); // 5 seconds
+    </script>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <!-- Import firebase-config.js and auth.js as modules -->
+    <script type="module" src="homePage.js"></script>
+    <script type="module" src="cartManager.js"></script>
+    <script type="module" src="firebase-config.js"></script>
+    <script type="module" src="productsData.js"></script>
+    <script type="module" src="auth.js"></script>
+    <script type="module" src="catalog.js"></script>
+    <script type="module" src="uiUpdater.js"></script>
+    <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
+
+    <script type="module">
+        // Import functions from uiUpdater.js and cartManager.js
+        import { updateCartUI, toggleCart, checkout, closeCheckout, showConfirmation, showToast } from './uiUpdater.js';
+        import { addToCart } from './cartManager.js';
+        import { getCurrentUserWithRole, logout } from './auth.js'; // Import auth functions
+        import { db, auth } from './firebase-config.js'; // Import db and auth for Firestore and Auth
+
+        // --- Custom Alert Modal Functions ---
+        const customAlertModal = document.getElementById('customAlertModal');
+        const alertModalTitle = document.getElementById('alertModalTitle');
+        const alertModalMessage = document.getElementById('alertModalMessage');
+        const alertModalCloseButton = document.getElementById('alertModalCloseButton');
+        const overlay = document.getElementById('overlay'); // Assuming overlay is defined globally or imported
+
+        function showAlertModal(message, title = 'Alert') {
+            if (!customAlertModal || !alertModalTitle || !alertModalMessage || !alertModalCloseButton || !overlay) {
+                console.warn("Custom alert modal elements not found, falling back to console log.");
+                console.log(`ALERT: ${title} - ${message}`);
+                return;
+            }
+            alertModalTitle.textContent = title;
+            alertModalMessage.textContent = message;
+            customAlertModal.classList.remove('hidden');
+            overlay.classList.remove('hidden');
+            document.body.style.overflow = 'hidden'; // Prevent body scroll
+        }
+
+        function closeAlertModal() {
+            if (customAlertModal) {
+                customAlertModal.classList.add('hidden');
+            }
+            if (overlay) {
+                overlay.classList.add('hidden');
+            }
+            document.body.style.overflow = ''; // Restore body scroll
+        }
+
+        // Attach event listener to close button
+        if (alertModalCloseButton) {
+            alertModalCloseButton.addEventListener('click', closeAlertModal);
+        }
+        // Attach event listener to overlay to close modal if clicked outside
+        if (overlay) {
+            overlay.addEventListener('click', () => {
+                if (!customAlertModal.classList.contains('hidden')) { // Only close if alert modal is open
+                    closeAlertModal();
+                }
+            });
+        }
+        // --- End Custom Alert Modal Functions ---
+
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Initialize Swiper for testimonials
+            const testimonialSwiper = new Swiper('.testimonial-swiper', {
+                slidesPerView: 1,
+                spaceBetween: 20,
+                loop: true,
+                pagination: {
+                    el: '.swiper-pagination',
+                    clickable: true,
+                },
+                breakpoints: {
+                    640: {
+                        slidesPerView: 2,
+                    },
+                    1024: {
+                        slidesPerView: 3,
+                    },
+                }
+            });
+
+            // Mobile navigation active state
+            const navItems = document.querySelectorAll('.mobile-nav .nav-item');
+            navItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    navItems.forEach(i => i.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+
+            // --- User Authentication and Profile Logic ---
+            const loginLink = document.getElementById('loginLink');
+            const userProfileButton = document.getElementById('userProfileButton');
+            const userProfilePic = document.getElementById('userProfilePic');
+            const userInitials = document.getElementById('userInitials');
+            const userNameDisplay = document.getElementById('userNameDisplay');
+
+            const userProfileDropdownContainer = document.getElementById('userProfileDropdownContainer');
+            const userDropdownMenu = document.getElementById('userDropdownMenu');
+            const dropdownUserName = document.getElementById('dropdownUserName');
+            const dropdownUserEmail = document.getElementById('dropdownUserEmail');
+            const dropdownUserProfilePic = document.getElementById('dropdownUserProfilePic'); // New
+            const dropdownUserInitials = document.getElementById('dropdownUserInitials');   // New
+            const logoutDropdownButton = document.getElementById('logoutDropdownButton');
+
+            const adminLink = document.getElementById('adminLink');
+            const myProfileLink = document.getElementById('myProfileLink');
+
+            const mobileMenuButton = document.getElementById('mobileMenuButton');
+            const mobileMenu = document.getElementById('mobileMenu');
+            const closeMobileMenuButton = document.getElementById('closeMobileMenuButton');
+
+            const mobileLoginLink = document.getElementById('mobileLogin');
+            const mobileMyProfileLink = document.getElementById('mobileMyProfileLink');
+            const mobileAdminLink = document.getElementById('mobileAdminLink');
+            const mobileLogoutButton = document.getElementById('mobileLogoutButton');
+
+            const mobileUserProfileSection = document.getElementById('mobileUserProfileSection'); // New
+            const mobileUserProfilePic = document.getElementById('mobileUserProfilePic'); // New
+            const mobileUserInitials = document.getElementById('mobileUserInitials'); // New
+            const mobileUserNameDisplay = document.getElementById('mobileUserNameDisplay'); // New
+            const mobileUserEmailDisplay = document.getElementById('mobileUserEmailDisplay'); // New
+
+            const mobileAccountButton = document.getElementById('mobileAccountButton'); // New
+            const mobileBottomProfilePic = document.getElementById('mobileBottomProfilePic'); // New
+            const mobileBottomUserInitials = document.getElementById('mobileBottomUserInitials'); // New
+            const mobileBottomUserName = document.getElementById('mobileBottomUserName'); // New
+
+
+            const mainCartButton = document.getElementById('mainCartButton');
+            const fabCartButton = document.getElementById('fabCartButton');
+            const closeCartButton = document.getElementById('closeCartButton');
+            // const overlay = document.getElementById('overlay'); // Already defined above for showAlertModal
+            const proceedToCheckoutBtn = document.getElementById('proceedToCheckoutBtn');
+            const closeCheckoutButton = document.getElementById('closeCheckoutButton');
+            const continueShoppingButton = document.getElementById('continueShoppingButton');
+            const startShoppingLink = document.getElementById('startShoppingLink');
+
+            // Contact Form Elements
+            const contactForm = document.getElementById('contactForm');
+            const contactNameInput = document.getElementById('name');
+            const contactEmailInput = document.getElementById('email');
+            const contactSubjectInput = document.getElementById('subject');
+            const contactMessageInput = document.getElementById('message');
+
+
+            function getInitials(name, email) {
+                if (name && name.trim() !== '') {
+                    const parts = name.trim().split(' ');
+                    if (parts.length > 1) {
+                        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+                    }
+                    return parts[0][0].toUpperCase();
+                }
+                if (email && email.trim() !== '') {
+                    return email.trim()[0].toUpperCase();
+                }
+                return '?';
+            }
+
+            function getFirstName(displayName, email) {
+                if (displayName && displayName.trim() !== '') {
+                    return displayName.trim().split('@')[0];
+                }
+                if (email && email.trim() !== '') {
+                    return email.trim().split('@')[0];
+                }
+                return 'User';
+            }
+
+            function toggleUserDropdown() {
+                if (userDropdownMenu) {
+                    userDropdownMenu.classList.toggle('hidden');
+                    userDropdownMenu.classList.toggle('active');
+                }
+            }
+
+            // Fetch user and role only once on DOMContentLoaded
+            let currentUser = null;
+            let currentUserRole = null;
+            try {
+                const authResult = await getCurrentUserWithRole();
+                currentUser = authResult.user;
+                currentUserRole = authResult.role;
+            } catch (error) {
+                console.error("Error getting current user and role:", error);
+            }
+
+
+            if (currentUser) {
+                // Desktop View
+                if (loginLink) loginLink.classList.add('hidden');
+                if (userProfileButton) userProfileButton.classList.remove('hidden');
+
+                const userFullName = currentUser.displayName || currentUser.email;
+                const firstName = getFirstName(currentUser.displayName, currentUser.email);
+                const userEmail = currentUser.email;
+                const photoURL = currentUser.photoURL;
+
+                if (userNameDisplay) userNameDisplay.textContent = firstName;
+                if (dropdownUserName) dropdownUserName.textContent = userFullName;
+                if (dropdownUserEmail) dropdownUserEmail.textContent = userEmail;
+
+                if (photoURL) {
+                    if (userProfilePic) {
+                        userProfilePic.src = photoURL;
+                        userProfilePic.classList.remove('hidden');
+                    }
+                    if (userInitials) userInitials.classList.add('hidden');
+
+                    if (dropdownUserProfilePic) {
+                        dropdownUserProfilePic.src = photoURL;
+                        dropdownUserProfilePic.classList.remove('hidden');
+                    }
+                    if (dropdownUserInitials) dropdownUserInitials.classList.add('hidden');
+                } else {
+                    if (userInitials) {
+                        userInitials.textContent = getInitials(currentUser.displayName, currentUser.email);
+                        userInitials.classList.remove('hidden');
+                    }
+                    if (userProfilePic) userProfilePic.classList.add('hidden');
+
+                    if (dropdownUserInitials) {
+                        dropdownUserInitials.textContent = getInitials(currentUser.displayName, currentUser.email);
+                        dropdownUserInitials.classList.remove('hidden');
+                    }
+                    if (dropdownUserProfilePic) dropdownUserProfilePic.classList.add('hidden');
+                }
+
+                if (myProfileLink) myProfileLink.classList.remove('hidden');
+
+                if (userProfileButton) userProfileButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleUserDropdown();
+                });
+
+                document.addEventListener('click', (e) => {
+                    if (userProfileDropdownContainer && !userProfileDropdownContainer.contains(e.target)) {
+                        if (userDropdownMenu && userDropdownMenu.classList.contains('active')) {
+                            toggleUserDropdown();
+                        }
+                    }
+                });
+
+                if (logoutDropdownButton) {
+                    logoutDropdownButton.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        await logout();
+                        window.location.reload();
+                    });
+                }
+
+                if (currentUserRole === 'admin') {
+                    if (adminLink) adminLink.classList.remove('hidden');
+                } else {
+                    if (adminLink) adminLink.classList.add('hidden');
+                }
+
+                // Mobile Sidebar View
+                if (mobileLoginLink) mobileLoginLink.classList.add('hidden');
+                if (mobileUserProfileSection) mobileUserProfileSection.classList.remove('hidden');
+                if (mobileMyProfileLink) mobileMyProfileLink.classList.remove('hidden');
+                if (mobileLogoutButton) mobileLogoutButton.classList.remove('hidden');
+
+                if (mobileUserNameDisplay) mobileUserNameDisplay.textContent = userFullName;
+                if (mobileUserEmailDisplay) mobileUserEmailDisplay.textContent = userEmail;
+
+                if (photoURL) {
+                    if (mobileUserProfilePic) {
+                        mobileUserProfilePic.src = photoURL;
+                        mobileUserProfilePic.classList.remove('hidden');
+                    }
+                    if (mobileUserInitials) mobileUserInitials.classList.add('hidden');
+                } else {
+                    if (mobileUserInitials) {
+                        mobileUserInitials.textContent = getInitials(currentUser.displayName, currentUser.email);
+                        mobileUserInitials.classList.remove('hidden');
+                    }
+                    if (mobileUserProfilePic) mobileUserProfilePic.classList.add('hidden');
+                }
+
+                if (currentUserRole === 'admin') {
+                    if (mobileAdminLink) mobileAdminLink.classList.remove('hidden');
+                } else {
+                    if (mobileAdminLink) mobileAdminLink.classList.add('hidden');
+                }
+
+                // Mobile Bottom Navigation "Account" button
+                if (mobileAccountButton) {
+                    if (photoURL) {
+                        if (mobileBottomProfilePic) {
+                            mobileBottomProfilePic.src = photoURL;
+                            mobileBottomProfilePic.classList.remove('hidden');
+                        }
+                        if (mobileBottomUserInitials) mobileBottomUserInitials.classList.add('hidden');
+                    } else {
+                        if (mobileBottomUserInitials) {
+                            mobileBottomUserInitials.textContent = getInitials(currentUser.displayName, currentUser.email);
+                            mobileBottomUserInitials.classList.remove('hidden');
+                        }
+                        if (mobileBottomProfilePic) mobileBottomProfilePic.classList.add('hidden');
+                    }
+                    if (mobileBottomUserName) mobileBottomUserName.textContent = firstName;
+                    mobileAccountButton.href = "#"; // Change to a profile page if one exists
+                }
+
+
+            } else {
+                // User is not logged in - Desktop View
+                if (loginLink) loginLink.classList.remove('hidden');
+                if (userProfileButton) userProfileButton.classList.add('hidden');
+                if (userDropdownMenu) userDropdownMenu.classList.add('hidden');
+                if (myProfileLink) myProfileLink.classList.add('hidden');
+                if (logoutDropdownButton) logoutDropdownButton.classList.add('hidden');
+                if (adminLink) adminLink.classList.remove('hidden'); // Admin link always visible to lead to admin login
+
+                // User is not logged in - Mobile Sidebar View
+                if (mobileLoginLink) mobileLoginLink.classList.remove('hidden');
+                if (mobileUserProfileSection) mobileUserProfileSection.classList.add('hidden');
+                if (mobileMyProfileLink) mobileMyProfileLink.classList.add('hidden');
+                if (mobileLogoutButton) mobileLogoutButton.classList.add('hidden');
+                if (mobileAdminLink) mobileAdminLink.classList.remove('hidden'); // Admin link always visible to lead to admin login
+
+                // Mobile Bottom Navigation "Account" button
+                if (mobileAccountButton) {
+                    if (mobileBottomProfilePic) mobileBottomProfilePic.classList.add('hidden');
+                    if (mobileBottomUserInitials) mobileBottomUserInitials.classList.add('hidden');
+                    if (mobileBottomUserName) mobileBottomUserName.textContent = "Account";
+                    mobileAccountButton.href = "login.html"; // Link to login page
+                }
+            }
+
+            // Mobile menu toggle
+            if (mobileMenuButton && mobileMenu && closeMobileMenuButton) {
+                const showMobileMenu = () => {
+                    mobileMenu.classList.add('is-active');
+                    document.body.classList.add('mobile-menu-active'); // Add class to body
+                    document.body.style.overflow = 'hidden';
+                };
+
+                const hideMobileMenu = () => {
+                    mobileMenu.classList.remove('is-active');
+                    document.body.classList.remove('mobile-menu-active'); // Remove class from body
+                    document.body.style.overflow = '';
+                };
+
+                mobileMenuButton.addEventListener('click', showMobileMenu);
+                closeMobileMenuButton.addEventListener('click', hideMobileMenu);
+                mobileMenu.addEventListener('click', (e) => {
+                    if (e.target === mobileMenu) {
+                        hideMobileMenu();
+                    }
+                });
+            } else {
+                console.warn("Mobile menu elements not found. Mobile menu toggle may not function.");
+            }
+
+
+            // Attach event listeners for cart functionality
+            if (closeCartButton) closeCartButton.addEventListener('click', toggleCart);
+            // if (overlay) overlay.addEventListener('click', toggleCart); // Already handled by custom alert modal logic
+
+            if (proceedToCheckoutBtn) proceedToCheckoutBtn.addEventListener('click', checkout);
+            if (closeCheckoutButton) closeCheckoutButton.addEventListener('click', closeCheckout);
+            if (continueShoppingButton) continueShoppingButton.addEventListener('click', closeConfirmation);
+
+            // Simplified add to cart event listener, now directly calling addToCart from cartManager.js
+            // Using event delegation on document.body to catch clicks on dynamically added '.add-to-cart-btn'
+            document.body.addEventListener('click', async function(e) {
+                const addToCartBtn = e.target.closest('.add-to-cart-btn');
+                if (addToCartBtn) {
+                    const productId = addToCartBtn.dataset.productId;
+                    if (productId) {
+                        await addToCart(productId); // Call the imported addToCart function
+                    } else {
+                        console.error("Product ID not found for add to cart button:", addToCartBtn);
+                    }
+                }
+            });
+
+            // Handle contact form submission
+            if (contactForm) {
+                contactForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+
+                    const name = contactNameInput.value.trim();
+                    const email = contactEmailInput.value.trim();
+                    const subject = contactSubjectInput.value.trim();
+                    const message = contactMessageInput.value.trim();
+
+                    if (!name || !email || !message) {
+                        showToast('Please fill in all required fields (Name, Email, Message).');
+                        return;
+                    }
+
+                    // Check if user is authenticated
+                    if (!auth.currentUser) {
+                        showAlertModal('Please log in or create an account to send a message. You can do so via the "Login" button in the navigation bar.');
+                        return; // Stop form submission
+                    }
+
+                    try {
+                        // The debugging line is still useful to confirm authentication state
+                        console.log("Attempting to send message. Current user:", auth.currentUser);
+
+                        await db.collection('messages').add({
+                            name: name,
+                            email: email,
+                            subject: subject,
+                            message: message,
+                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        showToast('Your message has been sent successfully!');
+                        contactForm.reset(); // Clear the form
+                    } catch (error) {
+                        console.error("Error sending message:", error);
+                        showToast(`Failed to send message: ${error.message}`);
+                    }
+                });
+            }
+
+            // Handle payment method display in checkout modal
+            const paymentMethodRadios = document.querySelectorAll('input[name="paymentMethod"]');
+            const mpesaPaymentDiv = document.getElementById('mpesaPayment');
+            const cardPaymentDiv = document.getElementById('cardPayment');
+            const bankPaymentDiv = document.getElementById('bankPayment');
+
+            if (paymentMethodRadios && mpesaPaymentDiv && cardPaymentDiv && bankPaymentDiv) {
+                paymentMethodRadios.forEach(radio => {
+                    radio.addEventListener('change', (event) => {
+                        mpesaPaymentDiv.classList.add('hidden');
+                        cardPaymentDiv.classList.add('hidden');
+                        bankPaymentDiv.classList.add('hidden');
+
+                        if (event.target.value === 'mpesa') {
+                            mpesaPaymentDiv.classList.remove('hidden');
+                        } else if (event.target.value === 'card') {
+                            cardPaymentDiv.classList.remove('hidden');
+                        } else if (event.target.value === 'bank') {
+                            bankPaymentDiv.classList.remove('hidden');
+                        }
+                    });
+                });
+            }
+
+
+            // Ensure cart UI is updated on page load
+            updateCartUI();
+
+            // Example of how to trigger confirmation modal after a successful order
+            document.getElementById('checkoutForm')?.addEventListener('submit', function(e) {
+                e.preventDefault();
+                // Simulate order placement success with a dummy order number
+                showConfirmation('TTG-' + Math.floor(Math.random() * 100000));
+            });
+        });
+
+    </script>
+</body>
+</html>

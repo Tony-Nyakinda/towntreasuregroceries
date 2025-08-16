@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Town Treasure Groceries</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="apple-touch-icon" sizes="180x180" href="IMAGE/favicon/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="IMAGE/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="IMAGE/favicon/favicon-16x16.png">
+    <link rel="icon" type="favicon_ico" href="IMAGE/favicon/favicon.ico">
+    <link rel="manifest" href="IMAGE/favicon/site.webmanifest">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0fdf4; /* Light green background */
+        }
+        h1, h2, h3, h4 {
+            font-family: 'Poppins', sans-serif;
+        }
+        .login-container {
+            background-color: #ffffff;
+            border-radius: 1rem; /* rounded-xl */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 2.5rem;
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+        .input-field {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #e2e8f0; /* gray-300 */
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #10B981; /* green-500 */
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+        }
+        .btn-primary {
+            background-color: #10B981; /* green-500 */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            width: 100%;
+            transition: background-color 0.2s ease;
+        }
+        .btn-primary:hover {
+            background-color: #059669; /* green-600 */
+        }
+        .btn-google {
+            background-color: #ffffff;
+            color: #3c4043;
+            border: 1px solid #dadce0;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            width: 100%;
+            transition: background-color 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-google:hover {
+            background-color: #f8f9fa;
+        }
+        .btn-secondary {
+            background-color: #f1f5f9;
+            color: #334155;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            width: 100%;
+            transition: background-color 0.2s ease;
+        }
+        .btn-secondary:hover {
+            background-color: #e2e8f0;
+        }
+        .text-link {
+            color: #10B981; /* green-500 */
+            font-weight: 500;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+        .text-link:hover {
+            color: #059669; /* green-600 */
+            text-decoration: underline;
+        }
+        .error-message {
+            color: #ef4444; /* red-500 */
+            background-color: #fee2e2; /* red-100 */
+            border: 1px solid #fca5a5; /* red-300 */
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            display: none; /* Hidden by default */
+        }
+        .success-message {
+            color: #059669; /* green-600 */
+            background-color: #d1fae5; /* green-100 */
+            border: 1px solid #6ee7b7; /* green-300 */
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            display: none; /* Hidden by default */
+        }
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 1.5rem 0;
+        }
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .divider:not(:empty)::before {
+            margin-right: 1rem;
+        }
+        .divider:not(:empty)::after {
+            margin-left: 1rem;
+        }
+        .unverified-panel, .password-reset-panel {
+            display: none;
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            width: 90%;
+            max-width: 400px;
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+        }
+        .modal.active .modal-content {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center bg-gray-100">
+    <div class="login-container">
+        <img src="IMAGE/LOG.png" alt="Town Treasure Logo" class="h-16 mx-auto mb-6">
+        <h2 class="text-3xl font-bold text-gray-800 mb-6">Welcome Back!</h2>
+        <p class="text-gray-600 mb-8">Login to access your account and manage your groceries.</p>
+
+        <div id="errorMessage" class="error-message"></div>
+        <div id="successMessage" class="success-message"></div>
+
+        <div id="loginFormSection">
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <input type="email" id="loginEmail" placeholder="Email Address" class="input-field" required>
+                </div>
+                <div>
+                    <input type="password" id="loginPassword" placeholder="Password" class="input-field" required>
+                </div>
+                <button type="submit" class="btn-primary">Login</button>
+            </form>
+
+            <div class="divider text-gray-500">or</div>
+
+            <button id="googleSignInBtn" class="btn-google">
+                <img src="IMAGE/google.png" alt="Google logo" class="h-5 w-5 mr-2">
+                Sign in with Google
+            </button>
+
+            <p class="mt-6 text-gray-600">Don't have an account? <a href="register.html" class="text-link">Register here</a></p>
+            <p class="mt-3 text-gray-600">
+                <a href="#" id="forgotPasswordLink" class="text-link">Forgot Password?</a>
+            </p>
+        </div>
+
+        <div id="unverifiedPanel" class="unverified-panel">
+            <div class="bg-yellow-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6">
+                <i class="fas fa-exclamation-triangle text-yellow-600 text-2xl"></i>
+            </div>
+            <h3 class="text-xl font-bold mb-3">Email Not Verified</h3>
+            <p class="text-gray-600 mb-6">Your email address <span id="unverifiedEmail" class="font-medium"></span> has not been verified yet.</p>
+            
+            <p class="text-gray-600 mb-6">Please check your inbox for a verification email. If you didn't receive it, click below to resend.</p>
+            
+            <button id="resendUnverifiedBtn" class="btn-secondary mb-4">
+                Resend Verification Email
+            </button>
+            
+            <button id="returnToLoginBtn" class="btn-primary">
+                Return to Login
+            </button>
+        </div>
+    </div>
+
+    <!-- Password Reset Modal -->
+    <div id="passwordResetModal" class="modal">
+        <div class="modal-content">
+            <button id="closeResetModal" class="float-right text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times"></i>
+            </button>
+            
+            <div class="text-center">
+                <div class="bg-green-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6">
+                    <i class="fas fa-key text-green-600 text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-bold mb-3">Reset Your Password</h3>
+                <p class="text-gray-600 mb-6">Enter your email address and we'll send you a link to reset your password.</p>
+                
+                <div id="resetErrorMessage" class="error-message mb-4"></div>
+                <div id="resetSuccessMessage" class="success-message mb-4"></div>
+                
+                <form id="passwordResetForm" class="space-y-4">
+                    <div>
+                        <input type="email" id="resetEmail" placeholder="Email Address" class="input-field" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Send Reset Link</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
+    <!-- Import firebase-config.js and auth.js as modules -->
+    <script type="module" src="firebase-config.js"></script>
+    <script type="module">
+        import { 
+            login, 
+            getCurrentUserWithRole, 
+            signInWithGoogle, 
+            resendVerificationEmail,
+            sendPasswordResetEmail 
+        } from './auth.js';
+
+        const loginForm = document.getElementById('loginForm');
+        const loginEmailInput = document.getElementById('loginEmail');
+        const loginPasswordInput = document.getElementById('loginPassword');
+        const googleSignInBtn = document.getElementById('googleSignInBtn');
+        const errorMessageDiv = document.getElementById('errorMessage');
+        const successMessageDiv = document.getElementById('successMessage');
+        const loginFormSection = document.getElementById('loginFormSection');
+        const unverifiedPanel = document.getElementById('unverifiedPanel');
+        const unverifiedEmailSpan = document.getElementById('unverifiedEmail');
+        const resendUnverifiedBtn = document.getElementById('resendUnverifiedBtn');
+        const returnToLoginBtn = document.getElementById('returnToLoginBtn');
+        const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+        const passwordResetModal = document.getElementById('passwordResetModal');
+        const closeResetModal = document.getElementById('closeResetModal');
+        const resetErrorMessage = document.getElementById('resetErrorMessage');
+        const resetSuccessMessage = document.getElementById('resetSuccessMessage');
+        const passwordResetForm = document.getElementById('passwordResetForm');
+        const resetEmailInput = document.getElementById('resetEmail');
+
+        // Function to display error messages
+        function showErrorMessage(message, element = errorMessageDiv) {
+            element.textContent = message;
+            element.style.display = 'block';
+            successMessageDiv.style.display = 'none';
+        }
+
+        // Function to hide error messages
+        function hideErrorMessage(element = errorMessageDiv) {
+            element.style.display = 'none';
+            element.textContent = '';
+        }
+
+        // Function to show success message
+        function showSuccessMessage(message, element = successMessageDiv) {
+            element.textContent = message;
+            element.style.display = 'block';
+            errorMessageDiv.style.display = 'none';
+        }
+
+        // Handle login form submission
+        loginForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            hideErrorMessage();
+
+            const email = loginEmailInput.value;
+            const password = loginPasswordInput.value;
+
+            try {
+                await login(email, password);
+                
+                // Check if email is verified
+                const user = firebase.auth().currentUser;
+                
+                if (!user.emailVerified) {
+                    // Show unverified panel
+                    loginFormSection.style.display = 'none';
+                    unverifiedPanel.style.display = 'block';
+                    unverifiedEmailSpan.textContent = email;
+                    return;
+                }
+                
+                // If email is verified, proceed
+                const { role } = await getCurrentUserWithRole();
+                if (role === 'admin') {
+                    window.location.href = 'index.html';
+                } else {
+                    window.location.href = 'index.html';
+                }
+            } catch (error) {
+                let userMessage = "Login failed. Please check your credentials.";
+                if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                    userMessage = "Invalid email or password.";
+                } else if (error.code === 'auth/invalid-email') {
+                    userMessage = "Please enter a valid email address.";
+                } else if (error.code === 'auth/too-many-requests') {
+                    userMessage = "Too many failed login attempts. Please try again later.";
+                }
+                showErrorMessage(userMessage);
+                console.error("Login error:", error);
+            }
+        });
+
+        // Handle Google sign-in
+        googleSignInBtn.addEventListener('click', async () => {
+            hideErrorMessage();
+            try {
+                await signInWithGoogle();
+                const { role } = await getCurrentUserWithRole();
+                if (role === 'admin') {
+                    window.location.href = 'admin.html';
+                } else {
+                    window.location.href = 'index.html';
+                }
+            } catch (error) {
+                showErrorMessage("Google sign-in failed. Please try again.");
+                console.error("Google sign-in error:", error);
+            }
+        });
+
+        // Handle resend verification for unverified users
+        resendUnverifiedBtn.addEventListener('click', async () => {
+            try {
+                await resendVerificationEmail();
+                showSuccessMessage("Verification email resent successfully!");
+            } catch (error) {
+                showErrorMessage("Failed to resend verification email. Please try again.");
+                console.error("Resend verification error:", error);
+            }
+        });
+
+        // Return to login form
+        returnToLoginBtn.addEventListener('click', () => {
+            unverifiedPanel.style.display = 'none';
+            loginFormSection.style.display = 'block';
+            hideErrorMessage();
+        });
+
+        // Handle forgot password
+        forgotPasswordLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            passwordResetModal.classList.add('active');
+            resetEmailInput.value = loginEmailInput.value; // Pre-fill with login email
+        });
+
+        // Close reset modal
+        closeResetModal.addEventListener('click', () => {
+            passwordResetModal.classList.remove('active');
+            hideErrorMessage(resetErrorMessage);
+            resetSuccessMessage.style.display = 'none';
+        });
+
+        // Handle password reset form submission
+        passwordResetForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideErrorMessage(resetErrorMessage);
+            resetSuccessMessage.style.display = 'none';
+            
+            const email = resetEmailInput.value.trim();
+            
+            if (!email) {
+                showErrorMessage("Please enter your email address.", resetErrorMessage);
+                return;
+            }
+            
+            try {
+                await sendPasswordResetEmail(email);
+                showSuccessMessage("Password reset email sent! Check your inbox.", resetSuccessMessage);
+                resetEmailInput.value = ""; // Clear the input
+                
+                // Close modal after 3 seconds
+                setTimeout(() => {
+                    passwordResetModal.classList.remove('active');
+                }, 3000);
+            } catch (error) {
+                let errorMessage = "Failed to send password reset email.";
+                if (error.code === 'auth/user-not-found') {
+                    errorMessage = "No account found with this email.";
+                } else if (error.code === 'auth/invalid-email') {
+                    errorMessage = "Please enter a valid email address.";
+                }
+                showErrorMessage(errorMessage, resetErrorMessage);
+                console.error("Password reset error:", error);
+            }
+        });
+
+        // Close modal when clicking outside
+        passwordResetModal.addEventListener('click', (e) => {
+            if (e.target === passwordResetModal) {
+                passwordResetModal.classList.remove('active');
+                hideErrorMessage(resetErrorMessage);
+                resetSuccessMessage.style.display = 'none';
+            }
+        });
+
+        // Check if user is already logged in on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            const { user, role } = await getCurrentUserWithRole();
+            if (user) {
+                if (role === 'admin') {
+                    window.location.href = 'admin.html';
+                } else {
+                    window.location.href = 'index.html';
+                }
+            }
+        });
+    </script>
+</body>
+</html>

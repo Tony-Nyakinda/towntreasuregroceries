@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Our Catalog - Town Treasure Groceries</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2pdf.js library for generating PDF receipts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href=""> <!-- Link to external CSS -->
+    <link rel="apple-touch-icon" sizes="180x180" href="IMAGE/favicon/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="IMAGE/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="IMAGE/favicon/favicon-16x16.png">
+    <link rel="icon" type="favicon_ico" href="IMAGE/favicon/favicon.ico">
+    <link rel="manifest" href="IMAGE/favicon/site.webmanifest">
+    <style>
+        /* Custom styles for category tabs */
+        .category-tab {
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px; /* Full rounded */
+            font-weight: 500;
+            color: #4A5568; /* gray-700 */
+            background-color: #EDF2F7; /* gray-200 */
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            white-space: nowrap; /* Prevent wrapping */
+        }
+        .category-tab:hover {
+            background-color: #CBD5E0; /* gray-300 */
+        }
+        .category-tab.active {
+            background-color: #10B981; /* green-500 */
+            color: white;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+        }
+
+        /* Product card styling */
+        .product-card {
+            transition: all 0.3s ease;
+            min-width: 0; /* Crucial for flex behavior */
+            /* This flex rule is now less critical as grid handles layout */
+            /* flex: 1 1 calc(50% - 0.75rem); /* Adjusted for gap-3 which is 0.75rem */
+        }
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        /* New styles for responsive product cards */
+        .product-card-inner {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            background-color: white; /* Added for consistency */
+            border-radius: 0.5rem; /* Added for consistency */
+            overflow: hidden; /* Added for consistency */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Added for consistency */
+        }
+
+        .product-image-container {
+            position: relative;
+            padding-top: 100%; /* 1:1 aspect ratio */
+            overflow: hidden;
+        }
+
+        .product-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .product-details {
+            padding: 1rem;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-name {
+            font-size: 1rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            word-break: break-word; /* Prevent long text overflow */
+        }
+
+        .product-price {
+            font-weight: bold;
+            color: #10B981;
+            margin-top: auto; /* Push price to bottom */
+        }
+
+        /* Placeholder for product images */
+        .product-image-placeholder {
+            background: linear-gradient(45deg, #f5f5f5, #e0e0e0);
+            position: relative;
+            overflow: hidden;
+        }
+        .product-image-placeholder::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.3) 50%, transparent 60%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Toast Notification */
+        #toast {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            background-color: #10B981; /* green-500 */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            transform: translateY(100px); /* Start off-screen */
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+        }
+        #toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        #toast.hidden {
+            opacity: 0;
+            pointer-events: none; /* Prevent interaction when hidden */
+        }
+
+        /* Pagination styles */
+        .pagination-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            background-color: #EDF2F7; /* gray-200 */
+            color: #4A5568; /* gray-700 */
+            font-weight: 500;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .pagination-btn:hover:not(.active):not(.disabled) {
+            background-color: #CBD5E0; /* gray-300 */
+        }
+        .pagination-btn.active {
+            background-color: #10B981; /* green-500 */
+            color: white;
+        }
+        .pagination-btn.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Responsive styles for pagination container */
+        #pagination {
+            flex-wrap: wrap; /* Allow buttons to wrap to the next line */
+            overflow-x: auto; /* Enable horizontal scrolling if still too wide */
+            padding-bottom: 0.5rem; /* Add some padding for scrollbar if overflow-x is active */
+        }
+
+        @media (max-width: 640px) { /* For small screens */
+            #pagination {
+                justify-content: flex-start; /* Align to start if wrapping */
+                gap: 0.5rem; /* Use gap instead of space-x for better wrapping */
+                padding-left: 0.5rem;
+                padding-right: 0.5rem;
+            }
+        }
+
+        /* Dropdown styles */
+        .dropdown-menu {
+            position: absolute;
+            top: 100%; /* Position below the button */
+            right: 0;
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            min-width: 180px;
+            z-index: 60; /* Above navbar */
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(10px);
+            transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+        }
+        .dropdown-menu.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+        .profile-pic-placeholder {
+            background-color: #a7f3d0; /* green-200 */
+            color: #065f46; /* green-800 */
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Mobile Navigation Bottom Bar */
+        .mobile-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: white;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-around;
+            padding: 0.5rem 0;
+            z-index: 50;
+        }
+        .mobile-nav .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-grow: 1;
+            padding: 0.5rem 0;
+            color: #4A5568; /* gray-700 */
+            transition: color 0.2s ease;
+            position: relative;
+            min-width: 0; /* Allow items to shrink */
+            flex-basis: 0; /* Allow items to shrink equally */
+        }
+        .mobile-nav .nav-item:hover,
+        .mobile-nav .nav-item.active {
+            color: #10B981; /* green-600 */
+        }
+        .mobile-nav .nav-item .cart-badge {
+            position: absolute;
+            top: 0;
+            right: 15%;
+            background-color: #10B981;
+            color: white;
+            font-size: 0.75rem;
+            border-radius: 9999px;
+            height: 1.25rem;
+            width: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Mobile Menu Dropdown (Sidebar) */
+        #mobileMenu {
+            position: fixed;
+            inset: 0; /* Covers the entire viewport */
+            background-color: rgba(0, 0, 0, 0.5); /* The dark overlay */
+            z-index: 9999; /* Ensures it's on top of everything */
+            display: flex; /* To position the actual menu content */
+            justify-content: flex-start; /* Align the menu content to the left */
+            transform: translateX(-100%); /* Start off-screen */
+            opacity: 0; /* Start invisible */
+            pointer-events: none; /* Not interactive when hidden */
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+
+        #mobileMenu.is-active {
+            transform: translateX(0); /* Slide in */
+            opacity: 1; /* Become visible */
+            pointer-events: auto; /* Allow interaction */
+        }
+
+        /* The actual sliding content inside the mobileMenu */
+        #mobileMenu .menu-content {
+            width: 75vw; /* Slightly wider for better content display */
+            max-width: 320px; /* Max width for larger screens */
+            background-color: white; /* Background of the menu itself */
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+            height: 100%; /* Take full height to cover lower dashboard */
+            overflow-y: auto; /* Enable scrolling for long content */
+        }
+
+        /* Add to existing styles */
+        body.overflow-hidden {
+            overflow: hidden;
+        }
+
+        /* Responsive grid for productGrid */
+        #productGrid {
+            display: grid;
+            /* Default for larger screens: 3 columns, then 4 on large screens */
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1.5rem; /* Default gap for larger screens */
+        }
+
+        @media (min-width: 1024px) { /* For large screens (lg) */
+            #productGrid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 767px) { /* For mobile screens (sm and below) */
+            #productGrid {
+                grid-template-columns: repeat(2, minmax(0, 1fr)); /* 2 columns on mobile */
+                gap: 0.75rem; /* Smaller gap on mobile */
+            }
+            .product-name {
+                font-size: 0.875rem; /* Smaller font for product names on mobile */
+            }
+            .product-price {
+                font-size: 0.9rem; /* Smaller font for product prices on mobile */
+            }
+            .add-to-cart-btn {
+                padding: 0.5rem 0.75rem; /* Smaller padding for add to cart button */
+                font-size: 0.8rem; /* Smaller font for add to cart button */
+            }
+        }
+
+        /* Checkout Modal Scrollability */
+        #checkoutModal .bg-white {
+            max-height: 80vh; /* Reduced height to 80% of viewport height */
+            overflow-y: auto; /* Enable vertical scrolling */
+        }
+
+        /* Order Confirmation Modal Scrollability */
+        #confirmationModal .bg-white {
+            max-height: 80vh; /* Limit height to 80% of viewport height */
+            overflow-y: auto; /* Enable vertical scrolling */
+            padding: 1.5rem; /* Adjusted padding for better fit */
+        }
+        #confirmationModal .bg-green-100 {
+            padding: 1rem; /* Smaller padding for the checkmark circle */
+            margin-bottom: 1.5rem; /* Adjusted margin */
+        }
+        #confirmationModal h2 {
+            font-size: 1.5rem; /* Slightly smaller heading */
+            margin-bottom: 0.5rem;
+        }
+        #confirmationModal p {
+            font-size: 0.9rem; /* Slightly smaller paragraph text */
+            margin-bottom: 1rem;
+        }
+        #confirmationModal .flex-col.space-y-3 {
+            margin-top: 1.5rem; /* Adjusted margin for buttons */
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-md sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <img src="IMAGE/LOG.png" alt="Town Treasure Logo" class="">
+            </div>
+
+            <!-- Desktop Navigation Links -->
+            <div class="hidden md:flex space-x-6 items-center">
+                <a href="index.html" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Home</a>
+                <a href="about.html" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">About Us</a>
+                <a href="catalog.html" class="text-green-600 font-bold transition duration-300">Catalog</a>
+                <a href="index.html#features" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Why Us</a>
+                <a href="testimanial.html" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Testimonials</a>
+                <a href="index.html#contact" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Contact</a>
+                <a href="catalog.html?category=wholesale" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Wholesale</a>
+
+
+                <!-- Login/User Profile Dropdown -->
+                <div class="relative" id="userProfileDropdownContainer">
+                    <button id="userProfileButton" class="hidden flex items-center space-x-2 text-gray-700 hover:text-green-600 font-medium transition duration-300 focus:outline-none">
+                        <img id="userProfilePic" src="" alt="Profile" class="w-8 h-8 rounded-full object-cover hidden">
+                        <div id="userInitials" class="w-8 h-8 rounded-full profile-pic-placeholder text-sm hidden"></div>
+                        <span id="userNameDisplay"></span>
+                        <i class="fas fa-chevron-down text-xs ml-1"></i>
+                    </button>
+                    <a href="login.html" id="loginLink" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Login</a>
+
+                    <div id="userDropdownMenu" class="dropdown-menu hidden">
+                        <div class="px-4 py-2 text-sm text-gray-700 border-b border-gray-100 flex items-center">
+                            <img id="dropdownUserProfilePic" src="" alt="Profile" class="w-8 h-8 rounded-full object-cover mr-2 hidden">
+                            <div id="dropdownUserInitials" class="w-8 h-8 rounded-full profile-pic-placeholder text-sm mr-2 hidden"></div>
+                            <div>
+                                <p class="font-bold" id="dropdownUserName"></p>
+                                <p class="text-gray-500" id="dropdownUserEmail"></p>
+                            </div>
+                        </div>
+                        <a href="#" id="myProfileLink" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hidden">My Profile</a>
+                        <button id="logoutDropdownButton" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Logout</button>
+                    </div>
+                </div>
+
+                <button onclick="window.toggleCart()" class="relative ml-4">
+                    <i class="fas fa-shopping-cart text-xl text-gray-700 hover:text-green-600 transition duration-300"></i>
+                    <span id="cartCount" class="absolute -top-2 -right-2 bg-green-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                </button>
+            </div>
+
+            <!-- Mobile Menu Button -->
+            <button id="mobileMenuButton" class="md:hidden text-gray-700">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+        </div>
+
+        <!-- Mobile Menu Dropdown (Sidebar) -->
+        <div id="mobileMenu" class="fixed inset-0 transform -translate-x-full transition-transform duration-300 z-[9999] opacity-0 pointer-events-none flex justify-start">
+            <div class="menu-content w-64 bg-white shadow-lg h-full overflow-y-auto">
+                <div class="flex justify-between items-center p-4 border-b border-gray-100">
+                    <h2 class="text-xl font-bold text-gray-800">Menu</h2>
+                    <button id="closeMobileMenuButton" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+                <nav class="p-4 space-y-2">
+                    <a href="index.html" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Home</a>
+                    <a href="about.html" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">About Us</a>
+                    <a href="catalog.html" class="block py-2 px-3 text-green-600 font-bold hover:bg-gray-100 rounded transition duration-300">Catalog</a>
+                    <a href="index.html#features" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Why Us</a>
+                    <a href="testimanial.html" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Testimonials</a>
+                    <a href="index.html#contact" class="block py-2 px-3 text-gray-700 hover:text-green-600 font-medium transition duration-300">Contact</a>
+                    <a href="catalog.html?category=wholesale" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Wholesale</a>
+
+
+                    <div class="border-t border-gray-100 pt-2 mt-2">
+                        <!-- Mobile User Profile Section -->
+                        <div id="mobileUserProfileSection" class="hidden flex items-center p-3 space-x-3">
+                            <img id="mobileUserProfilePic" src="" alt="Profile" class="w-10 h-10 rounded-full object-cover hidden">
+                            <div id="mobileUserInitials" class="w-10 h-10 rounded-full profile-pic-placeholder text-lg hidden"></div>
+                            <div class="flex-grow">
+                                <p id="mobileUserNameDisplay" class="font-bold text-gray-800"></p>
+                                <p id="mobileUserEmailDisplay" class="text-sm text-gray-500"></p>
+                            </div>
+                        </div>
+                        <a href="login.html" id="mobileLoginLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Login</a>
+                        <a href="#" id="mobileMyProfileLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300 hidden">My Profile</a>
+                        <button id="mobileLogoutButton" class="block w-full text-left py-2 px-3 text-red-600 hover:bg-red-50 rounded transition duration-300 hidden">Logout</button>
+                    </div>
+                </nav>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Catalog Section -->
+    <section class="py-12 bg-gray-50 flex-grow">
+        <div class="container mx-auto px-4">
+            <h1 class="text-4xl font-bold text-center mb-10 text-gray-800">Our Fresh Produce Catalog</h1>
+
+            <!-- Product Search Bar -->
+            <div class="mb-8">
+                <div class="relative">
+                    <input type="text" id="searchInput" placeholder="Search for products..."
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-lg">
+                    <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                        <i class="fas fa-search text-gray-400"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category Tabs -->
+            <div class="flex flex-wrap justify-center gap-3 mb-8 overflow-x-auto pb-2 md:justify-center">
+                <div class="category-tab active" data-category="all">All Products</div>
+                <div class="category-tab" data-category="fruits">Fruits</div>
+                <div class="category-tab" data-category="vegetables">Vegetables</div>
+                <div class="category-tab" data-category="dairy">Dairy & Eggs</div>
+                <div class="category-tab" data-category="meat">Meat & Poultry</div>
+                <div class="category-tab" data-category="pantry">Pantry</div>
+                <div class="category-tab" data-category="beverages">Beverages</div>
+                <div class="category-tab" data-category="gift">Gift</div>
+                <div class="category-tab" data-category="wholesale">Wholesale</div>
+            </div>
+
+            <!-- Product Grid -->
+            <!-- Updated Tailwind classes for responsive grid -->
+            <div id="productGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <!-- Products will be dynamically loaded here by catalog.js -->
+                <div class="col-span-full text-center py-10">
+                    <i class="fas fa-spinner fa-spin text-4xl text-green-600 mb-4"></i>
+                    <p class="text-gray-500">Loading products...</p>
+                </div>
+            </div>
+
+            <!-- Pagination Controls -->
+            <div id="pagination" class="flex justify-center items-center space-x-2 mt-8">
+                <!-- Add a span for current page number display -->
+                <span id="currentPage" class="font-bold text-lg text-gray-700"></span>
+                <!-- Pagination buttons will be inserted here by catalog.js -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Shopping Cart Sidebar (Same as index.html) -->
+    <div id="cartSidebar" class="fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-lg transform translate-x-full transition-transform duration-300 z-50 overflow-y-auto">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">Your Cart</h2>
+                <button onclick="window.toggleCart()" class="text-gray-500 hover:text-gray-700 transition duration-300">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+
+            <div id="cartItems" class="space-y-4 mb-6">
+                <!-- Cart items will be dynamically inserted here -->
+                <div class="text-center py-10">
+                    <i class="fas fa-shopping-cart text-4xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500">Your cart is empty</p>
+                    <a href="catalog.html" onclick="window.toggleCart()" class="inline-block mt-4 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-6 rounded-lg transition duration-300">
+                        Start Shopping
+                    </a>
+                </div>
+            </div>
+
+            <div id="cartSummary" class="border-t pt-4 hidden">
+                <div class="flex justify-between mb-2">
+                    <span class="text-gray-600">Subtotal:</span>
+                    <span id="cartSubtotal" class="font-bold">KSh 0</span>
+                </div>
+                <div class="flex justify-between mb-2">
+                    <span class="text-gray-600">Delivery Fee:</span>
+                    <span id="deliveryFee" class="font-bold">KSh 200</span>
+                </div>
+                <div class="flex justify-between mb-4">
+                    <span id="cartTotal" class="font-bold text-xl text-green-600">KSh 200</span>
+                </div>
+
+                <button id="proceedToCheckoutBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 mb-4 pulse-animation">
+                    Proceed to Checkout
+                </button>
+
+                <p class="text-sm text-gray-500 text-center">Free delivery for orders over KSh 2,000 in City Park & Westlands</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checkout Modal (Same as index.html) -->
+    <div id="checkoutModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4">
+        <!-- Adjusted max-h and padding for better fit -->
+        <div class="bg-white rounded-lg w-full max-w-md mx-auto overflow-hidden max-h-[80vh] overflow-y-auto">
+            <div class="p-4"> <!-- Reduced padding from p-6 to p-4 -->
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">Checkout</h2>
+                    <button onclick="window.closeCheckout()" class="text-gray-500 hover:text-gray-700 transition duration-300">
+                        <i class="fas fa-times text-2xl"></i>
+                    </button>
+                </div>
+
+                <form id="checkoutForm" class="space-y-4">
+                    <div class="floating-label-group">
+                        <input type="text" id="fullName" class="floating-input w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder=" " required>
+                        <label for="fullName" class="floating-label">Full Name</label>
+                    </div>
+
+                    <div class="floating-label-group">
+                        <input type="tel" id="phone" class="floating-input w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder=" " required>
+                        <label for="phone" class="floating-label">Phone Number</label>
+                    </div>
+
+                    <div class="floating-label-group">
+                        <textarea id="address" rows="3" class="floating-input w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder=" " required></textarea>
+                        <label for="address" class="floating-label">Delivery Address</label>
+                    </div>
+
+                    <div class="floating-label-group">
+                        <textarea id="instructions" rows="2" class="floating-input w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder=" "></textarea>
+                        <label for="instructions" class="floating-label">Delivery Instructions (Optional)</label>
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 mb-2">Payment Method</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center space-x-3 p-3 border rounded-lg hover:border-green-500 transition duration-300">
+                                <input type="radio" name="paymentMethod" value="mpesa" class="form-radio text-green-600" checked>
+                                <span>MPESA</span>
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/1/15/M-PESA_LOGO-01.svg" alt="M-Pesa" class="h-6 ml-auto">
+                            </label>
+                            <label class="flex items-center space-x-3 p-3 border rounded-lg hover:border-green-500 transition duration-300">
+                                <input type="radio" name="paymentMethod" value="card" class="form-radio text-green-600">
+                                <span>Credit/Debit Card</span>
+                            </label>
+                            <label class="flex items-center space-x-3 p-3 border rounded-lg hover:border-green-500 transition duration-300">
+                                <input type="radio" name="paymentMethod" value="bank" class="form-radio text-green-600">
+                                <span>Bank Transfer</span>
+                                <i class="fas fa-university text-gray-600 ml-auto"></i>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="mpesaPayment" class="p-4 bg-gray-50 rounded-lg">
+                        <p class="text-sm text-gray-600 mb-3">You will receive an MPESA push notification to complete payment after placing your order.</p>
+                        <div class="flex items-center">
+                            <i class="fas fa-info-circle text-yellow-500 mr-2"></i>
+                            <p class="text-sm text-gray-600">Ensure your phone is nearby and unlocked</p>
+                        </div>
+                    </div>
+
+                    <div id="cardPayment" class="p-4 bg-gray-50 rounded-lg hidden">
+                        <div class="mb-3">
+                            <label for="cardNumber" class="block text-sm text-gray-700 mb-1">Card Number</label>
+                            <input type="text" id="cardNumber" name="cardNumber" placeholder="1234 5678 9012 3456" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="expiry" class="block text-sm text-gray-700 mb-1">Expiry Date</label>
+                                <input type="text" id="expiry" name="expiry" placeholder="MM/YY" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                            </div>
+                            <div>
+                                <label for="cvv" class="block text-sm text-gray-700 mb-1">CVV</label>
+                                <input type="text" id="cvv" name="cvv" placeholder="123" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="bankPayment" class="p-4 bg-gray-50 rounded-lg hidden">
+                        <p class="text-sm text-gray-600 mb-3">Please transfer the total amount to:</p>
+                        <div class="mb-2">
+                            <p class="font-medium">Bank: Equity Bank</p>
+                            <p class="font-medium">Account Name: Town Treasure Groceries</p>
+                            <p class="font-medium">Account Number: 1234567890</p>
+                        </div>
+                        <p class="text-sm text-gray-600">Your order will be processed once payment is confirmed.</p>
+                    </div>
+
+                    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+                        Place Order
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Confirmation Modal (Same as index.html) -->
+    <div id="confirmationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-lg w-full max-w-md mx-auto p-8 text-center">
+            <div class="bg-green-100 p-6 rounded-full inline-block mb-6">
+                <i class="fas fa-check-circle text-green-600 text-5xl"></i>
+            </div>
+            <h2 class="text-2xl font-bold mb-2">Order Confirmed!</h2>
+            <p class="text-gray-600 mb-6">Thank you for your order. Your groceries will be delivered soon.</p>
+            <p class="font-medium mb-1">Order Number: <span id="orderNumber" class="text-green-600">TTG-2023-0567</span></p>
+            <p class="text-gray-600 mb-8">Estimated Delivery: <span class="font-medium">Today, 5:00 - 7:00 PM</span></p>
+
+            <div class="flex flex-col space-y-3">
+                <a href="#" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+                    Track Order
+                </a>
+                <button id="downloadReceiptBtn" class="bg-white text-green-600 border-2 border-green-600 font-bold py-3 px-6 rounded-lg hover:bg-green-50 transition duration-300">
+                    Download Receipt
+                </button>
+                <button onclick="window.closeConfirmation()" class="bg-white text-green-600 border-2 border-green-600 font-bold py-3 px-6 rounded-lg hover:bg-green-50 transition duration-300">
+                    Continue Shopping
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification (Same as index.html) -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 transition-transform duration-300 z-50 hidden flex items-center">
+        <i class="fas fa-check-circle mr-2"></i>
+        <span>Item added to cart!</span>
+    </div>
+    <!-- Overlay (Same as index.html) -->
+    <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden"></div>
+
+    <!-- Footer (Same as index.html) -->
+    <footer class="bg-gray-900 text-white pt-16 pb-8">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center space-x-2 mb-4">
+                        <img src="IMAGE/LOG.png" alt="Town Treasure Logo" class="">
+                    </div>
+                    <p class="text-gray-400 mb-4">Your Trusted Fresh Food Partner.</p>
+                    <p class="text-gray-400">City Park Market, Limuru Road, Nairobi</p>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-bold mb-4">Quick Links</h3>
+                    <ul class="space-y-2">
+                        <li><a href="index.html" class="text-gray-400 hover:text-white transition duration-300">Home</a></li>
+                        <li><a href="catalog.html" class="text-gray-400 hover:text-white transition duration-300">Catalog</a></li>
+                        <li><a href="about.html" class="text-gray-400 hover:text-white transition duration-300">About Us</a></li>
+                        <li><a href="index.html#features" class="text-gray-400 hover:text-white transition duration-300">Why Us</a></li>
+                        <li><a href="testimanial.html" class="text-gray-400 hover:text-white transition duration-300">Testimonials</a></li>
+                        <li><a href="index.html#contact" class="text-gray-400 hover:text-white transition duration-300">Contact</a></li>
+                        <li><a href="catalog.html?category=wholesale" class="text-gray-400 hover:text-white transition duration-300">Wholesale</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-bold mb-4">Information</h3>
+                    <ul class="space-y-2">
+                        <li><a href="about.html" class="text-gray-400 hover:text-white transition duration-300">About Us</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition duration-300">Privacy Policy</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition duration-300">Terms & Conditions</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition duration-300">Delivery Information</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition duration-300">FAQs</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-bold mb-4">Newsletter</h3>
+                    <p class="text-gray-400 mb-4">Subscribe to get updates on new products and special offers.</p>
+                    <form class="flex">
+                        <input type="email" placeholder="Your email" class="px-4 py-2 rounded-l-lg focus:outline-none text-gray-800 w-full">
+                        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-r-lg hover:bg-green-700 transition duration-300">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                    <div class="flex space-x-4 mt-4">
+                        <a href="https://instagram.com/towntreasuregrocery" target="_blank" class="text-gray-400 hover:text-white transition duration-300">
+                            <i class="fab fa-instagram text-xl"></i>
+                        </a>
+                        <a href="https://facebook.com/towntreasuregrocery" target="_blank" class="text-gray-400 hover:text-white transition duration-300">
+                            <i class="fab fa-facebook-f text-xl"></i>
+                        </a>
+                        <a href="https://tiktok.com/@towntreasuregrocery" target="_blank" class="text-gray-400 hover:text-white transition duration-300">
+                            <i class="fab fa-tiktok text-xl"></i>
+                        </a>
+                        <a href="https://wa.me/254720559925" target="_blank" class="text-gray-400 hover:text-white transition duration-300">
+                            <i class="fab fa-whatsapp text-xl"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
+                <p>&copy; 2025 Town Treasure Groceries. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+    <!-- Mobile Navigation (Bottom Bar) -->
+    <div class="mobile-nav md:hidden">
+        <a href="index.html" class="nav-item">
+            <i class="fas fa-home text-xl"></i>
+            <span class="text-xs mt-1">Home</span>
+        </a>
+        <a href="catalog.html" class="nav-item active">
+            <i class="fas fa-shopping-basket text-xl"></i>
+            <span class="text-xs mt-1">Catalog</span>
+        </a>
+        <!-- Search icon removed as per user request to replace with profile -->
+        <a href="#" class="nav-item relative" id="mobileAccountButton">
+            <!-- Profile elements for mobile bottom nav -->
+            <img id="mobileBottomProfilePic" src="" alt="Profile" class="w-6 h-6 rounded-full object-cover mx-auto hidden">
+            <div id="mobileBottomUserInitials" class="w-6 h-6 rounded-full profile-pic-placeholder text-xs mx-auto hidden"></div>
+            <span id="mobileBottomUserName" class="text-xs mt-1">Account</span>
+        </a>
+        <a href="#" class="nav-item relative" id="mobileBottomCartButton" onclick="window.toggleCart(); return false;">
+            <i class="fas fa-shopping-cart text-xl"></i>
+            <span class="text-xs mt-1">Cart</span>
+            <span id="mobileBottomCartCount" class="cart-badge">0</span>
+        </a>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <!-- Import firebase-config.js and auth.js as modules -->
+    <script type="module" src="catalog.js"></script> <!-- Specific JS for catalog page -->
+    <script type="module" src="firebase-config.js"></script>
+    <script type="module" src="auth.js"></script>
+    <script type="module" src="productsData.js"></script> <!-- Import product data -->
+    <script type="module" src="uiUpdater.js"></script> <!-- UI update functions (Moved before catalog.js) -->
+    <script type="module" src="cartManager.js"></script> <!-- Cart management functions -->
+    <script type="module" src="eventListeners.js"></script> <!-- General event listeners -->
+    <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
+    <script type="module">
+        import { getCurrentUserWithRole, logout } from './auth.js'; // Import logout
+        // No need to import toggleCart here, as it's now exposed globally by catalog.js after uiUpdater.js loads.
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const loginLink = document.getElementById('loginLink');
+            const userProfileButton = document.getElementById('userProfileButton');
+
+            const userProfilePic = document.getElementById('userProfilePic');
+
+            const userInitials = document.getElementById('userInitials');
+
+            const userNameDisplay = document.getElementById('userNameDisplay');
+
+            const userProfileDropdownContainer = document.getElementById('userProfileDropdownContainer'); // Parent for desktop dropdown
+            const userDropdownMenu = document.getElementById('userDropdownMenu');
+
+            const dropdownUserName = document.getElementById('dropdownUserName');
+
+            const dropdownUserEmail = document.getElementById('dropdownUserEmail');
+            const dropdownUserProfilePic = document.getElementById('dropdownUserProfilePic'); // New
+            const dropdownUserInitials = document.getElementById('dropdownUserInitials');   // New
+
+            const logoutDropdownButton = document.getElementById('logoutDropdownButton');
+
+            const adminLink = document.getElementById('adminLink');
+
+
+            const mobileMenuButton = document.getElementById('mobileMenuButton');
+            const mobileMenu = document.getElementById('mobileMenu');
+            const closeMobileMenuButton = document.getElementById('closeMobileMenuButton');
+            const mobileMenuOverlay = document.getElementById('mobileMenuOverlay'); // Get the overlay element
+
+            const mobileLoginLink = document.getElementById('mobileLoginLink');
+            const mobileMyProfileLink = document.getElementById('mobileMyProfileLink');
+            const mobileAdminLink = document.getElementById('mobileAdminLink');
+            const mobileLogoutButton = document.getElementById('mobileLogoutButton');
+
+            const mobileUserProfileSection = document.getElementById('mobileUserProfileSection');
+            const mobileUserProfilePic = document.getElementById('mobileUserProfilePic');
+            const mobileUserInitials = document.getElementById('mobileUserInitials');
+            const mobileUserNameDisplay = document.getElementById('mobileUserNameDisplay');
+            const mobileUserEmailDisplay = document.getElementById('mobileUserEmailDisplay');
+
+            const mobileAccountButton = document.getElementById('mobileAccountButton');
+            const mobileBottomProfilePic = document.getElementById('mobileBottomProfilePic');
+            const mobileBottomUserInitials = document.getElementById('mobileBottomUserInitials');
+            const mobileBottomUserName = document.getElementById('mobileBottomUserName');
+
+
+            const { user, role } = await getCurrentUserWithRole();
+
+            // Function to get initials from name or email
+            function getInitials(name, email) {
+                if (name && name.trim() !== '') {
+                    const parts = name.trim().split(' ');
+                    if (parts.length > 1) {
+                        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+                    }
+                    return parts[0][0].toUpperCase();
+                }
+                if (email && email.trim() !== '') {
+                    return email.trim()[0].toUpperCase();
+                }
+                return '?';
+            }
+
+            // Function to get first name from display name or email
+            function getFirstName(displayName, email) {
+                if (displayName && displayName.trim() !== '') {
+                    return displayName.trim().split(' ')[0];
+                }
+                if (email && email.trim() !== '') {
+                    return email.trim().split('@')[0];
+                }
+                return 'User';
+            }
+
+            // Function to toggle desktop user dropdown
+            function toggleUserDropdown() {
+                if (userDropdownMenu) {
+                    if (userDropdownMenu.classList.contains('active')) {
+                        // Hiding the dropdown
+                        userDropdownMenu.classList.remove('active');
+                        userDropdownMenu.addEventListener('transitionend', function handler() {
+                            userDropdownMenu.classList.add('hidden');
+                            userDropdownMenu.removeEventListener('transitionend', handler);
+                        }, { once: true });
+                    } else {
+                        // Showing the dropdown
+                        userDropdownMenu.classList.remove('hidden');
+                        // Use a small timeout to allow 'display' change to render before transition starts
+                        setTimeout(() => {
+                            userDropdownMenu.classList.add('active');
+                        }, 10); // A small delay like 10ms is usually enough
+                    }
+                }
+            }
+
+            if (user) {
+                // Desktop View
+                if (loginLink) loginLink.classList.add('hidden'); // Hide default login link
+                if (userProfileButton) userProfileButton.classList.remove('hidden'); // Show user profile button
+
+                const userFullName = user.displayName || user.email;
+                const firstName = getFirstName(user.displayName, user.email);
+                const userEmail = user.email;
+                const photoURL = user.photoURL;
+
+                if (userNameDisplay) userNameDisplay.textContent = firstName;
+                if (dropdownUserName) dropdownUserName.textContent = userFullName;
+                if (dropdownUserEmail) dropdownUserEmail.textContent = userEmail;
+
+                if (photoURL) {
+                    if (userProfilePic) {
+                        userProfilePic.src = photoURL;
+                        userProfilePic.classList.remove('hidden');
+                    }
+                    if (userInitials) userInitials.classList.add('hidden');
+
+                    if (dropdownUserProfilePic) {
+                        dropdownUserProfilePic.src = photoURL;
+                        dropdownUserProfilePic.classList.remove('hidden');
+                    }
+                    if (dropdownUserInitials) dropdownUserInitials.classList.add('hidden');
+                } else {
+                    if (userInitials) {
+                        userInitials.textContent = getInitials(user.displayName, user.email);
+                        userInitials.classList.remove('hidden');
+                    }
+                    if (userProfilePic) userProfilePic.classList.add('hidden');
+
+                    if (dropdownUserInitials) {
+                        dropdownUserInitials.textContent = getInitials(user.displayName, user.email);
+                        dropdownUserInitials.classList.remove('hidden');
+                    }
+                    if (dropdownUserProfilePic) dropdownUserProfilePic.classList.add('hidden');
+                }
+
+                if (myProfileLink) myProfileLink.classList.remove('hidden');
+
+                // Toggle dropdown on click
+                if (userProfileButton) {
+                    userProfileButton.addEventListener('click', (e) => {
+                        e.stopPropagation(); // Prevent click from closing immediately
+                        toggleUserDropdown();
+                    });
+                }
+
+                // Close dropdown if clicked outside
+                document.addEventListener('click', (e) => {
+                    if (userProfileDropdownContainer && !userProfileDropdownContainer.contains(e.target)) {
+                        if (userDropdownMenu && userDropdownMenu.classList.contains('active')) {
+                            toggleUserDropdown();
+                        }
+                    }
+                });
+
+                // Logout button in dropdown
+                if (logoutDropdownButton) {
+                    logoutDropdownButton.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        await logout();
+                        window.location.reload();
+                    });
+                }
+
+                if (role === 'admin') {
+                    if (adminLink) adminLink.classList.remove('hidden'); // Show admin link in dropdown
+                } else {
+                    if (adminLink) adminLink.classList.add('hidden'); // Hide admin link if not admin
+                }
+
+                // Mobile menu updates
+                if (mobileLoginLink) mobileLoginLink.classList.add('hidden');
+                if (mobileMyProfileLink) mobileMyProfileLink.classList.remove('hidden'); // Show mobile "My Profile" link
+                if (mobileLogoutButton) mobileLogoutButton.classList.remove('hidden'); // Show mobile logout button
+
+                // Handle mobile profile picture/initials
+                const mobileDropdownUserName = document.getElementById('mobileDropdownUserName');
+                const mobileDropdownUserEmail = document.getElementById('mobileDropdownUserEmail');
+                if (mobileDropdownUserName) mobileDropdownUserName.textContent = userFullName;
+                if (mobileDropdownUserEmail) mobileDropdownUserEmail.textContent = userEmail;
+
+                if (photoURL) {
+                    if (mobileUserProfilePic) {
+                        mobileUserProfilePic.src = photoURL;
+                        mobileUserProfilePic.classList.remove('hidden');
+                    }
+                    if (mobileUserInitials) mobileUserInitials.classList.add('hidden');
+                } else {
+                    if (mobileUserInitials) {
+                        mobileUserInitials.textContent = getInitials(user.displayName, user.email);
+                        mobileUserInitials.classList.remove('hidden');
+                    }
+                    if (mobileUserProfilePic) mobileUserProfilePic.classList.add('hidden');
+                }
+
+                if (role === 'admin') {
+                    if (mobileAdminLink) mobileAdminLink.classList.remove('hidden');
+                } else {
+                    if (mobileAdminLink) mobileAdminLink.classList.add('hidden');
+                }
+
+                // Mobile Bottom Navigation "Account" button
+                if (mobileAccountButton) {
+                    if (photoURL) {
+                        if (mobileBottomProfilePic) {
+                            mobileBottomProfilePic.src = photoURL;
+                            mobileBottomProfilePic.classList.remove('hidden');
+                        }
+                        if (mobileBottomUserInitials) mobileBottomUserInitials.classList.add('hidden');
+                    } else {
+                        if (mobileBottomUserInitials) {
+                            mobileBottomUserInitials.textContent = getInitials(user.displayName, user.email);
+                            mobileBottomUserInitials.classList.remove('hidden');
+                        }
+                        if (mobileBottomProfilePic) mobileBottomProfilePic.classList.add('hidden');
+                    }
+                    if (mobileBottomUserName) mobileBottomUserName.textContent = firstName;
+                    mobileAccountButton.href = "#"; // Change to a profile page if one exists
+                }
+
+            } else {
+                // User is not logged in
+                if (loginLink) loginLink.classList.remove('hidden'); // Show desktop login link
+                if (userProfileButton) userProfileButton.classList.add('hidden'); // Hide desktop user profile button
+                if (userDropdownMenu) userDropdownMenu.classList.add('hidden'); // Ensure desktop dropdown is hidden
+
+                if (mobileLoginLink) mobileLoginLink.classList.remove('hidden'); // Show mobile login link
+                if (mobileMyProfileLink) mobileMyProfileLink.classList.add('hidden'); // Hide mobile "My Profile" link
+                if (mobileLogoutButton) mobileLogoutButton.classList.add('hidden'); // Hide mobile logout button
+
+                // Admin link should always be visible to lead to admin login
+                if (adminLink) adminLink.classList.remove('hidden');
+                if (mobileAdminLink) mobileAdminLink.classList.remove('hidden');
+
+                // Mobile Bottom Navigation "Account" button
+                if (mobileAccountButton) {
+                    if (mobileBottomProfilePic) mobileBottomProfilePic.classList.add('hidden');
+                    if (mobileBottomUserInitials) mobileBottomUserInitials.classList.add('hidden');
+                    if (mobileBottomUserName) mobileBottomUserName.textContent = "Account";
+                    mobileAccountButton.href = "login.html"; // Link to login page
+                }
+            }
+
+            // --- Mobile Menu Toggle Logic ---
+            if (mobileMenuButton && mobileMenu && closeMobileMenuButton) {
+                // Open mobile menu
+                mobileMenuButton.addEventListener('click', () => {
+                    toggleMobileMenu();
+                });
+
+                // Close mobile menu when clicking the close button inside it
+                closeMobileMenuButton.addEventListener('click', () => {
+                    toggleMobileMenu();
+                });
+
+                // Close mobile menu when clicking on the overlay part of the mobile menu
+                mobileMenu.addEventListener('click', (e) => {
+                    if (e.target === mobileMenu) { // Only close if the overlay itself is clicked
+                        toggleMobileMenu();
+                    }
+                });
+            } else {
+                console.warn("Mobile menu elements not found. Mobile menu toggle may not function.");
+            }
+        });
+    </script>
+</body>
+</html>
