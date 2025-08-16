@@ -1,5 +1,5 @@
 // netlify/functions/mpesa.js
-// This version includes enhanced logging to help debug environment variable issues.
+// This version includes enhanced logging and is configured for the SANDBOX environment.
 
 const axios = require("axios");
 const admin = require("firebase-admin");
