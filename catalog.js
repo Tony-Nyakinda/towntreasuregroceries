@@ -2,7 +2,7 @@
 // This script handles dynamic content for the catalog page,
 // including product display, category filtering, search, sorting, and pagination.
 // It now fetches product data from Firebase via productsData.js.
-// UPDATED to handle M-Pesa payment initiation by calling a Firebase Cloud Function.
+// UPDATED to handle M-Pesa payment initiation by calling a Netlify Function.
 
 import { getProducts } from './productsData.js'; // Correctly import getProducts function
 import { showToast, toggleCart, checkout, closeCheckout, showConfirmation, closeConfirmation, updateCartUI } from './uiUpdater.js'; // Import UI functions
@@ -251,8 +251,7 @@ function updatePaginationControls(totalPages) {
     // Page numbers with ellipsis
     const maxVisiblePages = 5; // Number of page buttons to show (excluding prev/next/ellipses)
     const boundaryPages = 1; // Number of pages to show at the start/end
-    // const ellipsisThreshold = 2; // How many pages away from start/end before showing ellipsis (not used directly in this logic)
-
+    
     let pages = [];
 
     if (totalPages <= maxVisiblePages + 2 * boundaryPages) {
@@ -327,13 +326,12 @@ function selectCategory(category) {
     currentPage = 1; // Reset to first page on category change
     filterAndRenderProducts();
     // Update active tab styling
-    // CORRECTED: Query for '.category-tab' divs instead of 'button'
     categoryTabsContainer.querySelectorAll('.category-tab').forEach(tab => {
         if (tab.dataset.category === category) {
-            tab.classList.add('bg-green-600', 'text-white', 'active'); // Add 'active' class as per CSS
+            tab.classList.add('bg-green-600', 'text-white', 'active');
             tab.classList.remove('bg-gray-200', 'text-gray-700');
         } else {
-            tab.classList.remove('bg-green-600', 'text-white', 'active'); // Remove 'active' class
+            tab.classList.remove('bg-green-600', 'text-white', 'active');
             tab.classList.add('bg-gray-200', 'text-gray-700');
         }
     });
@@ -362,7 +360,6 @@ async function handleCategoryAndPageFromUrl() {
     const categoryFromUrl = urlParams.get('category');
     const pageFromUrl = parseInt(urlParams.get('page')) || 1;
 
-    // Only attempt to fetch and process products if productGrid exists
     if (productGrid) {
         if (allProductsFlat.length === 0) {
             try {
@@ -378,37 +375,23 @@ async function handleCategoryAndPageFromUrl() {
         currentCategory = categoryFromUrl && availableCategories.has(categoryFromUrl) ? categoryFromUrl : 'all';
         currentPage = pageFromUrl;
 
-        // Call selectCategory to ensure the correct tab is highlighted on initial load
         if (categoryTabsContainer) {
             selectCategory(currentCategory);
         }
-        await filterAndRenderProducts(); // Re-render with potentially updated page
+        await filterAndRenderProducts();
     }
 }
 
 
 /**
  * Generates and downloads a PDF receipt based on provided order data.
- * This function uses html2pdf.js to convert dynamically created HTML into a PDF.
- * It's exposed globally because it's called from an inline `onclick` attribute in `catalog.html`.
  * @param {Object} orderData - An object containing order details.
- * @param {string} orderData.orderNumber - The unique order number.
- * @param {string} orderData.fullName - Customer's full name.
- * @param {string} orderData.phone - Customer's phone number.
- * @param {string} orderData.address - Customer's delivery address.
- * @param {string} [orderData.instructions] - Optional delivery instructions.
- * @param {Array<Object>} orderData.items - Array of cart items {name, unit, price, quantity}.
- * @param {number} orderData.subtotal - The subtotal of items.
- * @param {number} orderData.deliveryFee - The delivery fee.
- * @param {number} orderData.total - The grand total.
  */
 window.generateReceipt = function(orderData) {
-    // Create a hidden HTML element to represent the receipt content
     const receiptContent = document.createElement('div');
     receiptContent.style.padding = '15px';
     receiptContent.style.fontFamily = '"Roboto Mono", monospace, sans-serif';
     receiptContent.style.fontSize = '9px';
-    // Adjusted width and height for A4 portrait orientation (210mm x 297mm)
     receiptContent.style.width = '210mm';
     receiptContent.style.height = '297mm';
     receiptContent.style.boxSizing = 'border-box';
@@ -420,7 +403,6 @@ window.generateReceipt = function(orderData) {
             <h2 style="color: #006d12ff; font-size: 17px; margin-bottom: 3px; font-weight: bold;">Town Treasure Groceries</h2>
             <p style="font-size: 10px; color: #555;">Fresh Market Delivery</p>
         </div>
-
         <div style="margin-bottom: 15px; border-bottom: 1px dashed #ccc; padding-bottom: 10px;">
             <p style="margin: 3px 0;"><strong>Order Number:</strong> <span style="color: #278a00ff;">${orderData.orderNumber}</span></p>
             <p style="margin: 3px 0;"><strong>Date:</strong> ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
@@ -429,7 +411,6 @@ window.generateReceipt = function(orderData) {
             <p style="margin: 3px 0;"><strong>Delivery Address:</strong> ${orderData.address}</p>
             ${orderData.instructions ? `<p style="margin: 3px 0;"><strong>Instructions:</strong> ${orderData.instructions}</p>` : ''}
         </div>
-        
         <h3 style="color: #4a6851ff; font-size: 13px; margin-bottom: 10px;">Order Details:</h3>
         <table style="width: 92%; border-collapse: collapse; margin-bottom: 15px; table-layout: fixed;">
             <thead>
@@ -467,7 +448,6 @@ window.generateReceipt = function(orderData) {
                 </tr>
             </tfoot>
         </table>
-
         <div style="text-align: center; margin-top: 20px; color: #666; font-size: 8px;">
             <p style="margin-bottom: 3px;">Thank you for your purchase from Town Treasure Groceries!</p>
             <p style="margin-bottom: 3px;">We appreciate your business and look forward to serving you again.</p>
@@ -476,16 +456,14 @@ window.generateReceipt = function(orderData) {
         </div>
     `;
 
-    // Configure html2pdf options
     const options = {
         margin: 10,
         filename: `receipt_${orderData.orderNumber}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 1 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } // Already set to portrait
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    // Generate and download the PDF
     html2pdf().set(options).from(receiptContent).save();
 };
 
@@ -493,40 +471,35 @@ window.generateReceipt = function(orderData) {
 
 // --- Event Listeners ---
 
-// Event listeners for category tabs
 if (categoryTabsContainer) {
     categoryTabsContainer.addEventListener('click', (event) => {
         const targetTab = event.target.closest('.category-tab');
         if (targetTab) {
             const category = targetTab.dataset.category;
-            currentCategory = category; // Update current category state
-            currentPage = 1; // Reset to first page when category changes
-            updateUrlParams({ category: currentCategory, page: currentPage }); // Corrected
-            selectCategory(currentCategory); // This will also call filterAndRenderProducts and activateTab
+            currentCategory = category;
+            currentPage = 1;
+            updateUrlParams({ category: currentCategory, page: currentPage });
+            selectCategory(currentCategory);
         }
     });
 }
 
-// Event listener for search input (if present)
 if (searchInput) {
     searchInput.addEventListener('input', () => {
-        currentPage = 1; // Reset to first page on search
-        filterAndRenderProducts(); // Call without args, it uses global state
-        updateUrlParams({ search: searchInput.value, page: currentPage, category: currentCategory, sort: sortSelect?.value || '' }); // Corrected and complete
+        currentPage = 1;
+        filterAndRenderProducts();
+        updateUrlParams({ search: searchInput.value, page: currentPage, category: currentCategory, sort: sortSelect?.value || '' });
     });
 }
 
-// Event listener for sort select (if present)
 if (sortSelect) {
     sortSelect.addEventListener('change', () => {
-        currentPage = 1; // Reset to first page on sort change
-        filterAndRenderProducts(); // Call without args, it uses global state
-        updateUrlParams({ sort: sortSelect.value, page: currentPage, category: currentCategory, search: searchInput?.value || '' }); // Corrected and complete
+        currentPage = 1;
+        filterAndRenderProducts();
+        updateUrlParams({ sort: sortSelect.value, page: currentPage, category: currentCategory, search: searchInput?.value || '' });
     });
 }
 
-// Listener for the "Proceed to Checkout" button
-const proceedToCheckoutBtn = document.getElementById('proceedToCheckoutBtn');
 if (proceedToCheckoutBtn) {
     proceedToCheckoutBtn.addEventListener('click', () => {
         if (!auth.currentUser) {
@@ -607,12 +580,13 @@ if (checkoutForm) {
             const orderDocRef = await ordersCollectionRef.add(orderDetails);
             console.log("Order saved to Firestore with ID:", orderDocRef.id);
 
-            // 2. If payment method is M-Pesa, call the Cloud Function
+            // 2. If payment method is M-Pesa, call the Netlify Function
             if (selectedPaymentMethod === 'mpesa') {
                 showToast("Please check your phone to complete the M-Pesa payment.");
                 
-                // IMPORTANT: Replace this URL with your actual Cloud Function URL after deployment
-                const functionUrl = "https://YOUR_REGION-YOUR_PROJECT_ID.cloudfunctions.net/api/initiateMpesaPayment";
+                // *** IMPORTANT: REPLACE THIS WITH YOUR LIVE NETLIFY SITE NAME ***
+                const netlifySiteName = "https://towntreasuregroceries.netlify.app"; // Replace with your actual site name on Netlify
+                const functionUrl = `https://${netlifySiteName}.netlify.app/.netlify/functions/mpesa/initiateMpesaPayment`;
 
                 const mpesaResponse = await fetch(functionUrl, {
                     method: 'POST',
@@ -630,18 +604,15 @@ if (checkoutForm) {
                     throw new Error(mpesaResult.error || 'M-Pesa API request failed.');
                 }
                 
-                // Save the CheckoutRequestID to the order for reconciliation
                 await orderDocRef.update({ mpesaCheckoutRequestId: mpesaResult.CheckoutRequestID });
                 
-                // The user will complete payment on their phone. The callback will handle the rest.
-                // We can now close the checkout modal and show a confirmation message.
                 closeCheckout();
-                showConfirmation(orderNum); // Show confirmation that the order is received
+                showConfirmation(orderNum);
                 clearCart();
                 updateCartUI();
 
             } else {
-                // For other payment methods (Card, Bank), just show confirmation for now
+                // For other payment methods, just show confirmation
                 closeCheckout();
                 showConfirmation(orderNum);
                 clearCart();
@@ -662,7 +633,6 @@ if (checkoutForm) {
 // ========================================================================
 
 
-// Listener for the "Download Receipt" button in the confirmation modal
 if (downloadReceiptBtn) {
     downloadReceiptBtn.addEventListener('click', function() {
         const orderDetailsString = this.dataset.orderDetails;
@@ -676,7 +646,6 @@ if (downloadReceiptBtn) {
     });
 }
 
-// Handle payment method display in checkout modal
 if (paymentMethodRadios) {
     paymentMethodRadios.forEach(radio => {
         radio.addEventListener('change', (event) => {
@@ -695,7 +664,6 @@ if (paymentMethodRadios) {
     });
 }
 
-// --- Event Delegation for Pagination Buttons ---
 if (paginationContainer) {
     paginationContainer.addEventListener('click', (event) => {
         const targetButton = event.target.closest('.pagination-btn');
@@ -711,15 +679,12 @@ if (paginationContainer) {
                 currentPage = page;
             }
 
-            filterAndRenderProducts(); // Re-render products for the new page
+            filterAndRenderProducts();
             updateUrlParams({ page: currentPage, category: currentCategory, search: searchInput?.value || '', sort: sortSelect?.value || '' });
         }
     });
 }
 
-// --- User Authentication and Profile Logic (Moved from inline script in catalog.html) ---
-
-// Function to get initials from name or email
 function getInitials(name, email) {
     if (name && name.trim() !== '') {
         const parts = name.trim().split(' ');
@@ -734,7 +699,6 @@ function getInitials(name, email) {
     return '?';
 }
 
-// Function to get first name from display name or email
 function getFirstName(displayName, email) {
     if (displayName && displayName.trim() !== '') {
         return displayName.trim().split(' ')[0];
@@ -745,9 +709,6 @@ function getFirstName(displayName, email) {
     return 'User';
 }
 
-/**
- * Toggles the visibility of the desktop user profile dropdown.
- */
 function toggleUserDropdown() {
     if (userDropdownMenu) {
         userDropdownMenu.classList.toggle('hidden');
@@ -755,42 +716,33 @@ function toggleUserDropdown() {
     }
 }
 
-/**
- * Toggles the visibility of the mobile menu sidebar.
- */
 function toggleMobileMenu() {
-    if (!mobileMenu) return; // Ensure mobileMenu exists
+    if (!mobileMenu) return;
 
     const isActive = mobileMenu.classList.contains('is-active');
     if (isActive) {
         mobileMenu.classList.remove('is-active');
-        document.body.classList.remove('overflow-hidden'); // Re-enable scroll
+        document.body.classList.remove('overflow-hidden');
     } else {
         mobileMenu.classList.add('is-active');
-        document.body.classList.add('overflow-hidden'); // Disable scroll
+        document.body.classList.add('overflow-hidden');
     }
 }
 
-
-// Initial setup when the DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
-    // Initial load of products based on URL or default category/page
     await handleCategoryAndPageFromUrl();
-    updateCartUI(); // Initial update of cart UI on page load
+    updateCartUI();
 
-    // Initialize cart sidebar state as per your suggestion
     const cartSidebar = document.getElementById('cartSidebar');
     if (cartSidebar) {
         cartSidebar.classList.add('translate-x-full');
     }
 
-    // --- User Authentication and Profile Logic ---
     const { user, role } = await getCurrentUserWithRole();
 
     if (user) {
-        // User is logged in
-        if (loginLink) loginLink.classList.add('hidden'); // Hide desktop login link
-        if (userProfileButton) userProfileButton.classList.remove('hidden'); // Show desktop user profile button
+        if (loginLink) loginLink.classList.add('hidden');
+        if (userProfileButton) userProfileButton.classList.remove('hidden');
 
         const firstName = getFirstName(user.displayName, user.email);
         const userFullName = user.displayName || user.email;
@@ -815,15 +767,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (userProfilePic) userProfilePic.classList.add('hidden');
         }
 
-        // Toggle desktop dropdown on click
         if (userProfileButton) {
             userProfileButton.addEventListener('click', (e) => {
-                e.stopPropagation(); // Prevent click from closing immediately
+                e.stopPropagation();
                 toggleUserDropdown();
             });
         }
 
-        // Close desktop dropdown if clicked outside
         document.addEventListener('click', (e) => {
             if (userProfileDropdownContainer && !userProfileDropdownContainer.contains(e.target)) {
                 if (userDropdownMenu && userDropdownMenu.classList.contains('active')) {
@@ -832,7 +782,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        // Logout button in desktop dropdown
         if (logoutDropdownButton) {
             logoutDropdownButton.addEventListener('click', async (e) => {
                 e.preventDefault();
@@ -842,17 +791,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (role === 'admin') {
-            if (adminLink) adminLink.classList.remove('hidden'); // Show admin link in desktop dropdown
+            if (adminLink) adminLink.classList.remove('hidden');
         } else {
-            if (adminLink) adminLink.classList.add('hidden'); // Hide admin link if not admin
+            if (adminLink) adminLink.classList.add('hidden');
         }
 
-        // Mobile menu updates
         if (mobileLoginLink) mobileLoginLink.classList.add('hidden');
-        if (mobileMyProfileLink) mobileMyProfileLink.classList.remove('hidden'); // Show mobile "My Profile" link
-        if (mobileLogoutButton) mobileLogoutButton.classList.remove('hidden'); // Show mobile logout button
+        if (mobileMyProfileLink) mobileMyProfileLink.classList.remove('hidden');
+        if (mobileLogoutButton) mobileLogoutButton.classList.remove('hidden');
 
-        // Handle mobile profile picture/initials
         const mobileDropdownUserName = document.getElementById('mobileDropdownUserName');
         const mobileDropdownUserEmail = document.getElementById('mobileDropdownUserEmail');
         if (mobileDropdownUserName) mobileDropdownUserName.textContent = userFullName;
@@ -872,7 +819,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (mobileUserProfilePic) mobileUserProfilePic.classList.add('hidden');
         }
 
-        // Mobile logout button
         if (mobileLogoutButton) {
             mobileLogoutButton.addEventListener('click', async (e) => {
                 e.preventDefault();
@@ -888,35 +834,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
     } else {
-        // User is not logged in
-        if (loginLink) loginLink.classList.remove('hidden'); // Show desktop login link
-        if (userProfileButton) userProfileButton.classList.add('hidden'); // Hide desktop user profile button
-        if (userDropdownMenu) userDropdownMenu.classList.add('hidden'); // Ensure desktop dropdown is hidden
-
-        if (mobileLoginLink) mobileLoginLink.classList.remove('hidden'); // Show mobile login link
-        if (mobileMyProfileLink) mobileMyProfileLink.classList.add('hidden'); // Hide mobile "My Profile" link
-        if (mobileLogoutButton) mobileLogoutButton.classList.add('hidden'); // Hide mobile logout button
-
-        // Admin link should always be visible to lead to admin login
+        if (loginLink) loginLink.classList.remove('hidden');
+        if (userProfileButton) userProfileButton.classList.add('hidden');
+        if (userDropdownMenu) userDropdownMenu.classList.add('hidden');
+        if (mobileLoginLink) mobileLoginLink.classList.remove('hidden');
+        if (mobileMyProfileLink) mobileMyProfileLink.classList.add('hidden');
+        if (mobileLogoutButton) mobileLogoutButton.classList.add('hidden');
         if (adminLink) adminLink.classList.remove('hidden');
         if (mobileAdminLink) mobileAdminLink.classList.remove('hidden');
     }
 
-    // --- Mobile Menu Toggle Logic ---
     if (mobileMenuButton && mobileMenu && closeMobileMenuButton) {
-        // Open mobile menu
         mobileMenuButton.addEventListener('click', () => {
             toggleMobileMenu();
         });
-
-        // Close mobile menu when clicking the close button inside it
         closeMobileMenuButton.addEventListener('click', () => {
             toggleMobileMenu();
         });
-
-        // Close mobile menu when clicking on the overlay part of the mobile menu
         mobileMenu.addEventListener('click', (e) => {
-            if (e.target === mobileMenu) { // Only close if the overlay itself is clicked
+            if (e.target === mobileMenu) {
                 toggleMobileMenu();
             }
         });
@@ -925,12 +861,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// Listen for browser history changes (e.g., back/forward buttons)
 window.addEventListener('popstate', () => {
     handleCategoryAndPageFromUrl();
 });
 
-// Expose global functions needed by HTML inline event handlers
 window.toggleCart = toggleCart;
 window.checkout = checkout;
 window.closeCheckout = closeCheckout;
@@ -939,4 +873,4 @@ window.closeConfirmation = closeConfirmation;
 window.updateCartItemQuantity = updateCartItemQuantity;
 window.removeFromCart = removeFromCart;
 window.addToCart = addToCart;
-window.clearCart = clearCart; // Ensure clearCart is exposed
+window.clearCart = clearCart;
