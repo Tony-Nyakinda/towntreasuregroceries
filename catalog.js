@@ -584,9 +584,8 @@ if (checkoutForm) {
             if (selectedPaymentMethod === 'mpesa') {
                 showToast("Please check your phone to complete the M-Pesa payment.");
                 
-                // *** IMPORTANT: REPLACE THIS WITH YOUR LIVE NETLIFY SITE NAME ***
-                const netlifySiteName = "https://towntreasuregroceries.netlify.app"; // Replace with your actual site name on Netlify
-                const functionUrl = `https://${netlifySiteName}.netlify.app/.netlify/functions/mpesa/initiateMpesaPayment`;
+                // *** This is the corrected URL for your Netlify function ***
+                const functionUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/initiateMpesaPayment";
 
                 const mpesaResponse = await fetch(functionUrl, {
                     method: 'POST',
