@@ -23,6 +23,7 @@ const checkoutModal = document.getElementById('checkoutModal');
 const confirmationModal = document.getElementById('confirmationModal');
 const orderNumberSpan = document.getElementById('orderNumber');
 const toastElement = document.getElementById('toast');
+const waitingModal = document.getElementById('waitingModal'); // AMENDMENT: New waiting modal element
 
 // Checkout form elements (references remain for UI manipulation, but submission logic is moved)
 const paymentMethodRadios = document.querySelectorAll('input[name="paymentMethod"]');
@@ -32,7 +33,7 @@ const bankPaymentDiv = document.getElementById('bankPayment');
 const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
 
 
-const DELIVERY_FEE = 200; // Define your delivery fee
+const DELIVERY_FEE = 0; // AMENDMENT: Delivery fee set to 0 as requested.
 
 /**
  * Updates the displayed cart count in the navigation and FAB.
@@ -274,6 +275,33 @@ function closeConfirmation() {
     document.body.classList.remove('overflow-hidden'); // Enable body scroll
 }
 
+/**
+ * AMENDMENT: Shows the waiting for payment modal.
+ */
+function showWaitingModal() {
+    if (!waitingModal || !overlay) {
+        console.error("Waiting modal or overlay element not found.");
+        return;
+    }
+    waitingModal.classList.remove('hidden');
+    overlay.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+/**
+ * AMENDMENT: Hides the waiting for payment modal.
+ */
+function hideWaitingModal() {
+    if (!waitingModal || !overlay) {
+        console.error("Waiting modal or overlay element not found.");
+        return;
+    }
+    waitingModal.classList.add('hidden');
+    overlay.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+}
+
+
 // Handle payment method display in checkout modal
 if (paymentMethodRadios && mpesaPaymentDiv && cardPaymentDiv && bankPaymentDiv) {
     paymentMethodRadios.forEach(radio => {
@@ -320,7 +348,7 @@ if (downloadReceiptBtn) {
 
 
 // Export functions for modular use
-export { updateCartUI, showToast, toggleCart, checkout, closeCheckout, showConfirmation, closeConfirmation };
+export { updateCartUI, showToast, toggleCart, checkout, closeCheckout, showConfirmation, closeConfirmation, showWaitingModal, hideWaitingModal };
 
 // Event delegation for cart item actions
 // This ensures that event listeners work for items added dynamically to the cart.
