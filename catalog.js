@@ -470,13 +470,11 @@ window.generateReceipt = function(orderData) {
 /**
  * AMENDMENT: Listens for payment confirmation from Firestore.
  * @param {string} orderId - The Firestore document ID of the order.
- * @param {string} orderNum - The human-readable order number for display.
  */
-function waitForPaymentConfirmation(orderId, orderNum) {
+function waitForPaymentConfirmation(orderId) {
     const ordersCollectionRef = db.collection(`artifacts/${appId}/public/data/orders`);
     const orderDocRef = ordersCollectionRef.doc(orderId);
 
-    // Set a timeout for the listener
     const TIMEOUT_DURATION = 60000; // 60 seconds
     let timeoutExceeded = false;
 
@@ -484,28 +482,26 @@ function waitForPaymentConfirmation(orderId, orderNum) {
         timeoutExceeded = true;
         unsubscribe(); // Detach the listener
         showToast("Payment timed out. Please try again.");
-        // Optionally, update the order status to 'timed_out' in Firestore
     }, TIMEOUT_DURATION);
 
     const unsubscribe = orderDocRef.onSnapshot(doc => {
-        if (timeoutExceeded) return; // Stop processing if timeout already occurred
+        if (timeoutExceeded) return;
 
         const orderData = doc.data();
         if (orderData && orderData.paymentStatus) {
             if (orderData.paymentStatus === 'paid') {
-                clearTimeout(timeoutId); // Clear the timeout
-                unsubscribe(); // Detach the listener
-                showConfirmation(orderNum); // Show success modal
-                clearCart(); // Clear the cart
+                clearTimeout(timeoutId);
+                unsubscribe();
+                // AMENDMENT: Pass the final order data to the confirmation screen
+                showConfirmation(orderData.orderNumber, orderData); 
+                clearCart();
                 updateCartUI();
             } else if (orderData.paymentStatus === 'failed') {
-                clearTimeout(timeoutId); // Clear the timeout
-                unsubscribe(); // Detach the listener
-                // Use the failure reason from Firestore if available
+                clearTimeout(timeoutId);
+                unsubscribe();
                 const reason = orderData.mpesaResultDesc || "Payment was not completed.";
                 showToast(`Order failed: ${reason}`);
             }
-            // If status is still 'pending', the listener remains active
         }
     }, err => {
         console.error("Error listening for order updates:", err);
@@ -584,8 +580,8 @@ if (checkoutForm) {
         const customerEmail = auth.currentUser.email;
         const selectedPaymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
 
-        const orderNum = `TTG-${Date.now().toString().slice(-6)}`;
-        if (orderNumberSpan) orderNumberSpan.textContent = orderNum;
+        // AMENDMENT: The initial order number is temporary. It will be updated with the M-Pesa code.
+        const tempOrderNum = `TTG-${Date.now().toString().slice(-6)}`;
 
         const currentCart = getCart();
         let subtotal = 0;
@@ -598,14 +594,14 @@ if (checkoutForm) {
             subtotal += (productDetails ? productDetails.price : item.price) * item.quantity;
         });
 
-        const DELIVERY_FEE = 0;
+        const DELIVERY_FEE = 200;
         const total = subtotal + DELIVERY_FEE;
 
         const userId = auth.currentUser.uid;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         const orderDetails = {
-            orderNumber: orderNum,
+            orderNumber: tempOrderNum, // Using the temporary order number
             userId: userId,
             fullName: customerName,
             phone: customerPhone,
@@ -617,7 +613,7 @@ if (checkoutForm) {
             deliveryFee: DELIVERY_FEE,
             total: total,
             paymentMethod: selectedPaymentMethod,
-            paymentStatus: 'pending', // AMENDMENT: Initial status is always 'pending'
+            paymentStatus: 'pending', 
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         };
 
@@ -630,7 +626,6 @@ if (checkoutForm) {
             // 2. If payment method is M-Pesa, call the Netlify Function
             if (selectedPaymentMethod === 'mpesa') {
                 
-                // *** This is the URL for your live Netlify function ***
                 const functionUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/initiateMpesaPayment";
 
                 const mpesaResponse = await fetch(functionUrl, {
@@ -639,7 +634,7 @@ if (checkoutForm) {
                     body: JSON.stringify({
                         phone: customerPhone,
                         amount: total,
-                        orderId: orderDocRef.id // Send the Firestore document ID as the reference
+                        orderId: orderDocRef.id
                     }),
                 });
 
@@ -649,19 +644,17 @@ if (checkoutForm) {
                     throw new Error(mpesaResult.error || 'M-Pesa API request failed.');
                 }
                 
-                // Link the M-Pesa request to our order document
                 await orderDocRef.update({ mpesaCheckoutRequestID: mpesaResult.CheckoutRequestID });
                 
-                // AMENDMENT: Close checkout and wait for payment instead of showing confirmation
                 closeCheckout();
                 showToast("Please check your phone to complete the M-Pesa payment.");
-                waitForPaymentConfirmation(orderDocRef.id, orderNum);
+                waitForPaymentConfirmation(orderDocRef.id);
 
             } else {
                 // For other payment methods, update status to paid and show confirmation
                 await orderDocRef.update({ paymentStatus: 'paid' });
                 closeCheckout();
-                showConfirmation(orderNum);
+                showConfirmation(tempOrderNum, orderDetails);
                 clearCart();
                 updateCartUI();
             }
