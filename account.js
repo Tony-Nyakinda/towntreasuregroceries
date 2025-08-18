@@ -1,7 +1,9 @@
 // account.js
 // This script handles the logic for the "My Account" page.
 
+// AMENDMENT: Import Supabase client instead of Firebase db
 import { db, auth } from './firebase-config.js';
+import { supabase } from './supabase-config.js';
 import { getCurrentUserWithRole, logout } from './auth.js';
 import { showToast, showWaitingModal, hideWaitingModal } from './uiUpdater.js';
 
@@ -53,25 +55,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // --- Fetch and Display Unpaid Orders ---
+    // --- Fetch and Display Unpaid Orders from SUPABASE ---
     async function fetchUnpaidOrders() {
         if (!unpaidOrdersGrid) return;
 
-        // Corrected the Firestore collection path
-        const unpaidOrdersQuery = db.collection(`artifacts/default-app-id/public/data/unpaid_orders`)
-                                      .where('userId', '==', user.uid)
-                                      .where('paymentStatus', '==', 'unpaid');
-        
         try {
-            const snapshot = await unpaidOrdersQuery.get();
-            if (snapshot.empty) {
+            // AMENDMENT: Fetch from Supabase 'unpaid_orders' table
+            const { data, error } = await supabase
+                .from('unpaid_orders')
+                .select('*')
+                .eq('userId', user.uid)
+                .eq('paymentStatus', 'unpaid');
+
+            if (error) {
+                console.error("Error fetching unpaid orders from Supabase:", error);
+                unpaidOrdersGrid.innerHTML = '<p class="text-center text-red-500">Could not load your orders. Please try again later.</p>';
+                return;
+            }
+
+            if (!data || data.length === 0) {
                 unpaidOrdersGrid.innerHTML = '<p class="text-center text-gray-500">You have no pending orders to pay.</p>';
                 return;
             }
 
             unpaidOrdersGrid.innerHTML = ''; // Clear loader
-            snapshot.forEach(doc => {
-                const order = { id: doc.id, ...doc.data() };
+            data.forEach(order => {
                 const orderCard = createOrderCard(order);
                 unpaidOrdersGrid.appendChild(orderCard);
             });
@@ -87,7 +95,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const card = document.createElement('div');
         card.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col md:flex-row justify-between items-start md:items-center';
         
-        const orderDate = order.timestamp ? new Date(order.timestamp.seconds * 1000).toLocaleDateString() : 'N/A';
+        // AMENDMENT: Handle Supabase timestamp which is a string
+        const orderDate = order.timestamp ? new Date(order.timestamp).toLocaleDateString() : 'N/A';
 
         card.innerHTML = `
             <div>
@@ -95,7 +104,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <p class="text-sm text-gray-500">Date: ${orderDate}</p>
                 <p class="font-semibold mt-2">Total: KSh ${order.total.toLocaleString()}</p>
             </div>
-            <button class="pay-now-btn mt-4 md:mt-0 bg-green-500 text-white py-2 px-6 rounded-md hover:bg-green-600 transition duration-300" data-order-id="${order.id}">
+            <button class="pay-now-btn mt-4 md:mt-0 bg-green-500 text-white py-2 px-6 rounded-md hover:bg-green-600 transition duration-300" data-order-id="${order.orderNumber}">
                 Pay Now
             </button>
         `;
@@ -106,17 +115,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     unpaidOrdersGrid.addEventListener('click', async (event) => {
         if (event.target.classList.contains('pay-now-btn')) {
             const button = event.target;
-            const orderId = button.dataset.orderId;
+            const orderNumber = button.dataset.orderId;
             
             button.disabled = true;
             button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
 
             try {
-                const orderDoc = await db.collection(`artifacts/default-app-id/public/data/unpaid_orders`).doc(orderId).get();
-                if (!orderDoc.exists) {
-                    throw new Error("Order not found.");
+                // AMENDMENT: Fetch order details from Supabase using orderNumber
+                const { data: orderDetails, error } = await supabase
+                    .from('unpaid_orders')
+                    .select('*')
+                    .eq('orderNumber', orderNumber)
+                    .single();
+                
+                if (error || !orderDetails) {
+                    throw new Error("Order not found or an error occurred.");
                 }
-                const orderDetails = orderDoc.data();
 
                 // Initiate M-Pesa payment
                 const functionUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/initiateMpesaPayment";
@@ -138,7 +152,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
                 // Wait for payment confirmation
                 showWaitingModal();
-                waitForPaymentConfirmation(mpesaResult.checkoutRequestID, orderId);
+                // AMENDMENT: Call the polling function for status check
+                waitForPaymentConfirmation(mpesaResult.checkoutRequestID, orderNumber);
 
             } catch (error) {
                 console.error("Error initiating payment for order:", error);
@@ -149,62 +164,76 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // --- Reverted: Listen for Payment Confirmation using Firestore onSnapshot ---
-    function waitForPaymentConfirmation(checkoutRequestID, unpaidOrderId) {
-        const statusDocRef = db.collection('payment_status').doc(checkoutRequestID);
-
+    // --- REPLACED: Listen for Payment Confirmation using Polling ---
+    function waitForPaymentConfirmation(checkoutRequestID, unpaidOrderNumber) {
         const TIMEOUT_DURATION = 90000; // 90 seconds
+        const POLL_INTERVAL = 3000; // Poll every 3 seconds
+
         let timeoutExceeded = false;
+        let pollIntervalId;
 
         const timeoutId = setTimeout(() => {
             timeoutExceeded = true;
-            unsubscribe();
+            clearInterval(pollIntervalId);
             hideWaitingModal();
             showToast("Payment timed out. Please try again.");
             // Re-enable the button
-            const button = unpaidOrdersGrid.querySelector(`[data-order-id="${unpaidOrderId}"]`);
+            const button = unpaidOrdersGrid.querySelector(`[data-order-id="${unpaidOrderNumber}"]`);
             if (button) {
                 button.disabled = false;
                 button.innerHTML = 'Pay Now';
             }
         }, TIMEOUT_DURATION);
 
-        const unsubscribe = statusDocRef.onSnapshot(doc => {
+        pollIntervalId = setInterval(async () => {
             if (timeoutExceeded) return;
 
-            const statusData = doc.data();
-            if (statusData) {
-                if (statusData.status === 'paid') {
-                    clearTimeout(timeoutId);
-                    unsubscribe();
-                    hideWaitingModal();
-                    showToast("Payment successful! Your order is confirmed.");
-                    // Refresh the list of unpaid orders
-                    fetchUnpaidOrders();
-                } else if (statusData.status === 'failed' || (statusData.reason && statusData.reason.toLowerCase().includes("cancelled"))) {
-                    clearTimeout(timeoutId);
-                    unsubscribe();
-                    hideWaitingModal();
-                    const reason = statusData.reason || "Payment was not completed.";
-                    showToast(`Payment failed: ${reason}`);
-                    // Re-enable the button
-                    const button = unpaidOrdersGrid.querySelector(`[data-order-id="${unpaidOrderId}"]`);
-                    if (button) {
-                        button.disabled = false;
-                        button.innerHTML = 'Pay Now';
+            try {
+                // AMENDMENT: Fetch status from the Firebase public status document
+                const statusDocRef = db.collection('payment_status').doc(checkoutRequestID);
+                const doc = await statusDocRef.get();
+                const statusData = doc.data();
+
+                if (statusData) {
+                    if (statusData.status === 'paid') {
+                        clearInterval(pollIntervalId);
+                        clearTimeout(timeoutId);
+                        hideWaitingModal();
+                        showToast("Payment successful! Your order is confirmed.");
+                        // Refresh the list of unpaid orders
+                        fetchUnpaidOrders();
+                    } else if (statusData.status === 'failed') {
+                        clearInterval(pollIntervalId);
+                        clearTimeout(timeoutId);
+                        hideWaitingModal();
+                        const reason = statusData.reason || "Payment was not completed.";
+                        showToast(`Payment failed: ${reason}`);
+                        // Re-enable the button
+                        const button = unpaidOrdersGrid.querySelector(`[data-order-id="${unpaidOrderNumber}"]`);
+                        if (button) {
+                            button.disabled = false;
+                            button.innerHTML = 'Pay Now';
+                        }
                     }
                 }
+            } catch (error) {
+                console.error("Error checking payment status:", error);
+                clearInterval(pollIntervalId);
+                clearTimeout(timeoutId);
+                hideWaitingModal();
+                showToast("Error checking payment status.");
+                // Re-enable the button on error
+                 const button = unpaidOrdersGrid.querySelector(`[data-order-id="${unpaidOrderNumber}"]`);
+                 if (button) {
+                     button.disabled = false;
+                     button.innerHTML = 'Pay Now';
+                 }
             }
-        }, err => {
-            console.error("Error listening for payment status:", err);
-            clearTimeout(timeoutId);
-            unsubscribe();
-            hideWaitingModal();
-            showToast("Error checking payment status.");
-        });
+        }, POLL_INTERVAL);
     }
 
-    // --- Mobile Menu Toggle Logic ---
+
+    // --- Mobile Menu Toggle Logic ---\
     function toggleMobileMenu() {
         const isActive = mobileMenu.classList.contains('is-active');
         if (isActive) {
