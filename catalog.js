@@ -29,10 +29,10 @@ const addressInput = document.getElementById('address');
 const instructionsInput = document.getElementById('instructions');
 const paymentMethodRadios = document.querySelectorAll('input[name="paymentMethod"]');
 const mpesaPaymentDiv = document.getElementById('mpesaPayment');
-const cardPaymentDiv = document.getElementById('cardPayment');
-const bankPaymentDiv = document.getElementById('bankPayment');
+const deliveryPaymentDiv = document.getElementById('deliveryPayment'); // AMENDMENT: New div for delivery payment info
 const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
 const orderNumberSpan = document.getElementById('orderNumber');
+const confirmationMessage = document.getElementById('confirmationMessage'); // AMENDMENT: For custom confirmation messages
 
 // DOM Elements - Navigation and User Profile (for mobile sidebar logic)
 const loginLink = document.getElementById('loginLink');
@@ -653,21 +653,26 @@ if (checkoutForm) {
                 placeOrderBtn.disabled = false;
                 placeOrderBtn.innerHTML = 'Place Order';
             }
-        } else {
-            // Handle other payment methods (they save directly)
+        } else if (selectedPaymentMethod === 'delivery') {
+            // AMENDMENT: Handle "Pay on Delivery"
             try {
-                orderDetails.paymentStatus = 'paid';
-                const ordersCollectionRef = db.collection(`artifacts/${appId}/public/data/orders`);
-                const orderDocRef = await ordersCollectionRef.add(orderDetails);
-                console.log("Order saved to Firestore with ID:", orderDocRef.id);
+                orderDetails.paymentStatus = 'unpaid'; // Set status to unpaid
+                orderDetails.paymentMethod = 'Pay on Delivery';
+
+                // Save to a new 'unpaid_orders' collection
+                const unpaidOrdersCollectionRef = db.collection(`artifacts/${appId}/public/data/unpaid_orders`);
+                await unpaidOrdersCollectionRef.add(orderDetails);
                 
                 closeCheckout();
+                // Show a different confirmation message for delivery orders
+                if (confirmationMessage) confirmationMessage.textContent = "Your order has been placed successfully! Please have your payment ready for our delivery rider.";
                 showConfirmation(tempOrderNum, orderDetails);
                 clearCart();
                 updateCartUI();
+
             } catch(error) {
-                console.error("Error during checkout process:", error);
-                showToast(`Checkout failed: ${error.message}. Please try again.`);
+                console.error("Error placing 'Pay on Delivery' order:", error);
+                showToast(`Order placement failed: ${error.message}. Please try again.`);
             } finally {
                 placeOrderBtn.disabled = false;
                 placeOrderBtn.innerHTML = 'Place Order';
@@ -697,15 +702,12 @@ if (paymentMethodRadios) {
     paymentMethodRadios.forEach(radio => {
         radio.addEventListener('change', (event) => {
             mpesaPaymentDiv.classList.add('hidden');
-            cardPaymentDiv.classList.add('hidden');
-            bankPaymentDiv.classList.add('hidden');
+            deliveryPaymentDiv.classList.add('hidden');
 
             if (event.target.value === 'mpesa') {
                 mpesaPaymentDiv.classList.remove('hidden');
-            } else if (event.target.value === 'card') {
-                cardPaymentDiv.classList.remove('hidden');
-            } else if (event.target.value === 'bank') {
-                bankPaymentDiv.classList.remove('hidden');
+            } else if (event.target.value === 'delivery') {
+                deliveryPaymentDiv.classList.remove('hidden');
             }
         });
     });
