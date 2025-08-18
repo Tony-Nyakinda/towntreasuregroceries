@@ -468,52 +468,65 @@ window.generateReceipt = function(orderData) {
 };
 
 /**
- * AMENDMENT: Listens for the creation of the final order document.
+ * AMENDMENT: This function is now a polling function that checks a new backend endpoint.
+ * This prevents quota issues from continuous Firestore reads on the client.
  * @param {string} checkoutRequestID - The M-Pesa CheckoutRequestID to look for.
  */
 function waitForPaymentConfirmation(checkoutRequestID) {
-    // AMENDMENT: We now listen to the public 'payment_status' collection
-    const statusDocRef = db.collection('payment_status').doc(checkoutRequestID);
-
     const TIMEOUT_DURATION = 90000; // 90 seconds
+    const POLL_INTERVAL = 3000; // Poll every 3 seconds
+
     let timeoutExceeded = false;
+    let pollIntervalId;
 
     const timeoutId = setTimeout(() => {
         timeoutExceeded = true;
-        unsubscribe(); // Detach the listener
+        clearInterval(pollIntervalId);
         hideWaitingModal();
         showToast("Payment timed out. Please try again.");
     }, TIMEOUT_DURATION);
 
-    const unsubscribe = statusDocRef.onSnapshot(doc => {
+    pollIntervalId = setInterval(async () => {
         if (timeoutExceeded) return;
 
-        const statusData = doc.data();
-        if (statusData) {
-            if (statusData.status === 'paid') {
+        try {
+            const functionUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/checkPaymentStatus";
+            const response = await fetch(functionUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ checkoutRequestID }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Backend status check failed.');
+            }
+
+            if (result.status === 'paid') {
+                clearInterval(pollIntervalId);
                 clearTimeout(timeoutId);
-                unsubscribe();
                 hideWaitingModal();
                 showToast("Payment successful!");
-                // The final order details are now included in the status document
-                showConfirmation(statusData.finalOrder.orderNumber, statusData.finalOrder); 
+                showConfirmation(result.finalOrder.orderNumber, result.finalOrder); 
                 clearCart();
                 updateCartUI();
-            } else if (statusData.status === 'failed') {
+            } else if (result.status === 'failed') {
+                clearInterval(pollIntervalId);
                 clearTimeout(timeoutId);
-                unsubscribe();
                 hideWaitingModal();
-                const reason = statusData.reason || "Payment was not completed.";
+                const reason = result.reason || "Payment was not completed.";
                 showToast(`Order failed: ${reason}`);
             }
+
+        } catch (error) {
+            console.error("Error checking payment status:", error);
+            clearInterval(pollIntervalId);
+            clearTimeout(timeoutId);
+            hideWaitingModal();
+            showToast("Error checking payment status. Please contact support.");
         }
-    }, err => {
-        console.error("Error listening for payment status:", err);
-        clearTimeout(timeoutId);
-        unsubscribe();
-        hideWaitingModal();
-        showToast("Error checking payment status.");
-    });
+    }, POLL_INTERVAL);
 }
 
 
@@ -644,6 +657,7 @@ if (checkoutForm) {
                 // Close checkout and wait for payment confirmation
                 closeCheckout();
                 showWaitingModal();
+                // AMENDMENT: Call the new polling function
                 waitForPaymentConfirmation(mpesaResult.checkoutRequestID);
 
             } catch (error) {
@@ -808,21 +822,37 @@ document.addEventListener('DOMContentLoaded', async () => {
                 userProfilePic.classList.remove('hidden');
             }
             if (userInitials) userInitials.classList.add('hidden');
+
+            if (dropdownUserProfilePic) {
+                dropdownUserProfilePic.src = photoURL;
+                dropdownUserProfilePic.classList.remove('hidden');
+            }
+            if (dropdownUserInitials) dropdownUserInitials.classList.add('hidden');
         } else {
             if (userInitials) {
                 userInitials.textContent = getInitials(user.displayName, user.email);
                 userInitials.classList.remove('hidden');
             }
             if (userProfilePic) userProfilePic.classList.add('hidden');
+
+            if (dropdownUserInitials) {
+                dropdownUserInitials.textContent = getInitials(user.displayName, user.email);
+                dropdownUserInitials.classList.remove('hidden');
+            }
+            if (dropdownUserProfilePic) dropdownUserProfilePic.classList.add('hidden');
         }
 
+        if (myOrdersLink) myOrdersLink.classList.remove('hidden'); // AMENDMENT: Show My Orders link
+
+        // Toggle dropdown on click
         if (userProfileButton) {
             userProfileButton.addEventListener('click', (e) => {
-                e.stopPropagation();
+                e.stopPropagation(); // Prevent click from closing immediately
                 toggleUserDropdown();
             });
         }
 
+        // Close dropdown if clicked outside
         document.addEventListener('click', (e) => {
             if (userProfileDropdownContainer && !userProfileDropdownContainer.contains(e.target)) {
                 if (userDropdownMenu && userDropdownMenu.classList.contains('active')) {
@@ -831,6 +861,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
+        // Logout button in dropdown
         if (logoutDropdownButton) {
             logoutDropdownButton.addEventListener('click', async (e) => {
                 e.preventDefault();
@@ -840,15 +871,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (role === 'admin') {
-            if (adminLink) adminLink.classList.remove('hidden');
+            if (adminLink) adminLink.classList.remove('hidden'); // Show admin link in dropdown
         } else {
-            if (adminLink) adminLink.classList.add('hidden');
+            if (adminLink) adminLink.classList.add('hidden'); // Hide admin link if not admin
         }
 
+        // Mobile menu updates
         if (mobileLoginLink) mobileLoginLink.classList.add('hidden');
-        if (mobileMyProfileLink) mobileMyProfileLink.classList.remove('hidden');
-        if (mobileLogoutButton) mobileLogoutButton.classList.remove('hidden');
+        if (mobileMyOrdersLink) mobileMyOrdersLink.classList.remove('hidden'); // AMENDMENT: Show mobile My Orders link
+        if (mobileLogoutButton) mobileLogoutButton.classList.remove('hidden'); // Show mobile logout button
 
+        // Handle mobile profile picture/initials
         const mobileDropdownUserName = document.getElementById('mobileDropdownUserName');
         const mobileDropdownUserEmail = document.getElementById('mobileDropdownUserEmail');
         if (mobileDropdownUserName) mobileDropdownUserName.textContent = userFullName;
@@ -868,40 +901,70 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (mobileUserProfilePic) mobileUserProfilePic.classList.add('hidden');
         }
 
-        if (mobileLogoutButton) {
-            mobileLogoutButton.addEventListener('click', async (e) => {
-                e.preventDefault();
-                await logout();
-                window.location.reload();
-            });
-        }
-
         if (role === 'admin') {
             if (mobileAdminLink) mobileAdminLink.classList.remove('hidden');
         } else {
             if (mobileAdminLink) mobileAdminLink.classList.add('hidden');
         }
 
+        // Mobile Bottom Navigation "Account" button
+        if (mobileAccountButton) {
+            if (photoURL) {
+                if (mobileBottomProfilePic) {
+                    mobileBottomProfilePic.src = photoURL;
+                    mobileBottomProfilePic.classList.remove('hidden');
+                }
+                if (mobileBottomUserInitials) mobileBottomUserInitials.classList.add('hidden');
+            } else {
+                if (mobileBottomUserInitials) {
+                    mobileBottomUserInitials.textContent = getInitials(user.displayName, user.email);
+                    mobileBottomUserInitials.classList.remove('hidden');
+                }
+                if (mobileBottomProfilePic) mobileBottomProfilePic.classList.add('hidden');
+            }
+            if (mobileBottomUserName) mobileBottomUserName.textContent = firstName;
+            mobileAccountButton.href = "#"; // Change to a profile page if one exists
+        }
+
     } else {
-        if (loginLink) loginLink.classList.remove('hidden');
-        if (userProfileButton) userProfileButton.classList.add('hidden');
-        if (userDropdownMenu) userDropdownMenu.classList.add('hidden');
-        if (mobileLoginLink) mobileLoginLink.classList.remove('hidden');
-        if (mobileMyProfileLink) mobileMyProfileLink.classList.add('hidden');
-        if (mobileLogoutButton) mobileLogoutButton.classList.add('hidden');
+        // User is not logged in
+        if (loginLink) loginLink.classList.remove('hidden'); // Show desktop login link
+        if (userProfileButton) userProfileButton.classList.add('hidden'); // Hide desktop user profile button
+        if (userDropdownMenu) userDropdownMenu.classList.add('hidden'); // Ensure desktop dropdown is hidden
+        if (myOrdersLink) myOrdersLink.classList.add('hidden'); // AMENDMENT: Hide My Orders link
+
+        if (mobileLoginLink) mobileLoginLink.classList.remove('hidden'); // Show mobile login link
+        if (mobileMyOrdersLink) mobileMyOrdersLink.classList.add('hidden'); // AMENDMENT: Hide mobile My Orders link
+        if (mobileLogoutButton) mobileLogoutButton.classList.add('hidden'); // Hide mobile logout button
+
+        // Admin link should always be visible to lead to admin login
         if (adminLink) adminLink.classList.remove('hidden');
         if (mobileAdminLink) mobileAdminLink.classList.remove('hidden');
+
+        // Mobile Bottom Navigation "Account" button
+        if (mobileAccountButton) {
+            if (mobileBottomProfilePic) mobileBottomProfilePic.classList.add('hidden');
+            if (mobileBottomUserInitials) mobileBottomUserInitials.classList.add('hidden');
+            if (mobileBottomUserName) mobileBottomUserName.textContent = "Account";
+            mobileAccountButton.href = "login.html"; // Link to login page
+        }
     }
 
+    // --- Mobile Menu Toggle Logic ---
     if (mobileMenuButton && mobileMenu && closeMobileMenuButton) {
+        // Open mobile menu
         mobileMenuButton.addEventListener('click', () => {
             toggleMobileMenu();
         });
+
+        // Close mobile menu when clicking the close button inside it
         closeMobileMenuButton.addEventListener('click', () => {
             toggleMobileMenu();
         });
+
+        // Close mobile menu when clicking on the overlay part of the mobile menu
         mobileMenu.addEventListener('click', (e) => {
-            if (e.target === mobileMenu) {
+            if (e.target === mobileMenu) { // Only close if the overlay itself is clicked
                 toggleMobileMenu();
             }
         });
