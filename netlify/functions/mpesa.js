@@ -62,7 +62,6 @@ exports.handler = async (event) => {
 
   // --- Endpoint to INITIATE STK PUSH ---
   if (path === '/initiateMpesaPayment') {
-    // AMENDMENT: Receive the entire orderDetails object from the client
     const { phone, amount, orderDetails } = JSON.parse(event.body);
 
     if (!phone || !amount || !orderDetails) {
@@ -83,7 +82,7 @@ exports.handler = async (event) => {
       PartyB: shortCode,
       PhoneNumber: phone.replace(/^0/, '254'),
       CallBackURL: callbackUrl,
-      AccountReference: orderDetails.orderNumber, // Use the temp order number for reference
+      AccountReference: orderDetails.orderNumber,
       TransactionDesc: `Payment for Order ${orderDetails.orderNumber}`,
     };
 
@@ -96,16 +95,27 @@ exports.handler = async (event) => {
       const checkoutRequestID = mpesaResponse.data.CheckoutRequestID;
       console.log(`STK Push initiated. CheckoutRequestID: ${checkoutRequestID}`);
 
-      // AMENDMENT: Save the order details temporarily, identified by the CheckoutRequestID
+      // AMENDMENT: Use a batch write for atomicity
+      const batch = db.batch();
+
+      // 1. Create a secure, temporary record of the order details
       const pendingPaymentRef = db.collection('pending_payments').doc(checkoutRequestID);
-      await pendingPaymentRef.set({
+      batch.set(pendingPaymentRef, {
           orderDetails: orderDetails,
           timestamp: admin.firestore.FieldValue.serverTimestamp()
       });
+
+      // 2. Create a public, listenable document for the client
+      const publicStatusRef = db.collection('payment_status').doc(checkoutRequestID);
+      batch.set(publicStatusRef, {
+          status: 'pending',
+          userId: orderDetails.userId
+      });
+
+      await batch.commit();
       
-      console.log(`Temporary payment record created for ${checkoutRequestID}`);
+      console.log(`Temporary records created for ${checkoutRequestID}`);
       
-      // Return the CheckoutRequestID to the client so it can start listening
       return { statusCode: 200, headers, body: JSON.stringify({ checkoutRequestID: checkoutRequestID }) };
 
     } catch (error) {
@@ -129,8 +139,9 @@ exports.handler = async (event) => {
     const resultDesc = stkCallback.ResultDesc;
 
     try {
-        // AMENDMENT: Find the temporary payment record
         const pendingPaymentRef = db.collection('pending_payments').doc(checkoutRequestID);
+        const publicStatusRef = db.collection('payment_status').doc(checkoutRequestID);
+        
         const pendingPaymentDoc = await pendingPaymentRef.get();
 
         if (!pendingPaymentDoc.exists) {
@@ -146,13 +157,12 @@ exports.handler = async (event) => {
             const metadata = stkCallback.CallbackMetadata.Item;
             const receiptItem = metadata.find(item => item.Name === "MpesaReceiptNumber");
             
-            // Update order details with payment info
             orderDetails.paymentStatus = "paid";
             orderDetails.mpesaResultCode = resultCode;
             orderDetails.mpesaResultDesc = resultDesc;
             if (receiptItem) {
                 orderDetails.mpesaReceiptNumber = receiptItem.Value;
-                orderDetails.orderNumber = receiptItem.Value; // Set the final order number
+                orderDetails.orderNumber = receiptItem.Value;
             }
 
             // Save the completed order to the final 'orders' collection
@@ -160,14 +170,18 @@ exports.handler = async (event) => {
             await finalOrderRef.set(orderDetails);
             
             console.log(`Order ${orderDetails.orderNumber} saved successfully.`);
+            
+            // Update the public doc so the client gets the success signal
+            await publicStatusRef.update({ status: 'paid', finalOrder: orderDetails });
 
         } else {
             // FAILURE
             console.log(`Payment failed for CheckoutRequestID: ${checkoutRequestID}. Reason: ${resultDesc}`);
-            // No order is saved, we just clean up.
+            // Update the public doc so the client gets the failure signal
+            await publicStatusRef.update({ status: 'failed', reason: resultDesc });
         }
         
-        // Clean up: delete the temporary record regardless of success or failure
+        // Clean up the secure temporary record
         await pendingPaymentRef.delete();
         
         return { statusCode: 200, headers, body: JSON.stringify({ ResultCode: 0, ResultDesc: "Callback processed" }) };
