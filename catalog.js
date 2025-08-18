@@ -678,10 +678,12 @@ if (checkoutForm) {
                 orderDetails.timestamp = new Date().toISOString(); // Use ISO string for Supabase
 
                 // AMENDMENT: Save to Supabase 'unpaid_orders' table
-                const { data: order, error } = await supabase.from('unpaid_orders').insert([orderDetails]);
+                const { data, error } = await supabase.from('unpaid_orders').insert([orderDetails]);
                 
                 if (error) {
-                    throw new Error("Supabase insertion failed.");
+                    // Log the specific Supabase error for better debugging
+                    console.error("Supabase insertion failed:", error); 
+                    throw new Error(`Supabase insertion failed: ${error.message}`);
                 }
 
                 closeCheckout();
