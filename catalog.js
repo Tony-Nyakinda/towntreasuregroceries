@@ -2,7 +2,7 @@
 // This script handles dynamic content for the catalog page,
 // including product display, category filtering, search, sorting, and pagination.
 // It now fetches product data from Firebase via productsData.js.
-// UPDATED to handle M-Pesa payment initiation by calling a LOCAL server.
+// UPDATED to handle M-Pesa payment initiation by calling a Netlify Function.
 
 import { getProducts } from './productsData.js'; // Correctly import getProducts function
 import { showToast, toggleCart, checkout, closeCheckout, showConfirmation, closeConfirmation, updateCartUI } from './uiUpdater.js'; // Import UI functions
@@ -514,7 +514,7 @@ if (proceedToCheckoutBtn) {
 }
 
 // ========================================================================
-// START: M-PESA INTEGRATION - UPDATED CHECKOUT FORM LISTENER FOR LOCAL SERVER
+// START: M-PESA INTEGRATION - UPDATED CHECKOUT FORM LISTENER FOR NETLIFY
 // ========================================================================
 if (checkoutForm) {
     checkoutForm.addEventListener('submit', async function(event) {
@@ -551,7 +551,7 @@ if (checkoutForm) {
             subtotal += (productDetails ? productDetails.price : item.price) * item.quantity;
         });
 
-        const DELIVERY_FEE = 0;
+        const DELIVERY_FEE = 200;
         const total = subtotal + DELIVERY_FEE;
 
         const userId = auth.currentUser.uid;
@@ -580,12 +580,12 @@ if (checkoutForm) {
             const orderDocRef = await ordersCollectionRef.add(orderDetails);
             console.log("Order saved to Firestore with ID:", orderDocRef.id);
 
-            // 2. If payment method is M-Pesa, call the LOCAL server
+            // 2. If payment method is M-Pesa, call the Netlify Function
             if (selectedPaymentMethod === 'mpesa') {
                 showToast("Please check your phone to complete the M-Pesa payment.");
                 
-                // *** This is the URL for your local backend server ***
-                const functionUrl = "http://localhost:3000/api/initiateMpesaPayment";
+                // *** This is the URL for your live Netlify function ***
+                const functionUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/initiateMpesaPayment";
 
                 const mpesaResponse = await fetch(functionUrl, {
                     method: 'POST',
