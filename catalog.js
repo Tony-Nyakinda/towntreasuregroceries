@@ -9,6 +9,9 @@ import { showToast, toggleCart, checkout, closeCheckout, showConfirmation, close
 import { addToCart, updateCartItemQuantity, removeFromCart, getCart, clearCart } from './cartManager.js'; // Import cart management functions
 import { getCurrentUserWithRole, logout } from './auth.js'; // Import auth functions for user login/logout logic
 
+// AMENDMENT: Import Supabase client
+import { supabase } from './supabase-config.js';
+
 // Import Firebase modules for database interaction
 import { db, auth } from './firebase-config.js'; // Import db and auth instances
 
@@ -672,11 +675,15 @@ if (checkoutForm) {
             try {
                 orderDetails.paymentStatus = 'unpaid'; // Set status to unpaid
                 orderDetails.paymentMethod = 'Pay on Delivery';
+                orderDetails.timestamp = new Date().toISOString(); // Use ISO string for Supabase
 
-                // Save to a new 'unpaid_orders' collection
-                const unpaidOrdersCollectionRef = db.collection(`artifacts/${appId}/public/data/unpaid_orders`);
-                await unpaidOrdersCollectionRef.add(orderDetails);
+                // AMENDMENT: Save to Supabase 'unpaid_orders' table
+                const { data: order, error } = await supabase.from('unpaid_orders').insert([orderDetails]);
                 
+                if (error) {
+                    throw new Error("Supabase insertion failed.");
+                }
+
                 closeCheckout();
                 // Show a different confirmation message for delivery orders
                 if (confirmationMessage) confirmationMessage.textContent = "Your order has been placed successfully! Please have your payment ready for our delivery rider.";
