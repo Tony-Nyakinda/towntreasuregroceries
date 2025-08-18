@@ -946,7 +946,7 @@
                     </div>
                 </div>
 
-                <button id="mainCartButton" class="relative ml-4" onclick="toggleCart()">
+                <button id="mainCartButton" class="relative ml-4">
                     <i class="fas fa-shopping-cart text-xl text-gray-700 hover:text-green-600 transition duration-300"></i>
                     <span id="cartCount" class="absolute -top-2 -right-2 bg-green-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
                 </button>
@@ -1471,11 +1471,11 @@
                 </div>
                 <div class="flex justify-between mb-2 text-sm sm:text-base">
                     <span class="text-gray-600">Delivery Fee:</span>
-                    <span id="deliveryFee" class="font-bold">KSh 200</span>
+                    <span id="deliveryFee" class="font-bold">KSh 0</span>
                 </div>
                 <div class="flex justify-between mb-4 text-base sm:text-lg">
                     <span class="text-gray-600">Total:</span>
-                    <span id="cartTotal" class="font-bold text-base sm:text-lg text-green-600">KSh 200</span>
+                    <span id="cartTotal" class="font-bold text-base sm:text-lg text-green-600">KSh 0</span>
                 </div>
 
                 <button id="proceedToCheckoutBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg transition duration-300 mb-4 pulse-animation text-sm sm:text-base">
@@ -1608,7 +1608,7 @@
     </div>
 
     <!-- Floating Action Button -->
-    <button id="fabCartButton" class="fab bg-green-600 hover:bg-green-700 text-white shadow-lg transition duration-300 hidden md:flex" onclick="toggleCart()">
+    <button id="fabCartButton" class="fab bg-green-600 hover:bg-green-700 text-white shadow-lg transition duration-300 hidden md:flex">
         <i class="fas fa-shopping-cart text-xl"></i>
         <span id="fabCartCount" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center hidden">0</span>
     </button>
@@ -1627,6 +1627,17 @@
             </button>
         </div>
     </div>
+    
+    <!-- AMENDMENT: Waiting for Payment Modal -->
+    <div id="waitingModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1001] hidden">
+        <div class="bg-white rounded-lg w-11/12 max-w-sm mx-auto p-6 text-center shadow-lg">
+            <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-green-600 mx-auto"></div>
+            <h3 class="font-bold text-lg mt-4 mb-2">Waiting for Payment</h3>
+            <p class="text-gray-700 mb-2">Please check your phone and enter your M-Pesa PIN to complete the payment.</p>
+            <p class="text-sm text-gray-500">This may take a moment...</p>
+        </div>
+    </div>
+
 
     <!-- Footer -->
     <footer class="bg-gray-900 text-white pt-12 pb-6 sm:pt-16 sm:pb-8">
@@ -1683,14 +1694,6 @@
                 <p>Designed by Tony Nyakinda</p>
             </div>
         </div>
-        <div id="waitingModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1001] hidden">
-    <div class="bg-white rounded-lg w-11/12 max-w-sm mx-auto p-6 text-center shadow-lg">
-        <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-green-600 mx-auto"></div>
-        <h3 class="font-bold text-lg mt-4 mb-2">Waiting for Payment</h3>
-        <p class="text-gray-700 mb-2">Please check your phone and enter your M-Pesa PIN to complete the payment.</p>
-        <p class="text-sm text-gray-500">This may take a moment...</p>
-    </div>
-</div>
     </footer>
 
     <!-- Mobile Navigation (Bottom Bar) -->
@@ -1708,7 +1711,7 @@
             <div id="mobileBottomUserInitials" class="w-6 h-6 rounded-full profile-pic-placeholder text-xs mx-auto hidden"></div>
             <span id="mobileBottomUserName" class="text-xs mt-1">Account</span>
         </a>
-        <a href="#" class="nav-item relative" id="mobileBottomCartButton" onclick="toggleCart(); return false;">
+        <a href="#" class="nav-item relative" id="mobileBottomCartButton">
             <i class="fas fa-shopping-cart text-xl"></i>
             <span id="mobileBottomCartCount" class="cart-badge">0</span>
         </a>
@@ -1749,6 +1752,7 @@
     <script type="module" src="auth.js"></script>
     <script type="module" src="catalog.js"></script>
     <script type="module" src="uiUpdater.js"></script>
+    <script type="module" src="eventListeners.js"></script>
     <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
 
     <script type="module">
@@ -1871,14 +1875,8 @@
             const mobileBottomUserName = document.getElementById('mobileBottomUserName'); // New
 
 
-            const mainCartButton = document.getElementById('mainCartButton');
-            const fabCartButton = document.getElementById('fabCartButton');
-            const closeCartButton = document.getElementById('closeCartButton');
-            // const overlay = document.getElementById('overlay'); // Already defined above for showAlertModal
             const proceedToCheckoutBtn = document.getElementById('proceedToCheckoutBtn');
-            const closeCheckoutButton = document.getElementById('closeCheckoutButton');
-            const continueShoppingButton = document.getElementById('continueShoppingButton');
-            const startShoppingLink = document.getElementById('startShoppingLink');
+            
 
             // Contact Form Elements
             const contactForm = document.getElementById('contactForm');
@@ -2101,13 +2099,8 @@
 
 
             // Attach event listeners for cart functionality
-            if (closeCartButton) closeCartButton.addEventListener('click', toggleCart);
-            // if (overlay) overlay.addEventListener('click', toggleCart); // Already handled by custom alert modal logic
-
             if (proceedToCheckoutBtn) proceedToCheckoutBtn.addEventListener('click', checkout);
-            if (closeCheckoutButton) closeCheckoutButton.addEventListener('click', closeCheckout);
-            if (continueShoppingButton) continueShoppingButton.addEventListener('click', closeConfirmation);
-
+            
             // Simplified add to cart event listener, now directly calling addToCart from cartManager.js
             // Using event delegation on document.body to catch clicks on dynamically added '.add-to-cart-btn'
             document.body.addEventListener('click', async function(e) {
@@ -2190,13 +2183,6 @@
 
             // Ensure cart UI is updated on page load
             updateCartUI();
-
-            // Example of how to trigger confirmation modal after a successful order
-            document.getElementById('checkoutForm')?.addEventListener('submit', function(e) {
-                e.preventDefault();
-                // Simulate order placement success with a dummy order number
-                showConfirmation('TTG-' + Math.floor(Math.random() * 100000));
-            });
         });
 
     </script>
