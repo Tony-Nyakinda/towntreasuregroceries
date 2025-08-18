@@ -95,17 +95,14 @@ exports.handler = async (event) => {
       const checkoutRequestID = mpesaResponse.data.CheckoutRequestID;
       console.log(`STK Push initiated. CheckoutRequestID: ${checkoutRequestID}`);
 
-      // AMENDMENT: Use a batch write for atomicity
       const batch = db.batch();
 
-      // 1. Create a secure, temporary record of the order details
       const pendingPaymentRef = db.collection('pending_payments').doc(checkoutRequestID);
       batch.set(pendingPaymentRef, {
           orderDetails: orderDetails,
           timestamp: admin.firestore.FieldValue.serverTimestamp()
       });
 
-      // 2. Create a public, listenable document for the client
       const publicStatusRef = db.collection('payment_status').doc(checkoutRequestID);
       batch.set(publicStatusRef, {
           status: 'pending',
@@ -164,6 +161,9 @@ exports.handler = async (event) => {
                 orderDetails.mpesaReceiptNumber = receiptItem.Value;
                 orderDetails.orderNumber = receiptItem.Value;
             }
+            
+            // AMENDMENT: Overwrite the client-side timestamp with a real server timestamp
+            orderDetails.timestamp = admin.firestore.FieldValue.serverTimestamp();
 
             // Save the completed order to the final 'orders' collection
             const finalOrderRef = db.collection(`artifacts/default-app-id/public/data/orders`).doc(orderDetails.orderNumber);
