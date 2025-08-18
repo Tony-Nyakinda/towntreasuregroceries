@@ -4,75 +4,90 @@
 
 import { updateCartUI, showToast, toggleCart, checkout, closeCheckout, showConfirmation, closeConfirmation } from './uiUpdater.js';
 import { auth } from './firebase-config.js'; // Import auth for logout
-// Remove direct named import for signOut, as it's accessed via firebase.auth()
-// import { signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"; // Import signOut
 
 document.addEventListener('DOMContentLoaded', () => {
-    // DOM elements
+    // --- General UI Elements ---
     const mobileMenuButton = document.getElementById('mobileMenuButton');
     const mobileMenu = document.getElementById('mobileMenu');
     const contactForm = document.getElementById('contactForm');
-    const overlay = document.getElementById('overlay'); // Get overlay element
-    const loginLink = document.getElementById('loginLink'); // Added for dynamic login/logout text
-    const mobileLoginLink = document.getElementById('mobileLoginLink'); // Added for dynamic login/logout text
+    const overlay = document.getElementById('overlay');
+    const loginLink = document.getElementById('loginLink');
+    const mobileLoginLink = document.getElementById('mobileLoginLink');
 
-    // Mobile menu toggle
+    // --- Cart & Modal Buttons ---
+    const mainCartButton = document.getElementById('mainCartButton');
+    const fabCartButton = document.getElementById('fabCartButton');
+    const closeCartButton = document.getElementById('closeCartButton');
+    const mobileBottomCartButton = document.getElementById('mobileBottomCartButton');
+    const startShoppingLink = document.getElementById('startShoppingLink');
+    const closeCheckoutButton = document.getElementById('closeCheckoutButton');
+    const continueShoppingButton = document.getElementById('continueShoppingButton');
+
+    // --- Mobile Menu Toggle ---
     if (mobileMenuButton) {
         mobileMenuButton.addEventListener('click', () => {
             if (mobileMenu) mobileMenu.classList.toggle('hidden');
         });
     }
+    
+    // --- Cart Button Listeners ---
+    if (mainCartButton) mainCartButton.addEventListener('click', toggleCart);
+    if (fabCartButton) fabCartButton.addEventListener('click', toggleCart);
+    if (closeCartButton) closeCartButton.addEventListener('click', toggleCart);
+    if (startShoppingLink) startShoppingLink.addEventListener('click', toggleCart);
+    if (mobileBottomCartButton) {
+        mobileBottomCartButton.addEventListener('click', (e) => {
+            e.preventDefault(); // Prevent default link behavior
+            toggleCart();
+        });
+    }
 
-    // Overlay click to close cart, and modals
+    // --- Modal Button Listeners ---
+    if (closeCheckoutButton) closeCheckoutButton.addEventListener('click', closeCheckout);
+    if (continueShoppingButton) continueShoppingButton.addEventListener('click', closeConfirmation);
+
+    // --- Overlay Listener (Combined Logic) ---
     if (overlay) {
         overlay.addEventListener('click', () => {
-            // Check if cart sidebar is open
             const cartSidebar = document.getElementById('cartSidebar');
-            if (cartSidebar && !cartSidebar.classList.contains('translate-x-full')) {
-                toggleCart(); // Close the cart
-            }
-
-            // Check if checkout modal is open
             const checkoutModal = document.getElementById('checkoutModal');
-            if (checkoutModal && !checkoutModal.classList.contains('hidden')) {
-                closeCheckout(); // Close checkout modal
-            }
-
-            // Check if confirmation modal is open
             const confirmationModal = document.getElementById('confirmationModal');
+
+            if (cartSidebar && !cartSidebar.classList.contains('translate-x-full')) {
+                toggleCart();
+            }
+            if (checkoutModal && !checkoutModal.classList.contains('hidden')) {
+                closeCheckout();
+            }
             if (confirmationModal && !confirmationModal.classList.contains('hidden')) {
-                closeConfirmation(); // Close confirmation modal and clear cart
+                closeConfirmation();
             }
         });
     }
 
-    // Handle Contact Form Submission
+    // --- Contact Form Submission ---
     if (contactForm) {
         contactForm.addEventListener('submit', function(event) {
             event.preventDefault();
-            // In a real application, you would send this data to a backend
             showToast('Message sent successfully!');
-            contactForm.reset(); // Clear the form
+            contactForm.reset();
         });
     }
 
-    // Handle Login/Logout link in navigation
+    // --- Login/Logout Link Logic ---
     if (loginLink) {
         loginLink.addEventListener('click', async (e) => {
-            // Check if the link currently says "Logout"
             if (loginLink.textContent === 'Logout') {
-                e.preventDefault(); // Prevent default link behavior
+                e.preventDefault();
                 try {
-                    await firebase.auth().signOut(); // Corrected: Use firebase.auth().signOut()
-                    console.log("User logged out from eventListeners.js");
-                    // Reload page or update UI to reflect logout state
+                    await auth.signOut();
+                    console.log("User logged out.");
                     window.location.reload();
                 } catch (error) {
                     console.error("Error logging out:", error);
                     showToast('Error logging out. Please try again.');
                 }
             }
-            // If it says "Login", default link behavior (to login.html) is fine
         });
     }
 
@@ -81,21 +96,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mobileLoginLink.textContent === 'Logout') {
                 e.preventDefault();
                 try {
-                    await firebase.auth().signOut(); // Corrected: Use firebase.auth().signOut()
-                    console.log("User logged out from eventListeners.js (mobile)");
+                    await auth.signOut();
+                    console.log("User logged out (mobile).");
                     window.location.reload();
                 } catch (error) {
-                    console.error("Error logging out:", error);
+                    console.error("Error logging out (mobile):", error);
                     showToast('Error logging out. Please try again.');
                 }
             }
         });
     }
 
-    // Initial cart UI update on DOMContentLoaded
-    // This ensures cart count and items are displayed correctly when the page loads
+    // --- Initial UI Update ---
     updateCartUI();
 });
-
-// No need to expose window.toggleCart, window.checkout etc. here
-// as they are exposed by uiUpdater.js directly.
