@@ -62,9 +62,10 @@ exports.handler = async (event) => {
 
   // --- Endpoint to INITIATE STK PUSH ---
   if (path === '/initiateMpesaPayment') {
-    const { phone, amount, orderId } = JSON.parse(event.body);
+    // AMENDMENT: Receive the entire orderDetails object from the client
+    const { phone, amount, orderDetails } = JSON.parse(event.body);
 
-    if (!phone || !amount || !orderId) {
+    if (!phone || !amount || !orderDetails) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "Missing required fields" }) };
     }
 
@@ -82,27 +83,33 @@ exports.handler = async (event) => {
       PartyB: shortCode,
       PhoneNumber: phone.replace(/^0/, '254'),
       CallBackURL: callbackUrl,
-      AccountReference: orderId, // Use the Firestore Order ID as the reference
-      TransactionDesc: `Payment for Order ${orderId}`,
+      AccountReference: orderDetails.orderNumber, // Use the temp order number for reference
+      TransactionDesc: `Payment for Order ${orderDetails.orderNumber}`,
     };
 
     try {
       const token = await getAuthToken();
-      const response = await axios.post(stkPushUrl, payload, {
+      const mpesaResponse = await axios.post(stkPushUrl, payload, {
         headers: { "Authorization": `Bearer ${token}` },
       });
       
-      const checkoutRequestID = response.data.CheckoutRequestID;
+      const checkoutRequestID = mpesaResponse.data.CheckoutRequestID;
       console.log(`STK Push initiated. CheckoutRequestID: ${checkoutRequestID}`);
-      
-      // The client-side code (`catalog.js`) is responsible for adding the order to Firestore.
-      // This function will find that order in the callback step using a collectionGroup query.
 
-      return { statusCode: 200, headers, body: JSON.stringify(response.data) };
+      // AMENDMENT: Save the order details temporarily, identified by the CheckoutRequestID
+      const pendingPaymentRef = db.collection('pending_payments').doc(checkoutRequestID);
+      await pendingPaymentRef.set({
+          orderDetails: orderDetails,
+          timestamp: admin.firestore.FieldValue.serverTimestamp()
+      });
+      
+      console.log(`Temporary payment record created for ${checkoutRequestID}`);
+      
+      // Return the CheckoutRequestID to the client so it can start listening
+      return { statusCode: 200, headers, body: JSON.stringify({ checkoutRequestID: checkoutRequestID }) };
+
     } catch (error) {
       console.error("Error initiating STK push:", error.response ? error.response.data : error.message);
-      // It's difficult to update the order here if we don't know its exact path.
-      // The callback will handle the failure status.
       return { statusCode: 500, headers, body: JSON.stringify({ error: "Failed to initiate M-Pesa payment." }) };
     }
   }
@@ -122,48 +129,47 @@ exports.handler = async (event) => {
     const resultDesc = stkCallback.ResultDesc;
 
     try {
-        // AMENDMENT: Use a collectionGroup query to find the 'orders' collection wherever it is.
-        const ordersQuery = db.collectionGroup("orders").where("mpesaCheckoutRequestID", "==", checkoutRequestID).limit(1);
-        const snapshot = await ordersQuery.get();
+        // AMENDMENT: Find the temporary payment record
+        const pendingPaymentRef = db.collection('pending_payments').doc(checkoutRequestID);
+        const pendingPaymentDoc = await pendingPaymentRef.get();
 
-        if (snapshot.empty) {
-            console.error(`No order found for CheckoutRequestID: ${checkoutRequestID}`);
-            return { statusCode: 200, headers, body: JSON.stringify({ ResultCode: 0, ResultDesc: "No matching order found" }) };
+        if (!pendingPaymentDoc.exists) {
+            console.error(`No pending payment record found for CheckoutRequestID: ${checkoutRequestID}`);
+            return { statusCode: 200, headers, body: JSON.stringify({ ResultCode: 0, ResultDesc: "No matching record found" }) };
         }
 
-        const orderDoc = snapshot.docs[0];
-        
-        // AMENDMENT: Idempotency Check to prevent "RESOURCE_EXHAUSTED" error
-        // If the order status is not 'pending', it means we've already processed this callback.
-        if (orderDoc.data().paymentStatus !== 'pending') {
-            console.log(`Order ${orderDoc.id} already processed. Current status: ${orderDoc.data().paymentStatus}. Ignoring duplicate callback.`);
-            return { statusCode: 200, headers, body: JSON.stringify({ ResultCode: 0, ResultDesc: "Callback already processed" }) };
-        }
-
-        let updateData = {
-            mpesaResultCode: resultCode,
-            mpesaResultDesc: resultDesc,
-        };
+        const { orderDetails } = pendingPaymentDoc.data();
 
         if (resultCode === 0) {
             // SUCCESS
-            console.log(`Payment successful for order: ${orderDoc.id}`);
+            console.log(`Payment successful for CheckoutRequestID: ${checkoutRequestID}`);
             const metadata = stkCallback.CallbackMetadata.Item;
             const receiptItem = metadata.find(item => item.Name === "MpesaReceiptNumber");
             
-            updateData.paymentStatus = "paid";
+            // Update order details with payment info
+            orderDetails.paymentStatus = "paid";
+            orderDetails.mpesaResultCode = resultCode;
+            orderDetails.mpesaResultDesc = resultDesc;
             if (receiptItem) {
-                updateData.mpesaReceiptNumber = receiptItem.Value;
-                // AMENDMENT: Update the orderNumber to the M-Pesa receipt number
-                updateData.orderNumber = receiptItem.Value;
+                orderDetails.mpesaReceiptNumber = receiptItem.Value;
+                orderDetails.orderNumber = receiptItem.Value; // Set the final order number
             }
+
+            // Save the completed order to the final 'orders' collection
+            const finalOrderRef = db.collection(`artifacts/default-app-id/public/data/orders`).doc(orderDetails.orderNumber);
+            await finalOrderRef.set(orderDetails);
+            
+            console.log(`Order ${orderDetails.orderNumber} saved successfully.`);
+
         } else {
             // FAILURE
-            console.log(`Payment failed for order: ${orderDoc.id}. Reason: ${resultDesc}`);
-            updateData.paymentStatus = "failed";
+            console.log(`Payment failed for CheckoutRequestID: ${checkoutRequestID}. Reason: ${resultDesc}`);
+            // No order is saved, we just clean up.
         }
         
-        await orderDoc.ref.update(updateData);
+        // Clean up: delete the temporary record regardless of success or failure
+        await pendingPaymentRef.delete();
+        
         return { statusCode: 200, headers, body: JSON.stringify({ ResultCode: 0, ResultDesc: "Callback processed" }) };
 
     } catch (error) {
