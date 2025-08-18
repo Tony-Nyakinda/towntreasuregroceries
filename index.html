@@ -919,6 +919,8 @@
                 <a href="testimanial.html" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Testimonials</a>
                 <a href="#contact" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Contact</a>
                 <a href="catalog.html?category=wholesale" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Wholesale</a>
+                <!-- AMENDMENT: Added My Orders Link -->
+                <a href="account.html" id="myOrdersLink" class="text-gray-700 hover:text-green-600 font-medium transition duration-300 hidden">My Orders</a>
 
 
                 <!-- Login/User Profile Dropdown -->
@@ -940,7 +942,7 @@
                                 <p class="text-gray-500" id="dropdownUserEmail"></p>
                             </div>
                         </div>
-                        <a href="#" id="myProfileLink" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hidden">My Profile</a>
+                        <!-- AMENDMENT: Removed My Profile, replaced with My Orders above -->
                         <a href="admin.html" id="adminLink" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hidden">Admin Dashboard</a>
                         <button id="logoutDropdownButton" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Logout</button>
                     </div>
@@ -975,6 +977,8 @@
                     <a href="testimanial.html" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Testimonials</a>
                     <a href="#contact" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Contact</a>
                     <a href="catalog.html?category=wholesale" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Wholesale</a>
+                    <!-- AMENDMENT: Added My Orders link for mobile -->
+                    <a href="account.html" id="mobileMyOrdersLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300 hidden">My Orders</a>
 
                     <div class="border-t border-gray-100 pt-2 mt-2">
                         <!-- Mobile User Profile Section -->
@@ -987,7 +991,7 @@
                             </div>
                         </div>
                         <a href="login.html" id="mobileLoginLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Login</a>
-                        <a href="#" id="mobileMyProfileLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300 hidden">My Profile</a>
+                        <!-- AMENDMENT: Removed mobile My Profile link -->
                         <a href="admin.html" id="mobileAdminLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300 hidden">Admin Dashboard</a>
                         <button id="mobileLogoutButton" class="block w-full text-left py-2 px-3 text-red-600 hover:bg-red-50 rounded transition duration-300 hidden">Logout</button>
                     </div>
@@ -1680,7 +1684,7 @@
             <i class="fas fa-shopping-basket text-xl"></i>
             <span class="text-xs mt-1">Catalog</span>
         </a>
-        <a href="#" class="nav-item relative" id="mobileAccountButton">
+        <a href="account.html" class="nav-item relative" id="mobileAccountButton">
             <img id="mobileBottomProfilePic" src="" alt="Profile" class="w-6 h-6 rounded-full object-cover mx-auto hidden">
             <div id="mobileBottomUserInitials" class="w-6 h-6 rounded-full profile-pic-placeholder text-xs mx-auto hidden"></div>
             <span id="mobileBottomUserName" class="text-xs mt-1">Account</span>
@@ -1826,14 +1830,14 @@
             const logoutDropdownButton = document.getElementById('logoutDropdownButton');
 
             const adminLink = document.getElementById('adminLink');
-            const myProfileLink = document.getElementById('myProfileLink');
+            const myOrdersLink = document.getElementById('myOrdersLink'); // AMENDMENT: Get new link
 
             const mobileMenuButton = document.getElementById('mobileMenuButton');
             const mobileMenu = document.getElementById('mobileMenu');
             const closeMobileMenuButton = document.getElementById('closeMobileMenuButton');
 
             const mobileLoginLink = document.getElementById('mobileLogin');
-            const mobileMyProfileLink = document.getElementById('mobileMyProfileLink');
+            const mobileMyOrdersLink = document.getElementById('mobileMyOrdersLink'); // AMENDMENT: Get new mobile link
             const mobileAdminLink = document.getElementById('mobileAdminLink');
             const mobileLogoutButton = document.getElementById('mobileLogoutButton');
 
@@ -1943,7 +1947,7 @@
                     if (dropdownUserProfilePic) dropdownUserProfilePic.classList.add('hidden');
                 }
 
-                if (myProfileLink) myProfileLink.classList.remove('hidden');
+                if (myOrdersLink) myOrdersLink.classList.remove('hidden'); // AMENDMENT: Show My Orders link
 
                 if (userProfileButton) userProfileButton.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -1975,7 +1979,7 @@
                 // Mobile Sidebar View
                 if (mobileLoginLink) mobileLoginLink.classList.add('hidden');
                 if (mobileUserProfileSection) mobileUserProfileSection.classList.remove('hidden');
-                if (mobileMyProfileLink) mobileMyProfileLink.classList.remove('hidden');
+                if (mobileMyOrdersLink) mobileMyOrdersLink.classList.remove('hidden'); // AMENDMENT: Show mobile My Orders link
                 if (mobileLogoutButton) mobileLogoutButton.classList.remove('hidden');
 
                 if (mobileUserNameDisplay) mobileUserNameDisplay.textContent = userFullName;
@@ -2017,7 +2021,7 @@
                         if (mobileBottomProfilePic) mobileBottomProfilePic.classList.add('hidden');
                     }
                     if (mobileBottomUserName) mobileBottomUserName.textContent = firstName;
-                    mobileAccountButton.href = "#"; // Change to a profile page if one exists
+                    mobileAccountButton.href = "account.html"; 
                 }
 
 
@@ -2026,14 +2030,14 @@
                 if (loginLink) loginLink.classList.remove('hidden');
                 if (userProfileButton) userProfileButton.classList.add('hidden');
                 if (userDropdownMenu) userDropdownMenu.classList.add('hidden');
-                if (myProfileLink) myProfileLink.classList.add('hidden');
+                if (myOrdersLink) myOrdersLink.classList.add('hidden'); // AMENDMENT: Hide My Orders link
                 if (logoutDropdownButton) logoutDropdownButton.classList.add('hidden');
                 if (adminLink) adminLink.classList.remove('hidden'); // Admin link always visible to lead to admin login
 
                 // User is not logged in - Mobile Sidebar View
                 if (mobileLoginLink) mobileLoginLink.classList.remove('hidden');
                 if (mobileUserProfileSection) mobileUserProfileSection.classList.add('hidden');
-                if (mobileMyProfileLink) mobileMyProfileLink.classList.add('hidden');
+                if (mobileMyOrdersLink) mobileMyOrdersLink.classList.add('hidden'); // AMENDMENT: Hide mobile My Orders link
                 if (mobileLogoutButton) mobileLogoutButton.classList.add('hidden');
                 if (mobileAdminLink) mobileAdminLink.classList.remove('hidden'); // Admin link always visible to lead to admin login
 
