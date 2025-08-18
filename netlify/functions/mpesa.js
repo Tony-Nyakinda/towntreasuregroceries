@@ -132,6 +132,14 @@ exports.handler = async (event) => {
         }
 
         const orderDoc = snapshot.docs[0];
+        
+        // AMENDMENT: Idempotency Check to prevent "RESOURCE_EXHAUSTED" error
+        // If the order status is not 'pending', it means we've already processed this callback.
+        if (orderDoc.data().paymentStatus !== 'pending') {
+            console.log(`Order ${orderDoc.id} already processed. Current status: ${orderDoc.data().paymentStatus}. Ignoring duplicate callback.`);
+            return { statusCode: 200, headers, body: JSON.stringify({ ResultCode: 0, ResultDesc: "Callback already processed" }) };
+        }
+
         let updateData = {
             mpesaResultCode: resultCode,
             mpesaResultDesc: resultDesc,
@@ -140,11 +148,14 @@ exports.handler = async (event) => {
         if (resultCode === 0) {
             // SUCCESS
             console.log(`Payment successful for order: ${orderDoc.id}`);
-            updateData.paymentStatus = "paid";
             const metadata = stkCallback.CallbackMetadata.Item;
             const receiptItem = metadata.find(item => item.Name === "MpesaReceiptNumber");
+            
+            updateData.paymentStatus = "paid";
             if (receiptItem) {
                 updateData.mpesaReceiptNumber = receiptItem.Value;
+                // AMENDMENT: Update the orderNumber to the M-Pesa receipt number
+                updateData.orderNumber = receiptItem.Value;
             }
         } else {
             // FAILURE
