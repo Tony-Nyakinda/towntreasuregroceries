@@ -32,7 +32,7 @@ const bankPaymentDiv = document.getElementById('bankPayment');
 const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
 
 
-const DELIVERY_FEE = 0; // Define your delivery fee
+const DELIVERY_FEE = 200; // Define your delivery fee
 
 /**
  * Updates the displayed cart count in the navigation and FAB.
