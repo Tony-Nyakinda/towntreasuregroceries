@@ -598,7 +598,7 @@ if (checkoutForm) {
             subtotal += (productDetails ? productDetails.price : item.price) * item.quantity;
         });
 
-        const DELIVERY_FEE = 200;
+        const DELIVERY_FEE = 0;
         const total = subtotal + DELIVERY_FEE;
 
         const userId = auth.currentUser.uid;
