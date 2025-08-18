@@ -472,10 +472,8 @@ window.generateReceipt = function(orderData) {
  * @param {string} checkoutRequestID - The M-Pesa CheckoutRequestID to look for.
  */
 function waitForPaymentConfirmation(checkoutRequestID) {
-    // AMENDMENT: We now query the final orders collection, not a temporary one.
-    const ordersQuery = db.collection(`artifacts/${appId}/public/data/orders`)
-                          .where("mpesaCheckoutRequestID", "==", checkoutRequestID)
-                          .limit(1);
+    // AMENDMENT: We now listen to the public 'payment_status' collection
+    const statusDocRef = db.collection('payment_status').doc(checkoutRequestID);
 
     const TIMEOUT_DURATION = 90000; // 90 seconds
     let timeoutExceeded = false;
@@ -487,26 +485,30 @@ function waitForPaymentConfirmation(checkoutRequestID) {
         showToast("Payment timed out. Please try again.");
     }, TIMEOUT_DURATION);
 
-    const unsubscribe = ordersQuery.onSnapshot(snapshot => {
-        if (timeoutExceeded || snapshot.empty) return;
+    const unsubscribe = statusDocRef.onSnapshot(doc => {
+        if (timeoutExceeded) return;
 
-        // An order with the matching ID has been created, meaning payment was successful
-        const orderDoc = snapshot.docs[0];
-        const orderData = orderDoc.data();
-
-        if (orderData.paymentStatus === 'paid') {
-            clearTimeout(timeoutId);
-            unsubscribe();
-            hideWaitingModal();
-            showToast("Payment successful!");
-            showConfirmation(orderData.orderNumber, orderData); 
-            clearCart();
-            updateCartUI();
+        const statusData = doc.data();
+        if (statusData) {
+            if (statusData.status === 'paid') {
+                clearTimeout(timeoutId);
+                unsubscribe();
+                hideWaitingModal();
+                showToast("Payment successful!");
+                // The final order details are now included in the status document
+                showConfirmation(statusData.finalOrder.orderNumber, statusData.finalOrder); 
+                clearCart();
+                updateCartUI();
+            } else if (statusData.status === 'failed') {
+                clearTimeout(timeoutId);
+                unsubscribe();
+                hideWaitingModal();
+                const reason = statusData.reason || "Payment was not completed.";
+                showToast(`Order failed: ${reason}`);
+            }
         }
-        // No need to check for 'failed' status, as failed orders are never created.
-        
     }, err => {
-        console.error("Error listening for order creation:", err);
+        console.error("Error listening for payment status:", err);
         clearTimeout(timeoutId);
         unsubscribe();
         hideWaitingModal();
