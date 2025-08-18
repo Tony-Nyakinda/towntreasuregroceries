@@ -468,12 +468,14 @@ window.generateReceipt = function(orderData) {
 };
 
 /**
- * AMENDMENT: Listens for payment confirmation from Firestore.
- * @param {string} orderId - The Firestore document ID of the order.
+ * AMENDMENT: Listens for the creation of the final order document.
+ * @param {string} checkoutRequestID - The M-Pesa CheckoutRequestID to look for.
  */
-function waitForPaymentConfirmation(orderId) {
-    const ordersCollectionRef = db.collection(`artifacts/${appId}/public/data/orders`);
-    const orderDocRef = ordersCollectionRef.doc(orderId);
+function waitForPaymentConfirmation(checkoutRequestID) {
+    // AMENDMENT: We now query the final orders collection, not a temporary one.
+    const ordersQuery = db.collection(`artifacts/${appId}/public/data/orders`)
+                          .where("mpesaCheckoutRequestID", "==", checkoutRequestID)
+                          .limit(1);
 
     const TIMEOUT_DURATION = 90000; // 90 seconds
     let timeoutExceeded = false;
@@ -485,29 +487,26 @@ function waitForPaymentConfirmation(orderId) {
         showToast("Payment timed out. Please try again.");
     }, TIMEOUT_DURATION);
 
-    const unsubscribe = orderDocRef.onSnapshot(doc => {
-        if (timeoutExceeded) return;
+    const unsubscribe = ordersQuery.onSnapshot(snapshot => {
+        if (timeoutExceeded || snapshot.empty) return;
 
-        const orderData = doc.data();
-        if (orderData && orderData.paymentStatus) {
-            if (orderData.paymentStatus === 'paid') {
-                clearTimeout(timeoutId);
-                unsubscribe();
-                hideWaitingModal();
-                showToast("Payment successful!");
-                showConfirmation(orderData.orderNumber, orderData); 
-                clearCart();
-                updateCartUI();
-            } else if (orderData.paymentStatus === 'failed') {
-                clearTimeout(timeoutId);
-                unsubscribe();
-                hideWaitingModal();
-                const reason = orderData.mpesaResultDesc || "Payment was not completed.";
-                showToast(`Order failed: ${reason}`);
-            }
+        // An order with the matching ID has been created, meaning payment was successful
+        const orderDoc = snapshot.docs[0];
+        const orderData = orderDoc.data();
+
+        if (orderData.paymentStatus === 'paid') {
+            clearTimeout(timeoutId);
+            unsubscribe();
+            hideWaitingModal();
+            showToast("Payment successful!");
+            showConfirmation(orderData.orderNumber, orderData); 
+            clearCart();
+            updateCartUI();
         }
+        // No need to check for 'failed' status, as failed orders are never created.
+        
     }, err => {
-        console.error("Error listening for order updates:", err);
+        console.error("Error listening for order creation:", err);
         clearTimeout(timeoutId);
         unsubscribe();
         hideWaitingModal();
@@ -597,7 +596,7 @@ if (checkoutForm) {
             subtotal += (productDetails ? productDetails.price : item.price) * item.quantity;
         });
 
-        const DELIVERY_FEE = 0; // AMENDMENT: Using the new delivery fee
+        const DELIVERY_FEE = 0;
         const total = subtotal + DELIVERY_FEE;
 
         const userId = auth.currentUser.uid;
@@ -620,10 +619,9 @@ if (checkoutForm) {
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         };
         
-        // AMENDMENT: Reverse order of operations to prevent race condition
         if (selectedPaymentMethod === 'mpesa') {
             try {
-                // 1. Initiate STK Push first
+                // AMENDMENT: Do not save order here. Send details to server function.
                 const functionUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/initiateMpesaPayment";
                 const mpesaResponse = await fetch(functionUrl, {
                     method: 'POST',
@@ -631,7 +629,7 @@ if (checkoutForm) {
                     body: JSON.stringify({
                         phone: customerPhone,
                         amount: total,
-                        orderId: tempOrderNum // Use temp order number for reference
+                        orderDetails: orderDetails // Send the entire order object
                     }),
                 });
 
@@ -641,18 +639,10 @@ if (checkoutForm) {
                     throw new Error(mpesaResult.error || 'M-Pesa API request failed.');
                 }
                 
-                // 2. Add the CheckoutRequestID to our order details
-                orderDetails.mpesaCheckoutRequestID = mpesaResult.CheckoutRequestID;
-
-                // 3. Now, save the complete order to Firestore
-                const ordersCollectionRef = db.collection(`artifacts/${appId}/public/data/orders`);
-                const orderDocRef = await ordersCollectionRef.add(orderDetails);
-                console.log("Order saved to Firestore with ID:", orderDocRef.id);
-
-                // 4. Close checkout and wait for payment
+                // Close checkout and wait for payment confirmation
                 closeCheckout();
                 showWaitingModal();
-                waitForPaymentConfirmation(orderDocRef.id);
+                waitForPaymentConfirmation(mpesaResult.checkoutRequestID);
 
             } catch (error) {
                 console.error("Error during M-Pesa checkout:", error);
@@ -662,7 +652,7 @@ if (checkoutForm) {
                 placeOrderBtn.innerHTML = 'Place Order';
             }
         } else {
-            // Handle other payment methods
+            // Handle other payment methods (they save directly)
             try {
                 orderDetails.paymentStatus = 'paid';
                 const ordersCollectionRef = db.collection(`artifacts/${appId}/public/data/orders`);
