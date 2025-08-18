@@ -619,23 +619,19 @@ if (checkoutForm) {
             paymentStatus: 'pending', 
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         };
-
-        try {
-            const ordersCollectionRef = db.collection(`artifacts/${appId}/public/data/orders`);
-            const orderDocRef = await ordersCollectionRef.add(orderDetails);
-            console.log("Order saved to Firestore with ID:", orderDocRef.id);
-
-            if (selectedPaymentMethod === 'mpesa') {
-                
+        
+        // AMENDMENT: Reverse order of operations to prevent race condition
+        if (selectedPaymentMethod === 'mpesa') {
+            try {
+                // 1. Initiate STK Push first
                 const functionUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/initiateMpesaPayment";
-
                 const mpesaResponse = await fetch(functionUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         phone: customerPhone,
                         amount: total,
-                        orderId: orderDocRef.id
+                        orderId: tempOrderNum // Use temp order number for reference
                     }),
                 });
 
@@ -645,26 +641,45 @@ if (checkoutForm) {
                     throw new Error(mpesaResult.error || 'M-Pesa API request failed.');
                 }
                 
-                await orderDocRef.update({ mpesaCheckoutRequestId: mpesaResult.CheckoutRequestID });
-                
+                // 2. Add the CheckoutRequestID to our order details
+                orderDetails.mpesaCheckoutRequestID = mpesaResult.CheckoutRequestID;
+
+                // 3. Now, save the complete order to Firestore
+                const ordersCollectionRef = db.collection(`artifacts/${appId}/public/data/orders`);
+                const orderDocRef = await ordersCollectionRef.add(orderDetails);
+                console.log("Order saved to Firestore with ID:", orderDocRef.id);
+
+                // 4. Close checkout and wait for payment
                 closeCheckout();
-                showWaitingModal(); // AMENDMENT: Show waiting modal
+                showWaitingModal();
                 waitForPaymentConfirmation(orderDocRef.id);
 
-            } else {
-                await orderDocRef.update({ paymentStatus: 'paid' });
+            } catch (error) {
+                console.error("Error during M-Pesa checkout:", error);
+                showToast(`Checkout failed: ${error.message}. Please try again.`);
+            } finally {
+                placeOrderBtn.disabled = false;
+                placeOrderBtn.innerHTML = 'Place Order';
+            }
+        } else {
+            // Handle other payment methods
+            try {
+                orderDetails.paymentStatus = 'paid';
+                const ordersCollectionRef = db.collection(`artifacts/${appId}/public/data/orders`);
+                const orderDocRef = await ordersCollectionRef.add(orderDetails);
+                console.log("Order saved to Firestore with ID:", orderDocRef.id);
+                
                 closeCheckout();
                 showConfirmation(tempOrderNum, orderDetails);
                 clearCart();
                 updateCartUI();
+            } catch(error) {
+                console.error("Error during checkout process:", error);
+                showToast(`Checkout failed: ${error.message}. Please try again.`);
+            } finally {
+                placeOrderBtn.disabled = false;
+                placeOrderBtn.innerHTML = 'Place Order';
             }
-
-        } catch (error) {
-            console.error("Error during checkout process:", error);
-            showToast(`Checkout failed: ${error.message}. Please try again.`);
-        } finally {
-            placeOrderBtn.disabled = false;
-            placeOrderBtn.innerHTML = 'Place Order';
         }
     });
 }
