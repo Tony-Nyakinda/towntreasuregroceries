@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     showToast("Payment successful! Your order is confirmed.");
                     // Refresh the list of unpaid orders
                     fetchUnpaidOrders();
-                } else if (statusData.status === 'failed') {
+                } else if (statusData.status === 'failed' || (statusData.reason && statusData.reason.includes("cancelled"))) {
                     clearTimeout(timeoutId);
                     unsubscribe();
                     hideWaitingModal();
