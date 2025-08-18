@@ -467,6 +467,53 @@ window.generateReceipt = function(orderData) {
     html2pdf().set(options).from(receiptContent).save();
 };
 
+/**
+ * AMENDMENT: Listens for payment confirmation from Firestore.
+ * @param {string} orderId - The Firestore document ID of the order.
+ * @param {string} orderNum - The human-readable order number for display.
+ */
+function waitForPaymentConfirmation(orderId, orderNum) {
+    const ordersCollectionRef = db.collection(`artifacts/${appId}/public/data/orders`);
+    const orderDocRef = ordersCollectionRef.doc(orderId);
+
+    // Set a timeout for the listener
+    const TIMEOUT_DURATION = 60000; // 60 seconds
+    let timeoutExceeded = false;
+
+    const timeoutId = setTimeout(() => {
+        timeoutExceeded = true;
+        unsubscribe(); // Detach the listener
+        showToast("Payment timed out. Please try again.");
+        // Optionally, update the order status to 'timed_out' in Firestore
+    }, TIMEOUT_DURATION);
+
+    const unsubscribe = orderDocRef.onSnapshot(doc => {
+        if (timeoutExceeded) return; // Stop processing if timeout already occurred
+
+        const orderData = doc.data();
+        if (orderData && orderData.paymentStatus) {
+            if (orderData.paymentStatus === 'paid') {
+                clearTimeout(timeoutId); // Clear the timeout
+                unsubscribe(); // Detach the listener
+                showConfirmation(orderNum); // Show success modal
+                clearCart(); // Clear the cart
+                updateCartUI();
+            } else if (orderData.paymentStatus === 'failed') {
+                clearTimeout(timeoutId); // Clear the timeout
+                unsubscribe(); // Detach the listener
+                // Use the failure reason from Firestore if available
+                const reason = orderData.mpesaResultDesc || "Payment was not completed.";
+                showToast(`Order failed: ${reason}`);
+            }
+            // If status is still 'pending', the listener remains active
+        }
+    }, err => {
+        console.error("Error listening for order updates:", err);
+        clearTimeout(timeoutId);
+        unsubscribe();
+        showToast("Error checking payment status.");
+    });
+}
 
 
 // --- Event Listeners ---
@@ -514,7 +561,7 @@ if (proceedToCheckoutBtn) {
 }
 
 // ========================================================================
-// START: M-PESA INTEGRATION - UPDATED CHECKOUT FORM LISTENER FOR NETLIFY
+// START: M-PESA INTEGRATION - AMENDED CHECKOUT FORM LISTENER
 // ========================================================================
 if (checkoutForm) {
     checkoutForm.addEventListener('submit', async function(event) {
@@ -570,7 +617,7 @@ if (checkoutForm) {
             deliveryFee: DELIVERY_FEE,
             total: total,
             paymentMethod: selectedPaymentMethod,
-            paymentStatus: 'pending', // Initial status
+            paymentStatus: 'pending', // AMENDMENT: Initial status is always 'pending'
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         };
 
@@ -582,7 +629,6 @@ if (checkoutForm) {
 
             // 2. If payment method is M-Pesa, call the Netlify Function
             if (selectedPaymentMethod === 'mpesa') {
-                showToast("Please check your phone to complete the M-Pesa payment.");
                 
                 // *** This is the URL for your live Netlify function ***
                 const functionUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/initiateMpesaPayment";
@@ -603,15 +649,17 @@ if (checkoutForm) {
                     throw new Error(mpesaResult.error || 'M-Pesa API request failed.');
                 }
                 
-                await orderDocRef.update({ mpesaCheckoutRequestId: mpesaResult.CheckoutRequestID });
+                // Link the M-Pesa request to our order document
+                await orderDocRef.update({ mpesaCheckoutRequestID: mpesaResult.CheckoutRequestID });
                 
+                // AMENDMENT: Close checkout and wait for payment instead of showing confirmation
                 closeCheckout();
-                showConfirmation(orderNum);
-                clearCart();
-                updateCartUI();
+                showToast("Please check your phone to complete the M-Pesa payment.");
+                waitForPaymentConfirmation(orderDocRef.id, orderNum);
 
             } else {
-                // For other payment methods, just show confirmation
+                // For other payment methods, update status to paid and show confirmation
+                await orderDocRef.update({ paymentStatus: 'paid' });
                 closeCheckout();
                 showConfirmation(orderNum);
                 clearCart();
@@ -628,7 +676,7 @@ if (checkoutForm) {
     });
 }
 // ========================================================================
-// END: M-PESA INTEGRATION
+// END: M-PESA INTEGRATION AMENDMENT
 // ========================================================================
 
 
