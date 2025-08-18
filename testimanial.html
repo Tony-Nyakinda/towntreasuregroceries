@@ -291,6 +291,8 @@
                 <a href="index.html#features" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Why Us</a>
                 <a href="testimanial.html" class="text-green-600 font-bold transition duration-300">Testimonials</a>
                 <a href="index.html#contact" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Contact</a>
+                <!-- AMENDMENT: Added My Orders Link -->
+                <a href="account.html" id="myOrdersLink" class="text-gray-700 hover:text-green-600 font-medium transition duration-300 hidden">My Orders</a>
                 
                 <!-- Login/User Profile Dropdown -->
                 <div class="relative" id="userProfileDropdownContainer">
@@ -311,7 +313,7 @@
                                 <p class="text-gray-500" id="dropdownUserEmail"></p>
                             </div>
                         </div>
-                        <a href="#" id="myProfileLink" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hidden">My Profile</a>
+                        <!-- AMENDMENT: Removed My Profile link -->
                         <button id="logoutDropdownButton" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Logout</button>
                     </div>
                 </div>
@@ -337,6 +339,8 @@
                 <a href="index.html#features" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Why Us</a>
                 <a href="testimanial.html" class="block py-2 px-3 text-green-600 font-bold hover:bg-gray-100 rounded transition duration-300">Testimonials</a>
                 <a href="index.html#contact" class="block py-2 px-3 text-gray-700 hover:text-green-600 font-medium transition duration-300">Contact</a>
+                <!-- AMENDMENT: Added My Orders link for mobile -->
+                <a href="account.html" id="mobileMyOrdersLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300 hidden">My Orders</a>
                 
                 <div class="border-t border-gray-100 pt-2 mt-2">
                     <!-- Mobile User Profile Section -->
@@ -349,7 +353,7 @@
                         </div>
                     </div>
                     <a href="login.html" id="mobileLoginLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Login</a>
-                    <a href="#" id="mobileMyProfileLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300 hidden">My Profile</a>
+                    <!-- AMENDMENT: Removed mobile My Profile link -->
                     <button id="mobileLogoutButton" class="block w-full text-left py-2 px-3 text-red-600 hover:bg-red-50 rounded transition duration-300 hidden">Logout</button>
                 </div>
             </nav>
@@ -721,13 +725,13 @@
         const dropdownUserInitials = document.getElementById('dropdownUserInitials');   // New
         const logoutDropdownButton = document.getElementById('logoutDropdownButton');
         const adminLink = document.getElementById('adminLink');
-        const myProfileLink = document.getElementById('myProfileLink');
+        const myOrdersLink = document.getElementById('myOrdersLink'); // AMENDMENT: Get new link
         const mobileMenuButton = document.getElementById('mobileMenuButton');
         const mobileMenu = document.getElementById('mobileMenu');
         const closeMobileMenuButton = document.getElementById('closeMobileMenuButton'); 
         const mobileMenuOverlay = document.getElementById('mobileMenuOverlay'); 
         const mobileLoginLink = document.getElementById('mobileLoginLink');
-        const mobileMyProfileLink = document.getElementById('mobileMyProfileLink');
+        const mobileMyOrdersLink = document.getElementById('mobileMyOrdersLink'); // AMENDMENT: Get new mobile link
         const mobileAdminLink = document.getElementById('mobileAdminLink');
         const mobileLogoutButton = document.getElementById('mobileLogoutButton'); 
         const mainCartButton = document.getElementById('mainCartButton');
@@ -1001,8 +1005,8 @@
                         if (dropdownUserProfilePic) dropdownUserProfilePic.classList.add('hidden');
                     }
 
-                    if (myProfileLink) myProfileLink.classList.remove('hidden');
-                    if (mobileMyProfileLink) mobileMyProfileLink.classList.remove('hidden');
+                    if (myOrdersLink) myOrdersLink.classList.remove('hidden'); // AMENDMENT: Show My Orders link
+                    if (mobileMyOrdersLink) mobileMyOrdersLink.classList.remove('hidden'); // AMENDMENT: Show mobile My Orders link
 
                     if (userProfileButton) userProfileButton.addEventListener('click', (e) => {
                         e.stopPropagation();
@@ -1070,8 +1074,8 @@
                     if (loginLink) loginLink.classList.remove('hidden');
                     if (userProfileButton) userProfileButton.classList.add('hidden');
                     if (userDropdownMenu) userDropdownMenu.classList.add('hidden');
-                    if (myProfileLink) myProfileLink.classList.add('hidden');
-                    if (mobileMyProfileLink) mobileMyProfileLink.classList.add('hidden');
+                    if (myOrdersLink) myOrdersLink.classList.add('hidden'); // AMENDMENT: Hide My Orders link
+                    if (mobileMyOrdersLink) mobileMyOrdersLink.classList.add('hidden'); // AMENDMENT: Hide mobile My Orders link
                     if (mobileLogoutButton) mobileLogoutButton.classList.add('hidden');
 
                     if (adminLink) adminLink.classList.remove('hidden');
