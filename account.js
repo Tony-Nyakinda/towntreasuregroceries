@@ -149,56 +149,59 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // --- AMENDMENT: Listen for Payment Confirmation by polling Netlify function ---
+    // --- Reverted: Listen for Payment Confirmation using Firestore onSnapshot ---
     function waitForPaymentConfirmation(checkoutRequestID, unpaidOrderId) {
-        const POLLING_INTERVAL = 5000; // 5 seconds
+        const statusDocRef = db.collection('payment_status').doc(checkoutRequestID);
+
         const TIMEOUT_DURATION = 90000; // 90 seconds
-        let elapsedTime = 0;
+        let timeoutExceeded = false;
 
-        const pollingId = setInterval(async () => {
-            elapsedTime += POLLING_INTERVAL;
-
-            // Check for timeout
-            if (elapsedTime >= TIMEOUT_DURATION) {
-                clearInterval(pollingId);
-                hideWaitingModal();
-                showToast("Payment timed out. Please try again.");
-                const button = unpaidOrdersGrid.querySelector(`[data-order-id="${unpaidOrderId}"]`);
-                if (button) {
-                    button.disabled = false;
-                    button.innerHTML = 'Pay Now';
-                }
-                return;
+        const timeoutId = setTimeout(() => {
+            timeoutExceeded = true;
+            unsubscribe();
+            hideWaitingModal();
+            showToast("Payment timed out. Please try again.");
+            // Re-enable the button
+            const button = unpaidOrdersGrid.querySelector(`[data-order-id="${unpaidOrderId}"]`);
+            if (button) {
+                button.disabled = false;
+                button.innerHTML = 'Pay Now';
             }
+        }, TIMEOUT_DURATION);
 
-            try {
-                // Poll the Netlify function
-                const statusUrl = `https://towntreasuregroceries.netlify.app/.netlify/functions/checkPaymentStatus?checkoutRequestID=${checkoutRequestID}`;
-                const response = await fetch(statusUrl);
-                const statusData = await response.json();
+        const unsubscribe = statusDocRef.onSnapshot(doc => {
+            if (timeoutExceeded) return;
 
+            const statusData = doc.data();
+            if (statusData) {
                 if (statusData.status === 'paid') {
-                    clearInterval(pollingId);
+                    clearTimeout(timeoutId);
+                    unsubscribe();
                     hideWaitingModal();
                     showToast("Payment successful! Your order is confirmed.");
-                    fetchUnpaidOrders(); // Refresh the list
-                } else if (statusData.status === 'failed') {
-                    clearInterval(pollingId);
+                    // Refresh the list of unpaid orders
+                    fetchUnpaidOrders();
+                } else if (statusData.status === 'failed' || (statusData.reason && statusData.reason.toLowerCase().includes("cancelled"))) {
+                    clearTimeout(timeoutId);
+                    unsubscribe();
                     hideWaitingModal();
                     const reason = statusData.reason || "Payment was not completed.";
                     showToast(`Payment failed: ${reason}`);
+                    // Re-enable the button
                     const button = unpaidOrdersGrid.querySelector(`[data-order-id="${unpaidOrderId}"]`);
                     if (button) {
                         button.disabled = false;
                         button.innerHTML = 'Pay Now';
                     }
                 }
-                // If status is still 'pending', the interval will just continue
-            } catch (error) {
-                console.error("Error polling for payment status:", error);
-                // Don't stop polling on a single failed network request, let the timeout handle it
             }
-        }, POLLING_INTERVAL);
+        }, err => {
+            console.error("Error listening for payment status:", err);
+            clearTimeout(timeoutId);
+            unsubscribe();
+            hideWaitingModal();
+            showToast("Error checking payment status.");
+        });
     }
 
     // --- Mobile Menu Toggle Logic ---
