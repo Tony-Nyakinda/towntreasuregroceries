@@ -149,59 +149,56 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // --- Listen for Payment Confirmation ---
+    // --- AMENDMENT: Listen for Payment Confirmation by polling Netlify function ---
     function waitForPaymentConfirmation(checkoutRequestID, unpaidOrderId) {
-        const statusDocRef = db.collection('payment_status').doc(checkoutRequestID);
-
+        const POLLING_INTERVAL = 5000; // 5 seconds
         const TIMEOUT_DURATION = 90000; // 90 seconds
-        let timeoutExceeded = false;
+        let elapsedTime = 0;
 
-        const timeoutId = setTimeout(() => {
-            timeoutExceeded = true;
-            unsubscribe();
-            hideWaitingModal();
-            showToast("Payment timed out. Please try again.");
-            // Re-enable the button
-            const button = unpaidOrdersGrid.querySelector(`[data-order-id="${unpaidOrderId}"]`);
-            if (button) {
-                button.disabled = false;
-                button.innerHTML = 'Pay Now';
+        const pollingId = setInterval(async () => {
+            elapsedTime += POLLING_INTERVAL;
+
+            // Check for timeout
+            if (elapsedTime >= TIMEOUT_DURATION) {
+                clearInterval(pollingId);
+                hideWaitingModal();
+                showToast("Payment timed out. Please try again.");
+                const button = unpaidOrdersGrid.querySelector(`[data-order-id="${unpaidOrderId}"]`);
+                if (button) {
+                    button.disabled = false;
+                    button.innerHTML = 'Pay Now';
+                }
+                return;
             }
-        }, TIMEOUT_DURATION);
 
-        const unsubscribe = statusDocRef.onSnapshot(doc => {
-            if (timeoutExceeded) return;
+            try {
+                // Poll the Netlify function
+                const statusUrl = `https://towntreasuregroceries.netlify.app/.netlify/functions/checkPaymentStatus?checkoutRequestID=${checkoutRequestID}`;
+                const response = await fetch(statusUrl);
+                const statusData = await response.json();
 
-            const statusData = doc.data();
-            if (statusData) {
                 if (statusData.status === 'paid') {
-                    clearTimeout(timeoutId);
-                    unsubscribe();
+                    clearInterval(pollingId);
                     hideWaitingModal();
                     showToast("Payment successful! Your order is confirmed.");
-                    // Refresh the list of unpaid orders
-                    fetchUnpaidOrders();
-                } else if (statusData.status === 'failed' || (statusData.reason && statusData.reason.includes("cancelled"))) {
-                    clearTimeout(timeoutId);
-                    unsubscribe();
+                    fetchUnpaidOrders(); // Refresh the list
+                } else if (statusData.status === 'failed') {
+                    clearInterval(pollingId);
                     hideWaitingModal();
                     const reason = statusData.reason || "Payment was not completed.";
                     showToast(`Payment failed: ${reason}`);
-                    // Re-enable the button
                     const button = unpaidOrdersGrid.querySelector(`[data-order-id="${unpaidOrderId}"]`);
                     if (button) {
                         button.disabled = false;
                         button.innerHTML = 'Pay Now';
                     }
                 }
+                // If status is still 'pending', the interval will just continue
+            } catch (error) {
+                console.error("Error polling for payment status:", error);
+                // Don't stop polling on a single failed network request, let the timeout handle it
             }
-        }, err => {
-            console.error("Error listening for payment status:", err);
-            clearTimeout(timeoutId);
-            unsubscribe();
-            hideWaitingModal();
-            showToast("Error checking payment status.");
-        });
+        }, POLLING_INTERVAL);
     }
 
     // --- Mobile Menu Toggle Logic ---
