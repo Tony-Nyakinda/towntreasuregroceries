@@ -7,20 +7,33 @@ import { showToast, showWaitingModal, hideWaitingModal } from './uiUpdater.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     // DOM Elements
+    const loader = document.getElementById('loader');
+    const mainContent = document.getElementById('mainContent');
     const userProfileSection = document.getElementById('userProfileSection');
     const profileInitials = document.getElementById('profileInitials');
     const profileName = document.getElementById('profileName');
     const profileEmail = document.getElementById('profileEmail');
     const logoutButton = document.getElementById('logoutButton');
     const unpaidOrdersGrid = document.getElementById('unpaidOrdersGrid');
+    
+    // Mobile Menu DOM Elements
+    const mobileMenuButton = document.getElementById('mobileMenuButton');
+    const mobileMenu = document.getElementById('mobileMenu');
+    const closeMobileMenuButton = document.getElementById('closeMobileMenuButton');
+    const overlay = document.getElementById('overlay');
 
     const { user } = await getCurrentUserWithRole();
 
     // Page Guard: Redirect if user is not logged in
     if (!user) {
         window.location.href = 'login.html';
-        return;
+        return; // Stop script execution
     }
+
+    // If user is logged in, hide loader and show content
+    loader.style.display = 'none';
+    mainContent.classList.remove('hidden');
+
 
     // --- Display User Profile ---
     if (userProfileSection) {
@@ -44,6 +57,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function fetchUnpaidOrders() {
         if (!unpaidOrdersGrid) return;
 
+        // Corrected the Firestore collection path
         const unpaidOrdersQuery = db.collection(`artifacts/default-app-id/public/data/unpaid_orders`)
                                       .where('userId', '==', user.uid)
                                       .where('paymentStatus', '==', 'unpaid');
@@ -190,6 +204,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    // --- Mobile Menu Toggle Logic ---
+    function toggleMobileMenu() {
+        const isActive = mobileMenu.classList.contains('is-active');
+        if (isActive) {
+            mobileMenu.classList.remove('is-active');
+            overlay.classList.add('hidden');
+            document.body.style.overflow = '';
+        } else {
+            mobileMenu.classList.add('is-active');
+            overlay.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    if (mobileMenuButton && mobileMenu && closeMobileMenuButton && overlay) {
+        mobileMenuButton.addEventListener('click', toggleMobileMenu);
+        closeMobileMenuButton.addEventListener('click', toggleMobileMenu);
+        overlay.addEventListener('click', () => {
+            if (mobileMenu.classList.contains('is-active')) {
+                toggleMobileMenu();
+            }
+        });
+    }
 
     // Initial fetch of orders
     fetchUnpaidOrders();
