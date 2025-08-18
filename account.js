@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!unpaidOrdersGrid) return;
 
         try {
-            // AMENDMENT: Fetch from Supabase 'unpaid_orders' table
+            // AMENDMENT: Correcting the Supabase query to filter for 'paymentStatus'
             const { data, error } = await supabase
                 .from('unpaid_orders')
                 .select('*')
