@@ -32,7 +32,7 @@ const bankPaymentDiv = document.getElementById('bankPayment');
 const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
 
 
-const DELIVERY_FEE = 0; // Define your delivery fee
+const DELIVERY_FEE = 200; // Define your delivery fee
 
 /**
  * Updates the displayed cart count in the navigation and FAB.
@@ -81,6 +81,7 @@ function updateCartCounts() {
  * It now fetches product details from Firestore to ensure accurate display.
  */
 async function renderCartItems() {
+    if (!cartItemsContainer) return;
     cartItemsContainer.innerHTML = ''; // Clear existing items
     const cart = getCart();
 
@@ -236,10 +237,11 @@ function closeCheckout() {
 }
 
 /**
- * Shows the order confirmation modal.
+ * AMENDMENT: Shows the order confirmation modal and prepares receipt data.
  * @param {string} orderNum - The order number to display.
+ * @param {object} fullOrderData - The complete order data from Firestore.
  */
-function showConfirmation(orderNum) {
+function showConfirmation(orderNum, fullOrderData = {}) {
     if (!confirmationModal || !overlay) {
         console.error("Confirmation modal or overlay element not found.");
         return;
@@ -247,11 +249,17 @@ function showConfirmation(orderNum) {
     if (orderNumberSpan) {
         orderNumberSpan.textContent = orderNum;
     }
+    
+    // AMENDMENT: Store the full order data on the download button for receipt generation
+    if (downloadReceiptBtn) {
+        downloadReceiptBtn.dataset.orderDetails = JSON.stringify(fullOrderData);
+    }
+
     confirmationModal.classList.remove('hidden');
     overlay.classList.remove('hidden');
     document.body.classList.add('overflow-hidden'); // Disable body scroll
-    clearCart(); // Clear cart after successful order
 }
+
 
 /**
  * Closes the order confirmation modal.
@@ -288,16 +296,25 @@ if (paymentMethodRadios && mpesaPaymentDiv && cardPaymentDiv && bankPaymentDiv) 
 // Event listener for Download Receipt button
 if (downloadReceiptBtn) {
     downloadReceiptBtn.addEventListener('click', () => {
-        const element = document.getElementById('confirmationModal'); // Target the confirmation modal content
-        const orderNum = orderNumberSpan ? orderNumberSpan.textContent : 'Your_Order';
-
-        html2pdf(element, {
-            margin: 1,
-            filename: `receipt_${orderNum}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, logging: true, dpi: 192, letterRendering: true },
-            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
-        });
+        const orderDetailsString = downloadReceiptBtn.dataset.orderDetails;
+        if (orderDetailsString) {
+            try {
+                const orderDetails = JSON.parse(orderDetailsString);
+                // Assuming generateReceipt is a global function defined in catalog.js
+                if (window.generateReceipt) {
+                    window.generateReceipt(orderDetails);
+                } else {
+                    console.error("generateReceipt function not found.");
+                    showToast("Could not generate receipt.");
+                }
+            } catch (e) {
+                console.error("Error parsing order details for receipt:", e);
+                showToast("Could not generate receipt due to a data error.");
+            }
+        } else {
+            console.error("No order details found for receipt generation.");
+            showToast("Could not generate receipt. Order details missing.");
+        }
     });
 }
 
@@ -325,4 +342,3 @@ if (cartItemsContainer) {
         }
     });
 }
-
