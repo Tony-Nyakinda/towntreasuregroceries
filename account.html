@@ -9,12 +9,24 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/png" sizes="32x32" href="IMAGE/favicon/favicon-32x32.png">
+    <style>
+        #mobileMenu.is-active {
+            transform: translateX(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        #mobileMenu {
+            transform: translateX(-100%);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+    </style>
 </head>
 <body class="bg-gray-50">
 
     <!-- Navigation -->
     <nav class="bg-white shadow-md sticky top-0 z-50">
-        <!-- Navigation content from index.html can be reused here -->
         <div class="container mx-auto px-4 py-3 flex justify-between items-center">
              <div class="flex items-center space-x-2">
                 <img src="IMAGE/LOG.png" alt="Town Treasure Logo">
@@ -33,6 +45,26 @@
             </button>
         </div>
     </nav>
+    
+    <!-- Mobile Menu (Sidebar) -->
+    <div id="mobileMenu" class="fixed inset-0 z-[9999] flex justify-start">
+        <div class="w-64 bg-white shadow-lg h-full overflow-y-auto">
+            <div class="flex justify-between items-center p-4 border-b border-gray-100">
+                <h2 class="text-xl font-bold text-gray-800">Menu</h2>
+                <button id="closeMobileMenuButton" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            <nav class="p-4 space-y-2">
+                <a href="index.html" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Home</a>
+                <a href="about.html" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">About Us</a>
+                <a href="catalog.html" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Catalog</a>
+                <a href="account.html" class="block py-2 px-3 text-green-600 font-bold hover:bg-gray-100 rounded transition duration-300">My Account</a>
+                <a href="testimanial.html" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Testimonials</a>
+            </nav>
+        </div>
+    </div>
+
 
     <!-- Loader -->
     <div id="loader" class="text-center py-20">
@@ -100,6 +132,37 @@
     <script type="module" src="auth.js"></script>
     <script type="module" src="uiUpdater.js"></script>
     <script type="module" src="account.js"></script>
+
+    <script type="module">
+        // AMENDMENT: Added mobile menu toggle logic
+        const mobileMenuButton = document.getElementById('mobileMenuButton');
+        const mobileMenu = document.getElementById('mobileMenu');
+        const closeMobileMenuButton = document.getElementById('closeMobileMenuButton');
+        const overlay = document.getElementById('overlay');
+
+        function toggleMobileMenu() {
+            const isActive = mobileMenu.classList.contains('is-active');
+            if (isActive) {
+                mobileMenu.classList.remove('is-active');
+                overlay.classList.add('hidden');
+                document.body.style.overflow = '';
+            } else {
+                mobileMenu.classList.add('is-active');
+                overlay.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+
+        if (mobileMenuButton && mobileMenu && closeMobileMenuButton && overlay) {
+            mobileMenuButton.addEventListener('click', toggleMobileMenu);
+            closeMobileMenuButton.addEventListener('click', toggleMobileMenu);
+            overlay.addEventListener('click', () => {
+                if (mobileMenu.classList.contains('is-active')) {
+                    toggleMobileMenu();
+                }
+            });
+        }
+    </script>
 
 </body>
 </html>
