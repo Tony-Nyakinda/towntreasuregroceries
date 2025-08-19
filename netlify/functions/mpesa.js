@@ -64,9 +64,9 @@ exports.handler = async (event) => {
 
   // --- Endpoint to INITIATE STK PUSH ---
   if (path === '/initiateMpesaPayment') {
-    const { phone, amount, orderDetails } = JSON.parse(event.body);
+    const { phone, amount, orderDetails, unpaidOrderId } = JSON.parse(event.body);
 
-    if (!phone || !amount || !orderDetails) {
+    if (!phone || !amount || !orderDetails || !unpaidOrderId) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "Missing required fields" }) };
     }
 
@@ -102,6 +102,7 @@ exports.handler = async (event) => {
       const pendingPaymentRef = db.collection('pending_payments').doc(checkoutRequestID);
       batch.set(pendingPaymentRef, {
           orderDetails: orderDetails,
+          unpaidOrderId: unpaidOrderId, // <-- KEY CHANGE: Store the original ID
           timestamp: admin.firestore.FieldValue.serverTimestamp()
       });
 
@@ -148,7 +149,7 @@ exports.handler = async (event) => {
             return { statusCode: 200, headers, body: JSON.stringify({ ResultCode: 0, ResultDesc: "No matching record found" }) };
         }
 
-        const { orderDetails } = pendingPaymentDoc.data();
+        const { orderDetails, unpaidOrderId } = pendingPaymentDoc.data(); // <-- KEY CHANGE: Retrieve the ID
 
         if (resultCode === 0) {
             // SUCCESS
@@ -164,14 +165,19 @@ exports.handler = async (event) => {
                 orderDetails.orderNumber = receiptItem.Value;
             }
             
-            // AMENDMENT: Overwrite the client-side timestamp with a real server timestamp
             orderDetails.timestamp = admin.firestore.FieldValue.serverTimestamp();
 
-            // Save the completed order to the final 'orders' collection
+            // Define references for the final paid order and the original unpaid order
             const finalOrderRef = db.collection(`artifacts/default-app-id/public/data/orders`).doc(orderDetails.orderNumber);
-            await finalOrderRef.set(orderDetails);
+            const unpaidOrderRef = db.collection(`artifacts/default-app-id/public/data/unpaid_orders`).doc(unpaidOrderId);
+
+            // KEY CHANGE: Use a batch write to create the new order and delete the old one
+            const successBatch = db.batch();
+            successBatch.set(finalOrderRef, orderDetails);
+            successBatch.delete(unpaidOrderRef);
+            await successBatch.commit();
             
-            console.log(`Order ${orderDetails.orderNumber} saved successfully.`);
+            console.log(`Order ${orderDetails.orderNumber} saved and unpaid order ${unpaidOrderId} deleted.`);
             
             // Send back success response to polling client
             return {
@@ -188,7 +194,7 @@ exports.handler = async (event) => {
             // FAILURE
             console.log(`Payment failed for CheckoutRequestID: ${checkoutRequestID}. Reason: ${resultDesc}`);
             
-            // Send back a failure response to the polling client. No Firestore write needed for failure.
+            // Send back a failure response to the polling client.
             return {
                 statusCode: 200,
                 headers,
@@ -206,14 +212,12 @@ exports.handler = async (event) => {
         // Clean up the secure temporary record regardless of success or failure
         const pendingPaymentRef = db.collection('pending_payments').doc(checkoutRequestID);
         await pendingPaymentRef.delete();
-        // The public status document is now redundant for this flow and can be removed
         const publicStatusRef = db.collection('payment_status').doc(checkoutRequestID);
         await publicStatusRef.delete();
     }
   }
 
   // --- Endpoint to POLL FOR PAYMENT STATUS ---
-  // This is the new endpoint the client will call
   if (path === '/getPaymentStatus') {
     const { checkoutRequestID } = JSON.parse(event.body);
 
@@ -238,11 +242,9 @@ exports.handler = async (event) => {
           headers: { "Authorization": `Bearer ${token}` }
         });
 
-        // The M-Pesa API response has a "ResultCode"
         const resultCode = mpesaResponse.data.ResultCode;
 
         if (resultCode === "0") {
-            // Transaction is complete, query the database for the final order
             const finalOrderRef = db.collection(`artifacts/default-app-id/public/data/orders`).doc(checkoutRequestID);
             const finalOrderDoc = await finalOrderRef.get();
 
@@ -257,12 +259,10 @@ exports.handler = async (event) => {
                     })
                 };
             } else {
-                // Should not happen, but handle it
                 return { statusCode: 200, headers, body: JSON.stringify({ status: 'pending', message: "Payment successful, but order is still processing." }) };
             }
 
         } else if (resultCode === "1032") {
-            // User cancelled the transaction
             return {
                 statusCode: 200,
                 headers,
@@ -272,7 +272,6 @@ exports.handler = async (event) => {
                 })
             };
         } else if (resultCode === "2001") {
-            // M-Pesa error
             return {
                 statusCode: 200,
                 headers,
@@ -283,7 +282,6 @@ exports.handler = async (event) => {
             };
         }
         else {
-          // Any other code means the payment is still pending
           return {
               statusCode: 200,
               headers,
