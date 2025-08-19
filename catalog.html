@@ -573,22 +573,19 @@
                         <label class="block text-gray-700 mb-2">Payment Method</label>
                         <div class="space-y-2">
                             <label class="flex items-center space-x-3 p-3 border rounded-lg hover:border-green-500 transition duration-300">
+                                <!-- Replaced with the home page's radio buttons as requested -->
                                 <input type="radio" name="paymentMethod" value="mpesa" class="form-radio text-green-600" checked>
-                                <span>MPESA</span>
+                                <span>Pay Now with M-Pesa</span>
                                 <img src="https://upload.wikimedia.org/wikipedia/commons/1/15/M-PESA_LOGO-01.svg" alt="M-Pesa" class="h-6 ml-auto">
                             </label>
                             <label class="flex items-center space-x-3 p-3 border rounded-lg hover:border-green-500 transition duration-300">
-                                <input type="radio" name="paymentMethod" value="card" class="form-radio text-green-600">
-                                <span>Credit/Debit Card</span>
-                            </label>
-                            <label class="flex items-center space-x-3 p-3 border rounded-lg hover:border-green-500 transition duration-300">
-                                <input type="radio" name="paymentMethod" value="bank" class="form-radio text-green-600">
-                                <span>Bank Transfer</span>
-                                <i class="fas fa-university text-gray-600 ml-auto"></i>
+                                <input type="radio" name="paymentMethod" value="delivery" class="form-radio text-green-600">
+                                <span>Pay on Delivery (with M-Pesa)</span>
                             </label>
                         </div>
                     </div>
 
+                    <!-- Removed the credit card and bank transfer divs -->
                     <div id="mpesaPayment" class="p-4 bg-gray-50 rounded-lg">
                         <p class="text-sm text-gray-600 mb-3">You will receive an MPESA push notification to complete payment after placing your order.</p>
                         <div class="flex items-center">
@@ -596,32 +593,9 @@
                             <p class="text-sm text-gray-600">Ensure your phone is nearby and unlocked</p>
                         </div>
                     </div>
-
-                    <div id="cardPayment" class="p-4 bg-gray-50 rounded-lg hidden">
-                        <div class="mb-3">
-                            <label for="cardNumber" class="block text-sm text-gray-700 mb-1">Card Number</label>
-                            <input type="text" id="cardNumber" name="cardNumber" placeholder="1234 5678 9012 3456" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label for="expiry" class="block text-sm text-gray-700 mb-1">Expiry Date</label>
-                                <input type="text" id="expiry" name="expiry" placeholder="MM/YY" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-                            </div>
-                            <div>
-                                <label for="cvv" class="block text-sm text-gray-700 mb-1">CVV</label>
-                                <input type="text" id="cvv" name="cvv" placeholder="123" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="bankPayment" class="p-4 bg-gray-50 rounded-lg hidden">
-                        <p class="text-sm text-gray-600 mb-3">Please transfer the total amount to:</p>
-                        <div class="mb-2">
-                            <p class="font-medium">Bank: Equity Bank</p>
-                            <p class="font-medium">Account Name: Town Treasure Groceries</p>
-                            <p class="font-medium">Account Number: 1234567890</p>
-                        </div>
-                        <p class="text-sm text-gray-600">Your order will be processed once payment is confirmed.</p>
+                    
+                    <div id="deliveryPayment" class="p-4 bg-gray-50 rounded-lg hidden">
+                        <p class="text-sm text-gray-600 mb-3">Your order will be prepared for delivery. You can complete the M-Pesa payment from your account page when the rider arrives.</p>
                     </div>
 
                     <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
@@ -664,6 +638,29 @@
     </div>
     <!-- Overlay (Same as index.html) -->
     <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden"></div>
+
+    <!-- Custom Alert Modal Structure -->
+    <div id="customAlertModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1001] hidden">
+        <div class="bg-white rounded-lg w-11/12 max-w-sm mx-auto p-6 text-center shadow-lg">
+            <i class="fas fa-info-circle text-green-600 text-4xl mb-4"></i>
+            <h3 id="alertModalTitle" class="font-bold text-lg mb-2">Alert</h3>
+            <p id="alertModalMessage" class="text-gray-700 mb-6">This is a custom alert message.</p>
+            <button id="alertModalCloseButton" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
+                OK
+            </button>
+        </div>
+    </div>
+    
+    <!-- ADDING THE WAIT MODAL TO CATALOG.HTML -->
+    <div id="waitingModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1001] hidden">
+        <div class="bg-white rounded-lg w-11/12 max-w-sm mx-auto p-6 text-center shadow-lg">
+            <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-green-600 mx-auto"></div>
+            <h3 class="font-bold text-lg mt-4 mb-2">Waiting for Payment</h3>
+            <p class="text-gray-700 mb-2">Please check your phone and enter your M-Pesa PIN to complete the payment.</p>
+            <p class="text-sm text-gray-500">This may take a moment...</p>
+        </div>
+    </div>
+
 
     <!-- Footer (Same as index.html) -->
     <footer class="bg-gray-900 text-white pt-16 pb-8">
