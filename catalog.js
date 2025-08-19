@@ -631,7 +631,6 @@ if (checkoutForm) {
             total: total,
             paymentMethod: selectedPaymentMethod,
             paymentStatus: 'pending',
-            // This is a Firebase timestamp. It will be ignored by Supabase, which sets its own.
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         };
         
