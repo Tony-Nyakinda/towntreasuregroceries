@@ -240,7 +240,7 @@ function closeCheckout() {
 /**
  * AMENDMENT: Shows the order confirmation modal and prepares receipt data.
  * @param {string} orderNum - The order number to display.
- * @param {object} fullOrderData - The complete order data from Firestore or Supabase.
+ * @param {object} fullOrderData - The complete order data from Firestore.
  */
 function showConfirmation(orderNum, fullOrderData = {}) {
     if (!confirmationModal || !overlay) {
