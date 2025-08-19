@@ -1,8 +1,7 @@
 // catalog.js
 // This script handles dynamic content for the catalog page,
 // including product display, category filtering, search, sorting, and pagination.
-// It now fetches product data from Firebase via productsData.js.
-// UPDATED to handle M-Pesa payment initiation by calling a Netlify Function.
+// UPDATED to handle M-Pesa payment status by polling a Netlify Function instead of Firestore.
 
 import { getProducts } from './productsData.js'; // Correctly import getProducts function
 import { showToast, toggleCart, checkout, closeCheckout, showConfirmation, closeConfirmation, updateCartUI, showWaitingModal, hideWaitingModal } from './uiUpdater.js'; // AMENDMENT: Import waiting modal functions
@@ -29,10 +28,10 @@ const addressInput = document.getElementById('address');
 const instructionsInput = document.getElementById('instructions');
 const paymentMethodRadios = document.querySelectorAll('input[name="paymentMethod"]');
 const mpesaPaymentDiv = document.getElementById('mpesaPayment');
-const deliveryPaymentDiv = document.getElementById('deliveryPayment'); // AMENDMENT: New div for delivery payment info
+const deliveryPaymentDiv = document.getElementById('deliveryPayment');
 const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
 const orderNumberSpan = document.getElementById('orderNumber');
-const confirmationMessage = document.getElementById('confirmationMessage'); // AMENDMENT: For custom confirmation messages
+const confirmationMessage = document.getElementById('confirmationMessage');
 
 // DOM Elements - Navigation and User Profile (for mobile sidebar logic)
 const loginLink = document.getElementById('loginLink');
@@ -60,7 +59,7 @@ const mobileAdminLink = document.getElementById('mobileAdminLink');
 
 const mobileMenuButton = document.getElementById('mobileMenuButton');
 const mobileMenu = document.getElementById('mobileMenu');
-const closeMobileMenuButton = document.getElementById('closeMobileMenuButton'); // Added for mobile menu close button
+const closeMobileMenuButton = document.getElementById('closeMobileMenuButton');
 
 const PRODUCTS_PER_PAGE = 8; // Number of products to display per page
 let allProductsFlat = []; // Flat array of all products for search, sort, and pagination
@@ -69,7 +68,6 @@ let currentPage = 1; // Current pagination page
 
 // Global variable for app ID, consistent with other modules
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
 
 /**
  * Renders products into the product grid based on the current filters and pagination.
@@ -472,50 +470,63 @@ window.generateReceipt = function(orderData) {
  * @param {string} checkoutRequestID - The M-Pesa CheckoutRequestID to look for.
  */
 function waitForPaymentConfirmation(checkoutRequestID) {
-    // AMENDMENT: We now listen to the public 'payment_status' collection
-    const statusDocRef = db.collection('payment_status').doc(checkoutRequestID);
+    const pollUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/getPaymentStatus";
+    const POLLING_INTERVAL = 3000; // Poll every 3 seconds
+    const TIMEOUT_DURATION = 90000; // 90 seconds timeout
 
-    const TIMEOUT_DURATION = 90000; // 90 seconds
-    let timeoutExceeded = false;
+    let pollIntervalId = null;
+    let timeoutId = null;
 
-    const timeoutId = setTimeout(() => {
-        timeoutExceeded = true;
-        unsubscribe(); // Detach the listener
+    // Start a timeout to stop polling after a certain duration
+    timeoutId = setTimeout(() => {
+        clearInterval(pollIntervalId);
         hideWaitingModal();
-        showToast("Payment timed out. Please try again.");
+        showToast("Payment timed out. Please try again or check your M-Pesa account.");
     }, TIMEOUT_DURATION);
 
-    const unsubscribe = statusDocRef.onSnapshot(doc => {
-        if (timeoutExceeded) return;
+    // Start polling the serverless function
+    pollIntervalId = setInterval(async () => {
+        try {
+            const response = await fetch(pollUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ checkoutRequestID }),
+            });
 
-        const statusData = doc.data();
-        if (statusData) {
-            if (statusData.status === 'paid') {
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Server error during polling.');
+            }
+
+            console.log("Polling result:", result);
+
+            // Check the status from the Netlify function response
+            if (result.status === 'paid') {
+                clearInterval(pollIntervalId);
                 clearTimeout(timeoutId);
-                unsubscribe();
                 hideWaitingModal();
                 showToast("Payment successful!");
-                // The final order details are now included in the status document
-                showConfirmation(statusData.finalOrder.orderNumber, statusData.finalOrder); 
+                showConfirmation(result.finalOrder.orderNumber, result.finalOrder);
                 clearCart();
                 updateCartUI();
-            } else if (statusData.status === 'failed') {
+            } else if (result.status === 'failed' || result.status === 'cancelled') {
+                clearInterval(pollIntervalId);
                 clearTimeout(timeoutId);
-                unsubscribe();
                 hideWaitingModal();
-                const reason = statusData.reason || "Payment was not completed.";
-                showToast(`Order failed: ${reason}`);
+                showToast(`Payment failed: ${result.message}`);
             }
-        }
-    }, err => {
-        console.error("Error listening for payment status:", err);
-        clearTimeout(timeoutId);
-        unsubscribe();
-        hideWaitingModal();
-        showToast("Error checking payment status.");
-    });
-}
+            // If status is 'pending', the loop continues.
 
+        } catch (error) {
+            console.error("Error during polling for payment status:", error);
+            clearInterval(pollIntervalId);
+            clearTimeout(timeoutId);
+            hideWaitingModal();
+            showToast("Error checking payment status. Please check your M-Pesa account.");
+        }
+    }, POLLING_INTERVAL);
+}
 
 // --- Event Listeners ---
 
