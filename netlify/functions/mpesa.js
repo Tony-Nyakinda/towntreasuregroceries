@@ -30,6 +30,7 @@ const passkey = process.env.MPESA_PASSKEY;
 // Production URLs
 const tokenUrl = "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
 const stkPushUrl = "https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest";
+const stkPushQueryUrl = "https://api.safaricom.co.ke/mpesa/stkpushquery/v1/query";
 
 // Helper to get M-Pesa auth token
 const getAuthToken = async () => {
@@ -172,24 +173,129 @@ exports.handler = async (event) => {
             
             console.log(`Order ${orderDetails.orderNumber} saved successfully.`);
             
-            // Update the public doc so the client gets the success signal
-            await publicStatusRef.update({ status: 'paid', finalOrder: orderDetails });
+            // Send back success response to polling client
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({
+                    status: 'paid',
+                    finalOrder: orderDetails,
+                    message: "Payment successful"
+                })
+            };
 
         } else {
             // FAILURE
             console.log(`Payment failed for CheckoutRequestID: ${checkoutRequestID}. Reason: ${resultDesc}`);
-            // Update the public doc so the client gets the failure signal
-            await publicStatusRef.update({ status: 'failed', reason: resultDesc });
+            
+            // Send back a failure response to the polling client. No Firestore write needed for failure.
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({
+                    status: 'failed',
+                    reason: resultDesc,
+                    message: "Payment failed"
+                })
+            };
         }
-        
-        // Clean up the secure temporary record
-        await pendingPaymentRef.delete();
-        
-        return { statusCode: 200, headers, body: JSON.stringify({ ResultCode: 0, ResultDesc: "Callback processed" }) };
-
     } catch (error) {
         console.error("Error processing callback:", error);
         return { statusCode: 500, headers, body: JSON.stringify({ message: "Internal server error." }) };
+    } finally {
+        // Clean up the secure temporary record regardless of success or failure
+        const pendingPaymentRef = db.collection('pending_payments').doc(checkoutRequestID);
+        await pendingPaymentRef.delete();
+        // The public status document is now redundant for this flow and can be removed
+        const publicStatusRef = db.collection('payment_status').doc(checkoutRequestID);
+        await publicStatusRef.delete();
+    }
+  }
+
+  // --- Endpoint to POLL FOR PAYMENT STATUS ---
+  // This is the new endpoint the client will call
+  if (path === '/getPaymentStatus') {
+    const { checkoutRequestID } = JSON.parse(event.body);
+
+    if (!checkoutRequestID) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: "Missing CheckoutRequestID" }) };
+    }
+
+    try {
+        const token = await getAuthToken();
+        
+        const timestamp = new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14);
+        const password = Buffer.from(shortCode + passkey + timestamp).toString("base64");
+
+        const payload = {
+            BusinessShortCode: shortCode,
+            Password: password,
+            Timestamp: timestamp,
+            CheckoutRequestID: checkoutRequestID
+        };
+
+        const mpesaResponse = await axios.post(stkPushQueryUrl, payload, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        // The M-Pesa API response has a "ResultCode"
+        const resultCode = mpesaResponse.data.ResultCode;
+
+        if (resultCode === "0") {
+            // Transaction is complete, query the database for the final order
+            const finalOrderRef = db.collection(`artifacts/default-app-id/public/data/orders`).doc(checkoutRequestID);
+            const finalOrderDoc = await finalOrderRef.get();
+
+            if (finalOrderDoc.exists) {
+                return {
+                    statusCode: 200,
+                    headers,
+                    body: JSON.stringify({
+                        status: 'paid',
+                        finalOrder: finalOrderDoc.data(),
+                        message: "Payment successful!"
+                    })
+                };
+            } else {
+                // Should not happen, but handle it
+                return { statusCode: 200, headers, body: JSON.stringify({ status: 'pending', message: "Payment successful, but order is still processing." }) };
+            }
+
+        } else if (resultCode === "1032") {
+            // User cancelled the transaction
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({
+                    status: 'cancelled',
+                    message: "Transaction cancelled by user."
+                })
+            };
+        } else if (resultCode === "2001") {
+            // M-Pesa error
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({
+                    status: 'failed',
+                    message: mpesaResponse.data.ResultDesc
+                })
+            };
+        }
+        else {
+          // Any other code means the payment is still pending
+          return {
+              statusCode: 200,
+              headers,
+              body: JSON.stringify({
+                  status: 'pending',
+                  message: mpesaResponse.data.ResultDesc
+              })
+          };
+        }
+    } catch (error) {
+        console.error("Error checking payment status:", error.response ? error.response.data : error.message);
+        return { statusCode: 500, headers, body: JSON.stringify({ error: "Failed to check payment status." }) };
     }
   }
 
