@@ -1,10 +1,9 @@
 // netlify/functions/mpesa.js
-// This version implements the robust payment flow with Supabase integration.
+// This version implements the robust payment flow.
 
 require('dotenv').config();
 const axios = require("axios");
 const admin = require("firebase-admin");
-const { createClient } = require('@supabase/supabase-js');
 
 // --- Firebase Admin Initialization ---
 try {
@@ -21,24 +20,6 @@ try {
 }
 
 const db = admin.firestore();
-
-// --- Supabase Initialization ---
-let supabase;
-try {
-    console.log("Initializing Supabase client...");
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!supabaseUrl || !supabaseKey) {
-        throw new Error("Supabase URL or Key is missing from environment variables.");
-    }
-    supabase = createClient(supabaseUrl, supabaseKey, {
-        auth: { persistSession: false },
-        db: { schema: 'public' }
-    });
-    console.log("Supabase client initialized.");
-} catch (error) {
-    console.error("CRITICAL: Failed to initialize Supabase client.", error.message);
-}
 
 // --- M-PESA CREDENTIALS ---
 const consumerKey = process.env.MPESA_CONSUMER_KEY;
@@ -73,8 +54,8 @@ exports.handler = async (event) => {
     return { statusCode: 204, headers };
   }
 
-  if (admin.apps.length === 0 || !supabase) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: "Backend services not configured." }) };
+  if (admin.apps.length === 0) {
+    return { statusCode: 500, headers, body: JSON.stringify({ error: "Backend Firebase service not configured." }) };
   }
 
   const path = event.path.replace('/.netlify/functions/mpesa', '');
@@ -114,18 +95,23 @@ exports.handler = async (event) => {
       const checkoutRequestID = mpesaResponse.data.CheckoutRequestID;
       console.log(`STK Push initiated. CheckoutRequestID: ${checkoutRequestID}`);
 
-      // AMENDMENT: Create a temporary record in Supabase instead of a Firebase batch
-      const { data: tempOrder, error: tempOrderError } = await supabase
-          .from('pending_payments') // Assuming you have a table named 'pending_payments' in Supabase
-          .insert([{ checkoutRequestID: checkoutRequestID, orderDetails: orderDetails }]);
-      
-      if (tempOrderError) throw tempOrderError;
-      
-      // Keep the public status in Firebase for the client-side listener
-      const publicStatusRef = db.collection('payment_status').doc(checkoutRequestID);
-      await publicStatusRef.set({ status: 'pending', userId: orderDetails.userId });
+      const batch = db.batch();
 
-      console.log(`Temporary Supabase and Firebase records created for ${checkoutRequestID}`);
+      const pendingPaymentRef = db.collection('pending_payments').doc(checkoutRequestID);
+      batch.set(pendingPaymentRef, {
+          orderDetails: orderDetails,
+          timestamp: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      const publicStatusRef = db.collection('payment_status').doc(checkoutRequestID);
+      batch.set(publicStatusRef, {
+          status: 'pending',
+          userId: orderDetails.userId
+      });
+
+      await batch.commit();
+      
+      console.log(`Temporary records created for ${checkoutRequestID}`);
       
       return { statusCode: 200, headers, body: JSON.stringify({ checkoutRequestID: checkoutRequestID }) };
 
@@ -150,20 +136,17 @@ exports.handler = async (event) => {
     const resultDesc = stkCallback.ResultDesc;
 
     try {
-        // AMENDMENT: Get the pending order from Supabase
-        const { data: pendingPayment, error: pendingPaymentError } = await supabase
-            .from('pending_payments')
-            .select('orderDetails')
-            .eq('checkoutRequestID', checkoutRequestID)
-            .single();
+        const pendingPaymentRef = db.collection('pending_payments').doc(checkoutRequestID);
+        const publicStatusRef = db.collection('payment_status').doc(checkoutRequestID);
+        
+        const pendingPaymentDoc = await pendingPaymentRef.get();
 
-        if (pendingPaymentError || !pendingPayment) {
-            console.error(`No pending payment record found for CheckoutRequestID: ${checkoutRequestID}. Error: ${pendingPaymentError?.message}`);
+        if (!pendingPaymentDoc.exists) {
+            console.error(`No pending payment record found for CheckoutRequestID: ${checkoutRequestID}`);
             return { statusCode: 200, headers, body: JSON.stringify({ ResultCode: 0, ResultDesc: "No matching record found" }) };
         }
-        
-        const orderDetails = pendingPayment.orderDetails;
-        const publicStatusRef = db.collection('payment_status').doc(checkoutRequestID);
+
+        const { orderDetails } = pendingPaymentDoc.data();
 
         if (resultCode === 0) {
             // SUCCESS
@@ -179,32 +162,27 @@ exports.handler = async (event) => {
                 orderDetails.orderNumber = receiptItem.Value;
             }
             
-            // AMENDMENT: Set the timestamp and save the order to the final 'orders' table in Supabase
-            orderDetails.timestamp = new Date();
-            const { data: finalOrder, error: finalOrderError } = await supabase
-                .from('orders') // Assuming you have an 'orders' table in Supabase
-                .insert([orderDetails]);
+            // AMENDMENT: Overwrite the client-side timestamp with a real server timestamp
+            orderDetails.timestamp = admin.firestore.FieldValue.serverTimestamp();
 
-            if (finalOrderError) throw finalOrderError;
-            console.log(`Order ${orderDetails.orderNumber} saved successfully to Supabase.`);
+            // Save the completed order to the final 'orders' collection
+            const finalOrderRef = db.collection(`artifacts/default-app-id/public/data/orders`).doc(orderDetails.orderNumber);
+            await finalOrderRef.set(orderDetails);
             
-            // Update the public Firebase doc so the client gets the success signal
+            console.log(`Order ${orderDetails.orderNumber} saved successfully.`);
+            
+            // Update the public doc so the client gets the success signal
             await publicStatusRef.update({ status: 'paid', finalOrder: orderDetails });
-            
-            // Clean up the temporary record in Supabase and Firebase
-            await supabase.from('pending_payments').delete().eq('checkoutRequestID', checkoutRequestID);
-            await publicStatusRef.delete();
-            
 
         } else {
             // FAILURE
             console.log(`Payment failed for CheckoutRequestID: ${checkoutRequestID}. Reason: ${resultDesc}`);
-            // Update the public Firebase doc so the client gets the failure signal
+            // Update the public doc so the client gets the failure signal
             await publicStatusRef.update({ status: 'failed', reason: resultDesc });
-            
-            // Clean up the temporary Supabase record
-            await supabase.from('pending_payments').delete().eq('checkoutRequestID', checkoutRequestID);
         }
+        
+        // Clean up the secure temporary record
+        await pendingPaymentRef.delete();
         
         return { statusCode: 200, headers, body: JSON.stringify({ ResultCode: 0, ResultDesc: "Callback processed" }) };
 
@@ -220,4 +198,3 @@ exports.handler = async (event) => {
     body: 'Endpoint not found.'
   };
 };
-
