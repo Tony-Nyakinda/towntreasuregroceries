@@ -1,10 +1,17 @@
 {
+  "name": "town-treasure-netlify-functions",
+  "version": "1.0.0",
+  "description": "Dependencies for Netlify serverless functions.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
   "dependencies": {
-    "cloudinary": "^2.7.0",
-    "firebase": "^11.10.0",
-    "papaparse": "^5.5.3",
+    "@supabase/supabase-js": "^2.44.4",
     "axios": "^1.7.2",
-    "firebase-admin": "^12.1.0",
-    "cors": "^2.8.5"
+    "dotenv": "^16.4.5",
+    "firebase-admin": "^12.2.0"
   }
 }
