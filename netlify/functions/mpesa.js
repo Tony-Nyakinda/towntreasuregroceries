@@ -1,6 +1,6 @@
 // netlify/functions/mpesa.js
 // This version migrates the M-Pesa callback logic to Supabase.
-// It does NOT include the /getPaymentStatus polling endpoint.
+// AMENDMENT: Added the /getPaymentStatus polling endpoint.
 
 require('dotenv').config();
 const axios = require("axios");
@@ -71,8 +71,6 @@ exports.handler = async (event) => {
   if (path === '/initiateMpesaPayment') {
     const { phone, amount, orderDetails, unpaidOrderId } = JSON.parse(event.body);
 
-    // This logic handles both new M-Pesa orders from the catalog
-    // and payments for existing unpaid orders from the account page.
     if (!phone || !amount || !orderDetails) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: "Missing required fields" }) };
     }
@@ -104,12 +102,10 @@ exports.handler = async (event) => {
       const checkoutRequestID = mpesaResponse.data.CheckoutRequestID;
       console.log(`STK Push initiated. CheckoutRequestID: ${checkoutRequestID}`);
 
-      // Still use Firestore for temporary pending payments
       const batch = db.batch();
       const pendingPaymentRef = db.collection('pending_payments').doc(checkoutRequestID);
       batch.set(pendingPaymentRef, {
           orderDetails: orderDetails,
-          // If paying an existing unpaid order, we store its Supabase ID
           unpaidOrderId: unpaidOrderId || null, 
           timestamp: admin.firestore.FieldValue.serverTimestamp()
       });
@@ -117,7 +113,8 @@ exports.handler = async (event) => {
       const publicStatusRef = db.collection('payment_status').doc(checkoutRequestID);
       batch.set(publicStatusRef, {
           status: 'pending',
-          userId: orderDetails.userId
+          userId: orderDetails.userId,
+          orderNumber: orderDetails.orderNumber // Store order number for easier lookup
       });
 
       await batch.commit();
@@ -131,6 +128,51 @@ exports.handler = async (event) => {
       return { statusCode: 500, headers, body: JSON.stringify({ error: "Failed to initiate M-Pesa payment." }) };
     }
   }
+  
+  // --- START: NEW POLLING ENDPOINT ---
+  if (path === '/getPaymentStatus') {
+    const { checkoutRequestID } = JSON.parse(event.body);
+
+    if (!checkoutRequestID) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: "CheckoutRequestID is required." }) };
+    }
+
+    try {
+      const publicStatusRef = db.collection('payment_status').doc(checkoutRequestID);
+      const doc = await publicStatusRef.get();
+
+      if (!doc.exists) {
+        return { statusCode: 200, headers, body: JSON.stringify({ status: 'pending' }) };
+      }
+
+      const data = doc.data();
+
+      if (data.status === 'paid') {
+        // Payment is successful, fetch the final order from Supabase
+        const { data: finalOrder, error } = await supabase
+          .from('paid_orders')
+          .select('*')
+          .eq('order_number', data.orderNumber)
+          .single(); // Use single() as order_number should be unique
+
+        if (error || !finalOrder) {
+          throw new Error(`Failed to fetch final order from Supabase: ${error ? error.message : 'Order not found'}`);
+        }
+        
+        return { statusCode: 200, headers, body: JSON.stringify({ status: 'paid', finalOrder: finalOrder }) };
+      
+      } else if (data.status === 'failed') {
+        return { statusCode: 200, headers, body: JSON.stringify({ status: 'failed', message: data.reason || 'Payment failed' }) };
+      } else {
+        return { statusCode: 200, headers, body: JSON.stringify({ status: 'pending' }) };
+      }
+    } catch (error) {
+      console.error("Error in /getPaymentStatus:", error.message);
+      return { statusCode: 500, headers, body: JSON.stringify({ error: "Could not retrieve payment status." }) };
+    }
+  }
+  // --- END: NEW POLLING ENDPOINT ---
+
 
   // --- Endpoint to HANDLE M-PESA CALLBACK ---
   if (path === '/mpesaCallback') {
@@ -166,7 +208,6 @@ exports.handler = async (event) => {
             const receiptItem = metadata.find(item => item.Name === "MpesaReceiptNumber");
             const mpesaReceipt = receiptItem ? receiptItem.Value : 'N/A';
             
-            // Prepare the final paid order object for Supabase
             const finalOrder = {
                 order_number: orderDetails.orderNumber,
                 user_id: orderDetails.userId,
@@ -179,19 +220,16 @@ exports.handler = async (event) => {
                 mpesa_receipt_number: mpesaReceipt
             };
 
-            // Insert the new paid order into Supabase
             const { error: insertError } = await supabase.from('paid_orders').insert([finalOrder]);
             if (insertError) throw new Error(`Supabase insert error: ${insertError.message}`);
             console.log(`Order ${finalOrder.order_number} saved to Supabase.`);
 
-            // If this was a payment for a pre-existing unpaid order, delete it from Supabase
             if (unpaidOrderId) {
                 const { error: deleteError } = await supabase.from('unpaid_orders').delete().eq('id', unpaidOrderId);
                 if (deleteError) throw new Error(`Supabase delete error: ${deleteError.message}`);
                 console.log(`Unpaid order ${unpaidOrderId} deleted from Supabase.`);
             }
             
-            // Update the public status in Firestore for the client-side
             await publicStatusRef.set({ status: 'paid' }, { merge: true });
 
         } else {
@@ -203,7 +241,6 @@ exports.handler = async (event) => {
         console.error("Error processing callback:", error);
         return { statusCode: 500, headers, body: JSON.stringify({ message: "Internal server error." }) };
     } finally {
-        // Clean up the secure temporary record from Firestore
         const pendingPaymentRef = db.collection('pending_payments').doc(checkoutRequestID);
         await pendingPaymentRef.delete();
     }
