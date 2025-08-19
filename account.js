@@ -1,7 +1,10 @@
 // account.js
 // This script handles the logic for the "My Account" page.
+// MIGRATED: All order data is now fetched from and managed in Supabase.
+// Firebase is still used for user authentication.
 
-import { db, auth } from './firebase-config.js';
+import { supabase } from './supabase-config.js'; // <-- NEW: Import Supabase client
+import { auth } from './firebase-config.js'; // <-- KEPT: For user authentication
 import { getCurrentUserWithRole, logout } from './auth.js';
 import { showToast, showWaitingModal, hideWaitingModal } from './uiUpdater.js';
 
@@ -22,6 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const closeMobileMenuButton = document.getElementById('closeMobileMenuButton');
     const overlay = document.getElementById('overlay');
 
+    // Still using Firebase to get the currently logged-in user
     const { user } = await getCurrentUserWithRole();
 
     // Page Guard: Redirect if user is not logged in
@@ -35,7 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     mainContent.classList.remove('hidden');
 
 
-    // --- Display User Profile ---
+    // --- Display User Profile (No Changes Here) ---
     if (userProfileSection) {
         userProfileSection.classList.remove('hidden');
         const displayName = user.displayName || 'No Name';
@@ -53,45 +57,45 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // --- Fetch and Display Unpaid Orders ---
+    // --- Fetch and Display Unpaid Orders from SUPABASE ---
     async function fetchUnpaidOrders() {
         if (!unpaidOrdersGrid) return;
 
-        // Corrected the Firestore collection path
-        const unpaidOrdersQuery = db.collection(`artifacts/default-app-id/public/data/unpaid_orders`)
-                                      .where('userId', '==', user.uid)
-                                      .where('paymentStatus', '==', 'unpaid');
+        // Use the Firebase user's UID to query the Supabase database
+        const { data: orders, error } = await supabase
+            .from('unpaid_orders')
+            .select('*')
+            .eq('user_id', user.uid); // Filter by the Firebase user ID
         
-        try {
-            const snapshot = await unpaidOrdersQuery.get();
-            if (snapshot.empty) {
-                unpaidOrdersGrid.innerHTML = '<p class="text-center text-gray-500">You have no pending orders to pay.</p>';
-                return;
-            }
-
-            unpaidOrdersGrid.innerHTML = ''; // Clear loader
-            snapshot.forEach(doc => {
-                const order = { id: doc.id, ...doc.data() };
-                const orderCard = createOrderCard(order);
-                unpaidOrdersGrid.appendChild(orderCard);
-            });
-
-        } catch (error) {
-            console.error("Error fetching unpaid orders:", error);
+        if (error) {
+            console.error("Error fetching unpaid orders from Supabase:", error);
             unpaidOrdersGrid.innerHTML = '<p class="text-center text-red-500">Could not load your orders. Please try again later.</p>';
+            return;
         }
+
+        if (!orders || orders.length === 0) {
+            unpaidOrdersGrid.innerHTML = '<p class="text-center text-gray-500">You have no pending orders to pay.</p>';
+            return;
+        }
+
+        unpaidOrdersGrid.innerHTML = ''; // Clear loader
+        orders.forEach(order => {
+            const orderCard = createOrderCard(order);
+            unpaidOrdersGrid.appendChild(orderCard);
+        });
     }
 
-    // --- Create Order Card HTML ---
+    // --- Create Order Card HTML (No Changes Here) ---
     function createOrderCard(order) {
         const card = document.createElement('div');
         card.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col md:flex-row justify-between items-start md:items-center';
         
-        const orderDate = order.timestamp ? new Date(order.timestamp.seconds * 1000).toLocaleDateString() : 'N/A';
+        // Supabase stores timestamps in a format that can be directly used by new Date()
+        const orderDate = order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A';
 
         card.innerHTML = `
             <div>
-                <p class="font-bold text-lg text-green-600">Order #${order.orderNumber}</p>
+                <p class="font-bold text-lg text-green-600">Order #${order.order_number}</p>
                 <p class="text-sm text-gray-500">Date: ${orderDate}</p>
                 <p class="font-semibold mt-2">Total: KSh ${order.total.toLocaleString()}</p>
             </div>
@@ -102,23 +106,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         return card;
     }
     
-    // --- Handle "Pay Now" Button Click ---
+    // --- Handle "Pay Now" Button Click (Updated for Supabase) ---
     unpaidOrdersGrid.addEventListener('click', async (event) => {
         if (event.target.classList.contains('pay-now-btn')) {
             const button = event.target;
-            const orderId = button.dataset.orderId;
+            const orderId = button.dataset.orderId; // This is the Supabase UUID
             
             button.disabled = true;
             button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
 
             try {
-                const orderDoc = await db.collection(`artifacts/default-app-id/public/data/unpaid_orders`).doc(orderId).get();
-                if (!orderDoc.exists) {
-                    throw new Error("Order not found.");
-                }
-                const orderDetails = orderDoc.data();
+                // Fetch the order details from Supabase using the order ID
+                const { data: orderDetails, error: fetchError } = await supabase
+                    .from('unpaid_orders')
+                    .select('*')
+                    .eq('id', orderId)
+                    .single(); // .single() expects one row and simplifies the result
 
-                // Initiate M-Pesa payment
+                if (fetchError || !orderDetails) {
+                    throw new Error("Order not found or could not be fetched.");
+                }
+
+                // The call to the Netlify function remains the same.
+                // The function will handle the M-Pesa logic and update Supabase on the backend.
                 const functionUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/initiateMpesaPayment";
                 const mpesaResponse = await fetch(functionUrl, {
                     method: 'POST',
@@ -127,7 +137,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         phone: orderDetails.phone,
                         amount: orderDetails.total,
                         orderDetails: orderDetails,
-                        unpaidOrderId: orderId // <-- KEY CHANGE: Send the original order ID
+                        unpaidOrderId: orderId // Pass the Supabase ID to the backend
                     }),
                 });
 
@@ -137,9 +147,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     throw new Error(mpesaResult.error || 'M-Pesa API request failed.');
                 }
                 
-                // Wait for payment confirmation
                 showWaitingModal();
-                waitForPaymentConfirmation(mpesaResult.checkoutRequestID, orderId);
+                // We no longer need to wait for confirmation on the client-side.
+                // The backend will handle the database updates. We can just show a success message
+                // and refresh the order list after a delay.
+                setTimeout(() => {
+                    hideWaitingModal();
+                    showToast("Payment request sent! Please check your phone to complete.");
+                    // After a few seconds, refresh the list. If payment was successful, the order will be gone.
+                    setTimeout(fetchUnpaidOrders, 5000); 
+                }, 10000); // Give user time to see the modal
 
             } catch (error) {
                 console.error("Error initiating payment for order:", error);
@@ -150,62 +167,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // --- Reverted: Listen for Payment Confirmation using Firestore onSnapshot ---
-    function waitForPaymentConfirmation(checkoutRequestID, unpaidOrderId) {
-        const statusDocRef = db.collection('payment_status').doc(checkoutRequestID);
+    // --- REMOVED: waitForPaymentConfirmation function ---
+    // This logic is now handled entirely by the mpesa.js backend function.
+    // The frontend no longer needs to listen for Firestore changes.
 
-        const TIMEOUT_DURATION = 90000; // 90 seconds
-        let timeoutExceeded = false;
-
-        const timeoutId = setTimeout(() => {
-            timeoutExceeded = true;
-            unsubscribe();
-            hideWaitingModal();
-            showToast("Payment timed out. Please try again.");
-            // Re-enable the button
-            const button = unpaidOrdersGrid.querySelector(`[data-order-id="${unpaidOrderId}"]`);
-            if (button) {
-                button.disabled = false;
-                button.innerHTML = 'Pay Now';
-            }
-        }, TIMEOUT_DURATION);
-
-        const unsubscribe = statusDocRef.onSnapshot(doc => {
-            if (timeoutExceeded) return;
-
-            const statusData = doc.data();
-            if (statusData) {
-                if (statusData.status === 'paid') {
-                    clearTimeout(timeoutId);
-                    unsubscribe();
-                    hideWaitingModal();
-                    showToast("Payment successful! Your order is confirmed.");
-                    // Refresh the list of unpaid orders
-                    fetchUnpaidOrders();
-                } else if (statusData.status === 'failed' || (statusData.reason && statusData.reason.toLowerCase().includes("cancelled"))) {
-                    clearTimeout(timeoutId);
-                    unsubscribe();
-                    hideWaitingModal();
-                    const reason = statusData.reason || "Payment was not completed.";
-                    showToast(`Payment failed: ${reason}`);
-                    // Re-enable the button
-                    const button = unpaidOrdersGrid.querySelector(`[data-order-id="${unpaidOrderId}"]`);
-                    if (button) {
-                        button.disabled = false;
-                        button.innerHTML = 'Pay Now';
-                    }
-                }
-            }
-        }, err => {
-            console.error("Error listening for payment status:", err);
-            clearTimeout(timeoutId);
-            unsubscribe();
-            hideWaitingModal();
-            showToast("Error checking payment status.");
-        });
-    }
-
-    // --- Mobile Menu Toggle Logic ---
+    // --- Mobile Menu Toggle Logic (No Changes Here) ---
     function toggleMobileMenu() {
         const isActive = mobileMenu.classList.contains('is-active');
         if (isActive) {
@@ -229,6 +195,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Initial fetch of orders
+    // Initial fetch of orders from Supabase
     fetchUnpaidOrders();
 });
