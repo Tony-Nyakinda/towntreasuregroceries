@@ -1,24 +1,25 @@
 // netlify/functions/mpesa.js
-// This version implements the robust payment flow.
 
 require('dotenv').config();
 const axios = require("axios");
 const admin = require("firebase-admin");
+const { createClient } = require('@supabase/supabase-js');
 
-// --- Firebase Admin Initialization ---
+// --- Initialize Supabase Admin Client ---
+// This securely uses the environment variables you set in Netlify
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+// --- Firebase Admin Initialization (for temporary records) ---
 try {
   if (admin.apps.length === 0) {
-    console.log("Initializing Firebase Admin SDK...");
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     });
-    console.log("Firebase Admin SDK initialized.");
   }
 } catch (error) {
   console.error("CRITICAL: Failed to initialize Firebase Admin SDK.", error.message);
 }
-
 const db = admin.firestore();
 
 // --- M-PESA CREDENTIALS ---
@@ -26,11 +27,8 @@ const consumerKey = process.env.MPESA_CONSUMER_KEY;
 const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
 const shortCode = process.env.MPESA_SHORTCODE;
 const passkey = process.env.MPESA_PASSKEY;
-
-// Production URLs
 const tokenUrl = "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
 const stkPushUrl = "https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest";
-const stkPushQueryUrl = "https://api.safaricom.co.ke/mpesa/stkpushquery/v1/query";
 
 // Helper to get M-Pesa auth token
 const getAuthToken = async () => {
@@ -44,262 +42,141 @@ const getAuthToken = async () => {
   }
 };
 
-// Main function handler for Netlify
+// Main function handler
 exports.handler = async (event) => {
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS'
-  };
-
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers };
-  }
-
-  if (admin.apps.length === 0) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: "Backend Firebase service not configured." }) };
-  }
-
-  const path = event.path.replace('/.netlify/functions/mpesa', '');
-
-  // --- Endpoint to INITIATE STK PUSH ---
-  if (path === '/initiateMpesaPayment') {
-    const { phone, amount, orderDetails, unpaidOrderId } = JSON.parse(event.body);
-
-    if (!phone || !amount || !orderDetails || !unpaidOrderId) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: "Missing required fields" }) };
-    }
-
-    const timestamp = new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14);
-    const password = Buffer.from(shortCode + passkey + timestamp).toString("base64");
-    const callbackUrl = `${process.env.URL}/.netlify/functions/mpesa/mpesaCallback`;
-
-    const payload = {
-      BusinessShortCode: shortCode,
-      Password: password,
-      Timestamp: timestamp,
-      TransactionType: "CustomerPayBillOnline",
-      Amount: Math.round(amount),
-      PartyA: phone.replace(/^0/, '254'),
-      PartyB: shortCode,
-      PhoneNumber: phone.replace(/^0/, '254'),
-      CallBackURL: callbackUrl,
-      AccountReference: orderDetails.orderNumber,
-      TransactionDesc: `Payment for Order ${orderDetails.orderNumber}`,
+    const headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS'
     };
 
-    try {
-      const token = await getAuthToken();
-      const mpesaResponse = await axios.post(stkPushUrl, payload, {
-        headers: { "Authorization": `Bearer ${token}` },
-      });
-      
-      const checkoutRequestID = mpesaResponse.data.CheckoutRequestID;
-      console.log(`STK Push initiated. CheckoutRequestID: ${checkoutRequestID}`);
-
-      const batch = db.batch();
-
-      const pendingPaymentRef = db.collection('pending_payments').doc(checkoutRequestID);
-      batch.set(pendingPaymentRef, {
-          orderDetails: orderDetails,
-          unpaidOrderId: unpaidOrderId, // <-- KEY CHANGE: Store the original ID
-          timestamp: admin.firestore.FieldValue.serverTimestamp()
-      });
-
-      const publicStatusRef = db.collection('payment_status').doc(checkoutRequestID);
-      batch.set(publicStatusRef, {
-          status: 'pending',
-          userId: orderDetails.userId
-      });
-
-      await batch.commit();
-      
-      console.log(`Temporary records created for ${checkoutRequestID}`);
-      
-      return { statusCode: 200, headers, body: JSON.stringify({ checkoutRequestID: checkoutRequestID }) };
-
-    } catch (error) {
-      console.error("Error initiating STK push:", error.response ? error.response.data : error.message);
-      return { statusCode: 500, headers, body: JSON.stringify({ error: "Failed to initiate M-Pesa payment." }) };
-    }
-  }
-
-  // --- Endpoint to HANDLE M-PESA CALLBACK ---
-  if (path === '/mpesaCallback') {
-    const body = JSON.parse(event.body);
-    console.log("M-Pesa Callback Received:", JSON.stringify(body, null, 2));
-    
-    const stkCallback = body.Body.stkCallback;
-    if (!stkCallback) {
-        return { statusCode: 200, headers, body: JSON.stringify({ message: "Invalid callback format." }) };
+    if (event.httpMethod === 'OPTIONS') {
+        return { statusCode: 204, headers };
     }
 
-    const checkoutRequestID = stkCallback.CheckoutRequestID;
-    const resultCode = stkCallback.ResultCode;
-    const resultDesc = stkCallback.ResultDesc;
+    const path = event.path.replace('/.netlify/functions/mpesa', '');
 
-    try {
-        const pendingPaymentRef = db.collection('pending_payments').doc(checkoutRequestID);
-        const publicStatusRef = db.collection('payment_status').doc(checkoutRequestID);
-        
-        const pendingPaymentDoc = await pendingPaymentRef.get();
+    // --- Endpoint to INITIATE STK PUSH ---
+    if (path === '/initiateMpesaPayment') {
+        const { phone, amount, orderDetails } = JSON.parse(event.body);
 
-        if (!pendingPaymentDoc.exists) {
-            console.error(`No pending payment record found for CheckoutRequestID: ${checkoutRequestID}`);
-            return { statusCode: 200, headers, body: JSON.stringify({ ResultCode: 0, ResultDesc: "No matching record found" }) };
+        if (!phone || !amount || !orderDetails) {
+            return { statusCode: 400, headers, body: JSON.stringify({ error: "Missing required fields" }) };
         }
 
-        const { orderDetails, unpaidOrderId } = pendingPaymentDoc.data(); // <-- KEY CHANGE: Retrieve the ID
+        // If the order is "Pay on Delivery", save it directly to Supabase and return
+        if (orderDetails.paymentMethod === 'Pay on Delivery') {
+            try {
+                const { data, error } = await supabase
+                    .from('unpaid_orders')
+                    .insert([{
+                        order_number: orderDetails.orderNumber,
+                        user_id: orderDetails.userId,
+                        full_name: orderDetails.fullName,
+                        phone: orderDetails.phone,
+                        address: orderDetails.address,
+                        items: orderDetails.items,
+                        total: orderDetails.total,
+                        payment_status: 'unpaid'
+                    }]).select();
 
-        if (resultCode === 0) {
-            // SUCCESS
-            console.log(`Payment successful for CheckoutRequestID: ${checkoutRequestID}`);
-            const metadata = stkCallback.CallbackMetadata.Item;
-            const receiptItem = metadata.find(item => item.Name === "MpesaReceiptNumber");
-            
-            orderDetails.paymentStatus = "paid";
-            orderDetails.mpesaResultCode = resultCode;
-            orderDetails.mpesaResultDesc = resultDesc;
-            if (receiptItem) {
-                orderDetails.mpesaReceiptNumber = receiptItem.Value;
-                orderDetails.orderNumber = receiptItem.Value;
+                if (error) throw error;
+
+                console.log('Unpaid order saved to Supabase:', data);
+                return { statusCode: 200, headers, body: JSON.stringify({ success: true, order: data[0] }) };
+
+            } catch (error) {
+                console.error("Error saving unpaid order to Supabase:", error);
+                return { statusCode: 500, headers, body: JSON.stringify({ error: "Failed to save unpaid order." }) };
             }
-            
-            orderDetails.timestamp = admin.firestore.FieldValue.serverTimestamp();
-
-            // Define references for the final paid order and the original unpaid order
-            const finalOrderRef = db.collection(`artifacts/default-app-id/public/data/orders`).doc(orderDetails.orderNumber);
-            const unpaidOrderRef = db.collection(`artifacts/default-app-id/public/data/unpaid_orders`).doc(unpaidOrderId);
-
-            // KEY CHANGE: Use a batch write to create the new order and delete the old one
-            const successBatch = db.batch();
-            successBatch.set(finalOrderRef, orderDetails);
-            successBatch.delete(unpaidOrderRef);
-            await successBatch.commit();
-            
-            console.log(`Order ${orderDetails.orderNumber} saved and unpaid order ${unpaidOrderId} deleted.`);
-            
-            // Send back success response to polling client
-            return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify({
-                    status: 'paid',
-                    finalOrder: orderDetails,
-                    message: "Payment successful"
-                })
-            };
-
-        } else {
-            // FAILURE
-            console.log(`Payment failed for CheckoutRequestID: ${checkoutRequestID}. Reason: ${resultDesc}`);
-            
-            // Send back a failure response to the polling client.
-            return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify({
-                    status: 'failed',
-                    reason: resultDesc,
-                    message: "Payment failed"
-                })
-            };
         }
-    } catch (error) {
-        console.error("Error processing callback:", error);
-        return { statusCode: 500, headers, body: JSON.stringify({ message: "Internal server error." }) };
-    } finally {
-        // Clean up the secure temporary record regardless of success or failure
-        const pendingPaymentRef = db.collection('pending_payments').doc(checkoutRequestID);
-        await pendingPaymentRef.delete();
-        const publicStatusRef = db.collection('payment_status').doc(checkoutRequestID);
-        await publicStatusRef.delete();
-    }
-  }
 
-  // --- Endpoint to POLL FOR PAYMENT STATUS ---
-  if (path === '/getPaymentStatus') {
-    const { checkoutRequestID } = JSON.parse(event.body);
-
-    if (!checkoutRequestID) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: "Missing CheckoutRequestID" }) };
-    }
-
-    try {
-        const token = await getAuthToken();
-        
+        // --- Logic for M-Pesa STK Push ---
         const timestamp = new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14);
         const password = Buffer.from(shortCode + passkey + timestamp).toString("base64");
+        const callbackUrl = `${process.env.URL}/.netlify/functions/mpesa/mpesaCallback`;
 
         const payload = {
             BusinessShortCode: shortCode,
             Password: password,
             Timestamp: timestamp,
-            CheckoutRequestID: checkoutRequestID
+            TransactionType: "CustomerPayBillOnline",
+            Amount: Math.round(amount),
+            PartyA: phone.replace(/^0/, '254'),
+            PartyB: shortCode,
+            PhoneNumber: phone.replace(/^0/, '254'),
+            CallBackURL: callbackUrl,
+            AccountReference: orderDetails.orderNumber,
+            TransactionDesc: `Payment for Order ${orderDetails.orderNumber}`,
         };
 
-        const mpesaResponse = await axios.post(stkPushQueryUrl, payload, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
+        try {
+            const token = await getAuthToken();
+            const mpesaResponse = await axios.post(stkPushUrl, payload, { headers: { "Authorization": `Bearer ${token}` } });
+            const checkoutRequestID = mpesaResponse.data.CheckoutRequestID;
 
-        const resultCode = mpesaResponse.data.ResultCode;
+            // Temporarily store order details in Firestore to link with the callback
+            await db.collection('pending_payments').doc(checkoutRequestID).set({
+                orderDetails: orderDetails,
+                timestamp: admin.firestore.FieldValue.serverTimestamp()
+            });
 
-        if (resultCode === "0") {
-            const finalOrderRef = db.collection(`artifacts/default-app-id/public/data/orders`).doc(checkoutRequestID);
-            const finalOrderDoc = await finalOrderRef.get();
+            return { statusCode: 200, headers, body: JSON.stringify({ checkoutRequestID }) };
+        } catch (error) {
+            console.error("Error initiating STK push:", error.response ? error.response.data : error.message);
+            return { statusCode: 500, headers, body: JSON.stringify({ error: "Failed to initiate M-Pesa payment." }) };
+        }
+    }
 
-            if (finalOrderDoc.exists) {
-                return {
-                    statusCode: 200,
-                    headers,
-                    body: JSON.stringify({
-                        status: 'paid',
-                        finalOrder: finalOrderDoc.data(),
-                        message: "Payment successful!"
-                    })
-                };
-            } else {
-                return { statusCode: 200, headers, body: JSON.stringify({ status: 'pending', message: "Payment successful, but order is still processing." }) };
+    // --- Endpoint to HANDLE M-PESA CALLBACK ---
+    if (path === '/mpesaCallback') {
+        const body = JSON.parse(event.body);
+        const stkCallback = body.Body.stkCallback;
+        const checkoutRequestID = stkCallback.CheckoutRequestID;
+        const resultCode = stkCallback.ResultCode;
+
+        try {
+            const pendingDoc = await db.collection('pending_payments').doc(checkoutRequestID).get();
+            if (!pendingDoc.exists) {
+                console.error(`No pending payment found for ${checkoutRequestID}`);
+                return { statusCode: 200, headers, body: JSON.stringify({ ResultCode: 0, ResultDesc: "Accepted" }) };
             }
 
-        } else if (resultCode === "1032") {
-            return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify({
-                    status: 'cancelled',
-                    message: "Transaction cancelled by user."
-                })
-            };
-        } else if (resultCode === "2001") {
-            return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify({
-                    status: 'failed',
-                    message: mpesaResponse.data.ResultDesc
-                })
-            };
-        }
-        else {
-          return {
-              statusCode: 200,
-              headers,
-              body: JSON.stringify({
-                  status: 'pending',
-                  message: mpesaResponse.data.ResultDesc
-              })
-          };
-        }
-    } catch (error) {
-        console.error("Error checking payment status:", error.response ? error.response.data : error.message);
-        return { statusCode: 500, headers, body: JSON.stringify({ error: "Failed to check payment status." }) };
-    }
-  }
+            const { orderDetails } = pendingDoc.data();
 
-  return {
-    statusCode: 404,
-    headers,
-    body: 'Endpoint not found.'
-  };
+            if (resultCode === 0) {
+                // SUCCESS: Save to Supabase 'paid_orders'
+                const metadata = stkCallback.CallbackMetadata.Item;
+                const receiptItem = metadata.find(item => item.Name === "MpesaReceiptNumber");
+                const mpesaReceipt = receiptItem ? receiptItem.Value : 'N/A';
+
+                const { error } = await supabase
+                    .from('paid_orders')
+                    .insert([{
+                        order_number: orderDetails.orderNumber,
+                        user_id: orderDetails.userId,
+                        full_name: orderDetails.fullName,
+                        phone: orderDetails.phone,
+                        address: orderDetails.address,
+                        items: orderDetails.items,
+                        total: orderDetails.total,
+                        payment_status: 'paid',
+                        mpesa_receipt_number: mpesaReceipt
+                    }]);
+
+                if (error) throw error;
+                console.log(`Successfully saved paid order ${orderDetails.orderNumber} to Supabase.`);
+            }
+
+            // Clean up the temporary document from Firestore
+            await db.collection('pending_payments').doc(checkoutRequestID).delete();
+
+        } catch (error) {
+            console.error("Error in M-Pesa callback:", error);
+        } finally {
+            return { statusCode: 200, headers, body: JSON.stringify({ ResultCode: 0, ResultDesc: "Accepted" }) };
+        }
+    }
+
+    return { statusCode: 404, headers, body: 'Endpoint not found.' };
 };
