@@ -10,7 +10,6 @@ import { getCurrentUserWithRole, logout } from './auth.js'; // Import auth funct
 
 // Import Firebase modules for database interaction
 import { db, auth } from './firebase-config.js'; // Import db and auth instances
-import { supabase } from './supabase-config.js'; // <-- CHANGE 1: ADDED SUPABASE CLIENT
 
 // DOM Elements - Catalog Specific
 const productGrid = document.getElementById('productGrid');
@@ -33,7 +32,6 @@ const deliveryPaymentDiv = document.getElementById('deliveryPayment');
 const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
 const orderNumberSpan = document.getElementById('orderNumber');
 const confirmationMessage = document.getElementById('confirmationMessage');
-const proceedToCheckoutBtn = document.getElementById('proceedToCheckoutBtn'); // Added this line
 
 // DOM Elements - Navigation and User Profile (for mobile sidebar logic)
 const loginLink = document.getElementById('loginLink');
@@ -58,7 +56,6 @@ const mobileDropdownUserName = document.getElementById('mobileDropdownUserName')
 const mobileDropdownUserEmail = document.getElementById('mobileDropdownUserEmail');
 const mobileLogoutButton = document.getElementById('mobileLogoutButton'); // Corrected ID from 'mobileLogoutDropdownButton'
 const mobileAdminLink = document.getElementById('mobileAdminLink');
-const mobileMyProfileLink = document.getElementById('mobileMyProfileLink'); // Added this line
 
 const mobileMenuButton = document.getElementById('mobileMenuButton');
 const mobileMenu = document.getElementById('mobileMenu');
