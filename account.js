@@ -126,7 +126,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     body: JSON.stringify({
                         phone: orderDetails.phone,
                         amount: orderDetails.total,
-                        orderDetails: orderDetails
+                        orderDetails: orderDetails,
+                        unpaidOrderId: orderId // <-- KEY CHANGE: Send the original order ID
                     }),
                 });
 
