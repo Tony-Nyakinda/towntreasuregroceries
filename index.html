@@ -82,54 +82,21 @@
             border-top-right-radius: 16px;
         }
 
-        /* Hero Section with Video Background */
+        /* Hero Section */
         .hero-section {
+            background: linear-gradient(135deg, rgba(46, 125, 50, 0.95) 0%, rgba(76, 175, 80, 0.95) 100%),
+                        url('IMAGE/shopping-mall.png') center/cover no-repeat; /* Placeholder background image */
             position: relative;
             overflow: hidden;
             padding-top: 3rem; /* Adjusted for mobile nav */
             padding-bottom: 3rem; /* Adjusted for mobile nav */
-            display: flex;
-            align-items: center;
-            min-height: 50vh; /* Minimum height for video section */
         }
 
-        .hero-video-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            z-index: -1;
-        }
-
-        .hero-video {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            min-width: 100%;
-            min-height: 100%;
-            width: auto;
-            height: auto;
-            z-index: -1;
-            transform: translateX(-50%) translateY(-50%);
-            background-size: cover;
-            filter: brightness(40%); /* Darken video to make text more readable */
-        }
-        
         .hero-content {
-            position: relative;
-            z-index: 10;
             max-width: 1200px;
             margin: 0 auto;
             padding: 2rem;
-            color: white;
         }
-        
-        .hero-background-image {
-            display: none; /* Hide the image initially */
-        }
-
 
         /* Category Chips */
         .category-chip {
@@ -517,21 +484,30 @@
             }
 
             .footer-section a {
-                color: #ccc;
-                text-decoration: none;
-                transition: color 0.2s ease;
-            }
-
-            .footer-section a:hover {
-                color: white;
+                font-size: 0.85rem;
             }
 
             .footer-bottom {
-                border-top: 1px solid rgba(255, 255, 255, 0.1);
-                padding-top: 1.5rem;
-                text-align: center;
-                color: #aaa;
-                font-size: 0.85rem;
+                font-size: 0.75rem;
+                padding-top: 1rem;
+            }
+
+            /* Mobile navigation from sdsdsd.txt */
+            .nav-item {
+                padding: 0.5rem 0;
+                font-size: 0.7rem;
+            }
+
+            .nav-item i {
+                font-size: 1.1rem;
+            }
+
+            .cart-badge {
+                top: -3px;
+                right: 25%;
+                width: 16px;
+                height: 16px;
+                font-size: 0.6rem;
             }
         }
 
@@ -943,8 +919,6 @@
                 <a href="testimanial.html" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Testimonials</a>
                 <a href="#contact" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Contact</a>
                 <a href="catalog.html?category=wholesale" class="text-gray-700 hover:text-green-600 font-medium transition duration-300">Wholesale</a>
-                <!-- AMENDMENT: Added My Orders Link -->
-                <a href="account.html" id="myOrdersLink" class="text-gray-700 hover:text-green-600 font-medium transition duration-300 hidden">My Orders</a>
 
 
                 <!-- Login/User Profile Dropdown -->
@@ -966,7 +940,7 @@
                                 <p class="text-gray-500" id="dropdownUserEmail"></p>
                             </div>
                         </div>
-                        <!-- AMENDMENT: Removed My Profile, replaced with My Orders above -->
+                        <a href="account.html" id="myProfileLink" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hidden">My Profile</a>
                         <a href="admin.html" id="adminLink" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hidden">Admin Dashboard</a>
                         <button id="logoutDropdownButton" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Logout</button>
                     </div>
@@ -1001,8 +975,6 @@
                     <a href="testimanial.html" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Testimonials</a>
                     <a href="#contact" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Contact</a>
                     <a href="catalog.html?category=wholesale" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Wholesale</a>
-                    <!-- AMENDMENT: Added My Orders link for mobile -->
-                    <a href="account.html" id="mobileMyOrdersLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300 hidden">My Orders</a>
 
                     <div class="border-t border-gray-100 pt-2 mt-2">
                         <!-- Mobile User Profile Section -->
@@ -1015,7 +987,7 @@
                             </div>
                         </div>
                         <a href="login.html" id="mobileLoginLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Login</a>
-                        <!-- AMENDMENT: Removed mobile My Profile link -->
+                        <a href="account.html" id="mobileMyProfileLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300 hidden">My Profile</a>
                         <a href="admin.html" id="mobileAdminLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300 hidden">Admin Dashboard</a>
                         <button id="mobileLogoutButton" class="block w-full text-left py-2 px-3 text-red-600 hover:bg-red-50 rounded transition duration-300 hidden">Logout</button>
                     </div>
@@ -1026,15 +998,6 @@
 
     <!-- Hero Section -->
     <section class="hero-section text-white py-12 md:py-24">
-        <!-- New video background container and element -->
-        <div class="hero-video-container">
-            <video autoplay muted loop playsinline id="heroVideo" class="hero-video" preload="auto">
-                <!-- *** FIX: Changed video src to a public URL that serves the correct MIME type *** -->
-                <source src="African_Grocery_Shopping_Video_Generation.mp4" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
-            <div class="hero-video-overlay"></div>
-        </div>
         <div class="hero-content flex flex-col md:flex-row items-center">
             <div class="md:w-1/2 mb-10 md:mb-0 text-center md:text-left animate-fadeIn">
                 <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 leading-tight">Fresh Groceries <br class="hidden sm:inline">Delivered to Your Door</h1>
@@ -1379,12 +1342,14 @@
 
                 <form class="newsletter-form flex flex-col sm:flex-row gap-3 sm:gap-4 max-w-md mx-auto">
                     <div class="flex-grow">
-                        <input type="email" placeholder="Your email address" class="px-3 py-2 rounded-l-lg focus:outline-none text-gray-800 w-full text-sm sm:text-base">
-                        <button type="submit" class="bg-green-600 text-white px-3 py-2 rounded-r-lg hover:bg-green-700 transition duration-300 text-sm sm:text-base">
-                            <i class="fas fa-paper-plane"></i>
-                        </button>
-                    </form>
-                </div>
+                        <input type="email" placeholder="Your email address" class="w-full px-3 py-2 rounded-lg focus:outline-none text-gray-800 text-sm sm:text-base">
+                    </div>
+                    <button type="submit" class="bg-white hover:bg-gray-100 text-green-600 font-bold py-2 px-5 rounded-lg transition duration-300 whitespace-nowrap text-sm sm:text-base">
+                        Subscribe
+                    </button>
+                </form>
+
+                <p class="text-xs sm:text-sm mt-3 sm:mt-4 text-white/80">We respect your privacy. Unsubscribe at any time.</p>
             </div>
         </div>
     </section>
@@ -1401,7 +1366,7 @@
 
                     <div class="space-y-4">
                         <div class="contact-item flex items-start">
-                            <div class="contact-icon bg-green-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4 flex-shrink-0">
+                            <div class="contact-icon bg-green-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4">
                                 <i class="fas fa-map-marker-alt text-base text-green-600"></i>
                             </div>
                             <div>
@@ -1411,7 +1376,7 @@
                         </div>
 
                         <div class="contact-item flex items-start">
-                            <div class="contact-icon bg-green-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4 flex-shrink-0">
+                            <div class="contact-icon bg-green-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4">
                                 <i class="fas fa-phone-alt text-base text-green-600"></i>
                             </div>
                             <div>
@@ -1424,7 +1389,7 @@
                         </div>
 
                         <div class="contact-item flex items-start">
-                            <div class="contact-icon bg-green-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4 flex-shrink-0">
+                            <div class="contact-icon bg-green-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4">
                                 <i class="fas fa-envelope text-base text-green-600"></i>
                             </div>
                             <div>
@@ -1434,7 +1399,7 @@
                         </div>
 
                         <div class="contact-item flex items-start">
-                            <div class="contact-icon bg-green-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4 flex-shrink-0">
+                            <div class="contact-icon bg-green-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4">
                                 <i class="fas fa-clock text-base text-green-600"></i>
                             </div>
                             <div>
@@ -1688,7 +1653,7 @@
 
                 <div>
                     <h3 class="text-base sm:text-lg font-bold mb-3 sm:mb-4">Newsletter</h3>
-                    <p class="text-gray-400 mb-4 text-sm sm:text-base">Subscribe to our newsletter and get 10% off your first order plus weekly deals and recipes straight to your inbox.</p>
+                    <p class="text-gray-400 mb-4 text-sm sm:text-base">Subscribe to get updates on new products and special offers.</p>
                     <form class="flex">
                         <input type="email" placeholder="Your email" class="px-3 py-2 rounded-l-lg focus:outline-none text-gray-800 w-full text-sm sm:text-base">
                         <button type="submit" class="bg-green-600 text-white px-3 py-2 rounded-r-lg hover:bg-green-700 transition duration-300 text-sm sm:text-base">
@@ -1861,14 +1826,14 @@
             const logoutDropdownButton = document.getElementById('logoutDropdownButton');
 
             const adminLink = document.getElementById('adminLink');
-            const myOrdersLink = document.getElementById('myOrdersLink'); // AMENDMENT: Get new link
+            const myProfileLink = document.getElementById('myProfileLink');
 
             const mobileMenuButton = document.getElementById('mobileMenuButton');
             const mobileMenu = document.getElementById('mobileMenu');
             const closeMobileMenuButton = document.getElementById('closeMobileMenuButton');
 
             const mobileLoginLink = document.getElementById('mobileLogin');
-            const mobileMyOrdersLink = document.getElementById('mobileMyOrdersLink'); // AMENDMENT: Get new mobile link
+            const mobileMyProfileLink = document.getElementById('mobileMyProfileLink');
             const mobileAdminLink = document.getElementById('mobileAdminLink');
             const mobileLogoutButton = document.getElementById('mobileLogoutButton');
 
@@ -1978,7 +1943,7 @@
                     if (dropdownUserProfilePic) dropdownUserProfilePic.classList.add('hidden');
                 }
 
-                if (myOrdersLink) myOrdersLink.classList.remove('hidden'); // AMENDMENT: Show My Orders link
+                if (myProfileLink) myProfileLink.classList.remove('hidden');
 
                 if (userProfileButton) userProfileButton.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -2010,7 +1975,7 @@
                 // Mobile Sidebar View
                 if (mobileLoginLink) mobileLoginLink.classList.add('hidden');
                 if (mobileUserProfileSection) mobileUserProfileSection.classList.remove('hidden');
-                if (mobileMyOrdersLink) mobileMyOrdersLink.classList.remove('hidden'); // AMENDMENT: Show mobile My Orders link
+                if (mobileMyProfileLink) mobileMyProfileLink.classList.remove('hidden');
                 if (mobileLogoutButton) mobileLogoutButton.classList.remove('hidden');
 
                 if (mobileUserNameDisplay) mobileUserNameDisplay.textContent = userFullName;
@@ -2061,14 +2026,14 @@
                 if (loginLink) loginLink.classList.remove('hidden');
                 if (userProfileButton) userProfileButton.classList.add('hidden');
                 if (userDropdownMenu) userDropdownMenu.classList.add('hidden');
-                if (myOrdersLink) myOrdersLink.classList.add('hidden'); // AMENDMENT: Hide My Orders link
+                if (myProfileLink) myProfileLink.classList.add('hidden');
                 if (logoutDropdownButton) logoutDropdownButton.classList.add('hidden');
                 if (adminLink) adminLink.classList.remove('hidden'); // Admin link always visible to lead to admin login
 
                 // User is not logged in - Mobile Sidebar View
                 if (mobileLoginLink) mobileLoginLink.classList.remove('hidden');
                 if (mobileUserProfileSection) mobileUserProfileSection.classList.add('hidden');
-                if (mobileMyOrdersLink) mobileMyOrdersLink.classList.add('hidden'); // AMENDMENT: Hide mobile My Orders link
+                if (mobileMyProfileLink) mobileMyProfileLink.classList.add('hidden');
                 if (mobileLogoutButton) mobileLogoutButton.classList.add('hidden');
                 if (mobileAdminLink) mobileAdminLink.classList.remove('hidden'); // Admin link always visible to lead to admin login
 
