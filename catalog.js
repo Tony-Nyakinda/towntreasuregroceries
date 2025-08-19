@@ -10,6 +10,7 @@ import { getCurrentUserWithRole, logout } from './auth.js'; // Import auth funct
 
 // Import Firebase modules for database interaction
 import { db, auth } from './firebase-config.js'; // Import db and auth instances
+import { supabase } from './supabase-config.js'; // <-- CHANGE 1: ADDED SUPABASE CLIENT
 
 // DOM Elements - Catalog Specific
 const productGrid = document.getElementById('productGrid');
@@ -32,6 +33,7 @@ const deliveryPaymentDiv = document.getElementById('deliveryPayment');
 const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
 const orderNumberSpan = document.getElementById('orderNumber');
 const confirmationMessage = document.getElementById('confirmationMessage');
+const proceedToCheckoutBtn = document.getElementById('proceedToCheckoutBtn'); // Added this line
 
 // DOM Elements - Navigation and User Profile (for mobile sidebar logic)
 const loginLink = document.getElementById('loginLink');
@@ -56,6 +58,7 @@ const mobileDropdownUserName = document.getElementById('mobileDropdownUserName')
 const mobileDropdownUserEmail = document.getElementById('mobileDropdownUserEmail');
 const mobileLogoutButton = document.getElementById('mobileLogoutButton'); // Corrected ID from 'mobileLogoutDropdownButton'
 const mobileAdminLink = document.getElementById('mobileAdminLink');
+const mobileMyProfileLink = document.getElementById('mobileMyProfileLink'); // Added this line
 
 const mobileMenuButton = document.getElementById('mobileMenuButton');
 const mobileMenu = document.getElementById('mobileMenu');
@@ -573,7 +576,7 @@ if (proceedToCheckoutBtn) {
 }
 
 // ========================================================================
-// START: M-PESA INTEGRATION - AMENDED CHECKOUT FORM LISTENER
+// START: MIGRATED CHECKOUT FORM LISTENER
 // ========================================================================
 if (checkoutForm) {
     checkoutForm.addEventListener('submit', async function(event) {
@@ -613,7 +616,6 @@ if (checkoutForm) {
         const total = subtotal + DELIVERY_FEE;
 
         const userId = auth.currentUser.uid;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         const orderDetails = {
             orderNumber: tempOrderNum,
@@ -628,13 +630,14 @@ if (checkoutForm) {
             deliveryFee: DELIVERY_FEE,
             total: total,
             paymentMethod: selectedPaymentMethod,
-            paymentStatus: 'pending', 
+            paymentStatus: 'pending',
+            // This is a Firebase timestamp. It will be ignored by Supabase, which sets its own.
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         };
         
         if (selectedPaymentMethod === 'mpesa') {
             try {
-                // AMENDMENT: Do not save order here. Send details to server function.
+                // This logic remains the same as it correctly calls the Netlify function
                 const functionUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/initiateMpesaPayment";
                 const mpesaResponse = await fetch(functionUrl, {
                     method: 'POST',
@@ -642,7 +645,7 @@ if (checkoutForm) {
                     body: JSON.stringify({
                         phone: customerPhone,
                         amount: total,
-                        orderDetails: orderDetails // Send the entire order object
+                        orderDetails: orderDetails
                     }),
                 });
 
@@ -652,7 +655,6 @@ if (checkoutForm) {
                     throw new Error(mpesaResult.error || 'M-Pesa API request failed.');
                 }
                 
-                // Close checkout and wait for payment confirmation
                 closeCheckout();
                 showWaitingModal();
                 waitForPaymentConfirmation(mpesaResult.checkoutRequestID);
@@ -665,24 +667,31 @@ if (checkoutForm) {
                 placeOrderBtn.innerHTML = 'Place Order';
             }
         } else if (selectedPaymentMethod === 'delivery') {
-            // AMENDMENT: Handle "Pay on Delivery"
+            // CHANGE 2: SAVE "PAY ON DELIVERY" TO SUPABASE INSTEAD OF FIREBASE
             try {
-                orderDetails.paymentStatus = 'unpaid'; // Set status to unpaid
-                orderDetails.paymentMethod = 'Pay on Delivery';
+                const { data, error } = await supabase
+                    .from('unpaid_orders')
+                    .insert([{
+                        order_number: orderDetails.orderNumber,
+                        user_id: orderDetails.userId,
+                        full_name: orderDetails.fullName,
+                        phone: orderDetails.phone,
+                        address: orderDetails.address,
+                        items: orderDetails.items,
+                        total: orderDetails.total,
+                        payment_status: 'unpaid'
+                    }]);
 
-                // Save to a new 'unpaid_orders' collection
-                const unpaidOrdersCollectionRef = db.collection(`artifacts/${appId}/public/data/unpaid_orders`);
-                await unpaidOrdersCollectionRef.add(orderDetails);
+                if (error) throw error; // If Supabase returns an error, stop execution
                 
                 closeCheckout();
-                // Show a different confirmation message for delivery orders
                 if (confirmationMessage) confirmationMessage.textContent = "Your order has been placed successfully! Please have your payment ready for our delivery rider.";
                 showConfirmation(tempOrderNum, orderDetails);
                 clearCart();
                 updateCartUI();
 
             } catch(error) {
-                console.error("Error placing 'Pay on Delivery' order:", error);
+                console.error("Error placing 'Pay on Delivery' order in Supabase:", error);
                 showToast(`Order placement failed: ${error.message}. Please try again.`);
             } finally {
                 placeOrderBtn.disabled = false;
@@ -692,7 +701,7 @@ if (checkoutForm) {
     });
 }
 // ========================================================================
-// END: M-PESA INTEGRATION AMENDMENT
+// END: MIGRATED PAYMENT LOGIC
 // ========================================================================
 
 
