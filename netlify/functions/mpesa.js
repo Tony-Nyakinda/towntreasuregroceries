@@ -27,8 +27,9 @@ const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
 const shortCode = process.env.MPESA_SHORTCODE;
 const passkey = process.env.MPESA_PASSKEY;
 
-const tokenUrl = "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
-const stkPushUrl = "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest";
+// Production URLs
+const tokenUrl = "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
+const stkPushUrl = "https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest";
 
 // Helper to get M-Pesa auth token
 const getAuthToken = async () => {
