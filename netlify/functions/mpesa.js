@@ -88,6 +88,10 @@ exports.handler = async (event) => {
 
     try {
       const token = await getAuthToken();
+
+      // --- DEBUGGING: Log the exact payload being sent to M-Pesa ---
+      console.log("Payload being sent to M-Pesa:", JSON.stringify(payload, null, 2));
+
       const mpesaResponse = await axios.post(stkPushUrl, payload, {
         headers: { "Authorization": `Bearer ${token}` },
       });
