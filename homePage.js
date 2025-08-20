@@ -6,8 +6,8 @@
 
 import { getProducts } from './productsData.js'; // Import the new getProducts function (getImagePath no longer needed here)
 import { addToCart } from './cartManager.js'; // Import addToCart directly
-import { db } from './firebase-config.js'; // Import db for Firestore operations
-// No direct import of collection and getDocs needed, as they are accessed via the global firebase object.
+import { db, auth } from './firebase-config.js'; // Import db and auth for Firestore and Auth operations
+import { checkout, showToast } from './uiUpdater.js'; // ADDED: Import functions for checkout
 
 let allProducts = []; // Will store all products fetched from Firestore (unique list)
 
@@ -265,4 +265,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Setup event listeners after grids are populated
     setupAddToCartListener(featuredProductsGrid);
     setupAddToCartListener(wholesaleProductsGrid);
+
+    // --- ADDED: Event Listener for Checkout Button ---
+    const proceedToCheckoutBtn = document.getElementById('proceedToCheckoutBtn');
+    if (proceedToCheckoutBtn) {
+        proceedToCheckoutBtn.addEventListener('click', () => {
+            // Check if user is logged in before proceeding
+            if (!auth.currentUser) {
+                showToast("Please log in to proceed to checkout.");
+                // Optional: Redirect to login after a short delay
+                setTimeout(() => {
+                    window.location.href = 'login.html';
+                }, 1500);
+                return;
+            }
+            // If logged in, call the checkout function
+            checkout();
+        });
+    }
 });
