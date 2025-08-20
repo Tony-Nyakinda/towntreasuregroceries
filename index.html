@@ -1836,7 +1836,7 @@
             const mobileMenu = document.getElementById('mobileMenu');
             const closeMobileMenuButton = document.getElementById('closeMobileMenuButton');
 
-            const mobileLoginLink = document.getElementById('mobileLogin');
+            const mobileLoginLink = document.getElementById('mobileLoginLink');
             const mobileMyProfileLink = document.getElementById('mobileMyProfileLink');
             const mobileAdminLink = document.getElementById('mobileAdminLink');
             const mobileLogoutButton = document.getElementById('mobileLogoutButton');
@@ -1854,6 +1854,7 @@
 
 
             const proceedToCheckoutBtn = document.getElementById('proceedToCheckoutBtn');
+            const cartItemsContainer = document.getElementById('cartItems');
             
 
             // Contact Form Elements
@@ -1862,6 +1863,28 @@
             const contactEmailInput = document.getElementById('email');
             const contactSubjectInput = document.getElementById('subject');
             const contactMessageInput = document.getElementById('message');
+
+            // Event delegation for cart item interactions
+            if (cartItemsContainer) {
+                cartItemsContainer.addEventListener('click', (e) => {
+                    const target = e.target.closest('button');
+                    if (!target) return;
+
+                    const productId = target.dataset.id;
+                    if (!productId) return;
+
+                    if (target.classList.contains('quantity-btn')) {
+                        const action = target.dataset.action;
+                        if (action === 'increase') {
+                            window.updateCartItemQuantity(productId, 1);
+                        } else if (action === 'decrease') {
+                            window.updateCartItemQuantity(productId, -1);
+                        }
+                    } else if (target.classList.contains('remove-item-btn')) {
+                        window.removeFromCart(productId);
+                    }
+                });
+            }
 
 
             function getInitials(name, email) {
@@ -1975,6 +1998,7 @@
                 } else {
                     if (adminLink) adminLink.classList.add('hidden');
                 }
+                if (myOrdersLink) myOrdersLink.classList.remove('hidden'); // AMENDMENT: Show My Orders link
 
                 // Mobile Sidebar View
                 if (mobileLoginLink) mobileLoginLink.classList.add('hidden');
