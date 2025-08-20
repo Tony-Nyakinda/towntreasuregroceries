@@ -9,30 +9,6 @@ import { addToCart } from './cartManager.js'; // Import addToCart directly
 import { db } from './firebase-config.js'; // Import db for Firestore operations
 // No direct import of collection and getDocs needed, as they are accessed via the global firebase object.
 
-// --- Hero Section Product Carousel (Removed as per user request) ---
-// The hero section now uses a static image.
-// The following variables and functions related to the hero carousel are no longer needed:
-/*
-const heroProductImage = document.getElementById('hero-product-image');
-const heroProductName = document.getElementById('hero-product-name');
-const heroProductPrice = document.getElementById('hero-product-price');
-const heroProductInfoOverlay = document.getElementById('hero-product-info-overlay');
-const heroNextProductImage = document.getElementById('hero-next-product-image');
-const heroNextProductPreviewContainer = document.getElementById('hero-next-product-preview');
-
-let allProducts = []; // Will store all products fetched from Firestore (unique list)
-let heroProductIndex = 0;
-let heroCarouselInterval; // To store the interval ID for clearing
-
-function updateHeroProduct() {
-    // This function is no longer needed as the hero carousel is static.
-}
-
-function startHeroCarousel() {
-    // This function is no longer needed as the hero carousel is static.
-}
-*/
-
 let allProducts = []; // Will store all products fetched from Firestore (unique list)
 
 // DOM Elements - Homepage Specific
@@ -143,9 +119,7 @@ async function displayWholesaleProducts() {
     const wholesaleProducts = allProducts.filter(product => product.category === 'wholesale');
 
     // Display only a limited number of wholesale products (e.g., 8)
-    wholesaleProducts.slice(0, 8).forEach(product => {
-        renderProductCards(wholesaleProducts.slice(0, 8), wholesaleProductsGrid); // Use the generalized render function
-    });
+    renderProductCards(wholesaleProducts.slice(0, 8), wholesaleProductsGrid); // Use the generalized render function
 
     if (wholesaleProducts.length === 0) {
         wholesaleProductsGrid.innerHTML = '<p class="col-span-full text-center text-gray-500 py-10">No wholesale products available at the moment.</p>';
@@ -253,15 +227,23 @@ if (featuredCategoryFilter) {
     });
 }
 
-// REMOVED: This event listener is redundant as index.html already has a general listener for .add-to-cart-btn
-// document.body.addEventListener('click', (event) => {
-//     const button = event.target.closest('.add-to-cart-btn');
-//     // Ensure the clicked button is within the featured products grid to avoid conflicts
-//     if (button && featuredProductsGrid.contains(button)) {
-//         const productId = button.dataset.productId;
-//         addToCart(productId);
-//     }
-// });
+/**
+ * Sets up event delegation for 'Add to Cart' buttons within a specific grid.
+ * @param {HTMLElement} gridElement - The grid container element.
+ */
+function setupAddToCartListener(gridElement) {
+    if (gridElement) {
+        gridElement.addEventListener('click', (event) => {
+            const button = event.target.closest('.add-to-cart-btn');
+            if (button) {
+                const productId = button.dataset.productId;
+                if (productId) {
+                    addToCart(productId);
+                }
+            }
+        });
+    }
+}
 
 
 // --- Initial Load ---
@@ -271,23 +253,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Ensure allProducts is populated from the 'all' category of getProducts
     allProducts = fetchedProducts.all;
 
-    // The hero carousel is now static, so startHeroCarousel() is removed.
-    // startHeroCarousel();
-
     // Load initial wholesale products
-    displayWholesaleProducts();
+    await displayWholesaleProducts();
 
     // Load initial featured products (e.g., 'all' category)
-    filterFeaturedProducts('all');
+    await filterFeaturedProducts('all');
 
     // Load testimonials
-    loadTestimonials();
-});
+    await loadTestimonials();
 
-// Clear interval on page unload to prevent memory leaks
-// The heroCarouselInterval is no longer used, so this line is commented out.
-// window.addEventListener('beforeunload', () => {
-//     if (heroCarouselInterval) {
-//         clearInterval(heroCarouselInterval);
-//     }
-// });
+    // Setup event listeners after grids are populated
+    setupAddToCartListener(featuredProductsGrid);
+    setupAddToCartListener(wholesaleProductsGrid);
+});
