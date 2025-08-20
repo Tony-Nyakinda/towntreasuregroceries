@@ -922,6 +922,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
         console.warn("Mobile menu elements not found. Mobile menu toggle may not function.");
     }
+    
+    // Event delegation for cart item interactions
+    const cartItemsContainer = document.getElementById('cartItems');
+    if (cartItemsContainer) {
+        cartItemsContainer.addEventListener('click', (e) => {
+            const target = e.target.closest('button');
+            if (!target) return;
+
+            const productId = target.dataset.id;
+            if (!productId) return;
+
+            if (target.classList.contains('quantity-btn')) {
+                const action = target.dataset.action;
+                if (action === 'increase') {
+                    window.updateCartItemQuantity(productId, 1);
+                } else if (action === 'decrease') {
+                    window.updateCartItemQuantity(productId, -1);
+                }
+            } else if (target.classList.contains('remove-item-btn')) {
+                window.removeFromCart(productId);
+            }
+        });
+    }
 });
 
 window.addEventListener('popstate', () => {
@@ -937,3 +960,4 @@ window.updateCartItemQuantity = updateCartItemQuantity;
 window.removeFromCart = removeFromCart;
 window.addToCart = addToCart;
 window.clearCart = clearCart;
+window.updateCartUI = updateCart
