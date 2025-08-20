@@ -4,6 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Our Catalog - Town Treasure Groceries</title>
+
+     <script type="importmap">
+      {
+        "imports": {
+          "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+        }
+      }
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -759,13 +768,13 @@
     <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- Import firebase-config.js and auth.js as modules -->
-    <script type="module" src="catalog.js"></script> <!-- Specific JS for catalog page -->
+    <script type="module" src="supabase-config.js"></script>
     <script type="module" src="firebase-config.js"></script>
+    <script type="module" src="productsData.js"></script>
     <script type="module" src="auth.js"></script>
-    <script type="module" src="productsData.js"></script> <!-- Import product data -->
-    <script type="module" src="uiUpdater.js"></script> <!-- UI update functions (Moved before catalog.js) -->
-    <script type="module" src="cartManager.js"></script> <!-- Cart management functions -->
-    <script type="module" src="eventListeners.js"></script> <!-- General event listeners -->
+    <script type="module" src="uiUpdater.js"></script>
+    <script type="module" src="cartManager.js"></script>
+    <script type="module" src="catalog.js"></script>
     <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
     <script type="module">
         import { getCurrentUserWithRole, logout } from './auth.js'; // Import logout
@@ -1015,27 +1024,10 @@
                 }
             }
 
-            // --- Mobile Menu Toggle Logic ---
-            if (mobileMenuButton && mobileMenu && closeMobileMenuButton) {
-                // Open mobile menu
-                mobileMenuButton.addEventListener('click', () => {
-                    toggleMobileMenu();
-                });
-
-                // Close mobile menu when clicking the close button inside it
-                closeMobileMenuButton.addEventListener('click', () => {
-                    toggleMobileMenu();
-                });
-
-                // Close mobile menu when clicking on the overlay part of the mobile menu
-                mobileMenu.addEventListener('click', (e) => {
-                    if (e.target === mobileMenu) { // Only close if the overlay itself is clicked
-                        toggleMobileMenu();
-                    }
-                });
-            } else {
-                console.warn("Mobile menu elements not found. Mobile menu toggle may not function.");
-            }
+            // --- DELETED: Redundant Mobile Menu Toggle Logic ---
+            // The logic was removed from here because it's already correctly
+            // implemented in catalog.js, and having it here caused the
+            // "toggleMobileMenu is not defined" error.
         });
     </script>
 </body>
