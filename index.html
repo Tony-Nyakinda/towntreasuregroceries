@@ -937,9 +937,10 @@
                         <div class="px-4 py-2 text-sm text-gray-700 border-b border-gray-100 flex items-center">
                             <img id="dropdownUserProfilePic" src="" alt="Profile" class="w-8 h-8 rounded-full object-cover mr-2 hidden">
                             <div id="dropdownUserInitials" class="w-8 h-8 rounded-full profile-pic-placeholder text-sm mr-2 hidden"></div>
-                            <div>
-                                <p class="font-bold" id="dropdownUserName"></p>
-                                <p class="text-gray-500" id="dropdownUserEmail"></p>
+                            <!-- FIXED: Added a container to prevent overflow -->
+                            <div class="overflow-hidden">
+                                <p class="font-bold truncate" id="dropdownUserName"></p>
+                                <p class="text-gray-500 truncate" id="dropdownUserEmail"></p>
                             </div>
                         </div>
                         <a href="account.html" id="myProfileLink" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hidden">My Profile</a>
@@ -961,7 +962,7 @@
         </div>
 
         <!-- Mobile Menu (Sidebar) -->
-        <div id="mobileMenu" class="fixed inset-0 transform -translate-x-full transition-transform duration-300 z-[9999] opacity-0 pointer-events-none flex justify-start">
+        <div id="mobileMenu" class="fixed inset-0 z-[9999] flex justify-start mobile-only">
             <div class="menu-content w-64 bg-white shadow-lg h-full overflow-y-auto">
                 <div class="flex justify-between items-center p-4 border-b border-gray-100">
                     <h2 class="text-xl font-bold text-gray-800">Menu</h2>
@@ -977,7 +978,7 @@
                     <a href="testimanial.html" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Testimonials</a>
                     <a href="#contact" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Contact</a>
                      <!-- AMENDMENT: Added My Orders Link -->
-                    <a href="account.html" id="myOrdersLink" class="text-gray-700 hover:text-green-600 font-medium transition duration-300 hidden">My Orders</a>
+                    <a href="account.html" id="mobileMyOrdersLink" class="text-gray-700 hover:text-green-600 font-medium transition duration-300 hidden">My Orders</a>
                     <a href="catalog.html?category=wholesale" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Wholesale</a>
 
                     <div class="border-t border-gray-100 pt-2 mt-2">
@@ -985,9 +986,10 @@
                         <div id="mobileUserProfileSection" class="hidden flex items-center p-3 space-x-3">
                             <img id="mobileUserProfilePic" src="" alt="Profile" class="w-10 h-10 rounded-full object-cover hidden">
                             <div id="mobileUserInitials" class="w-10 h-10 rounded-full profile-pic-placeholder text-lg hidden"></div>
-                            <div class="flex-grow">
-                                <p id="mobileUserNameDisplay" class="font-bold text-gray-800"></p>
-                                <p id="mobileUserEmailDisplay" class="text-sm text-gray-500"></p>
+                            <!-- FIXED: Added classes to prevent overflow -->
+                            <div class="flex-grow min-w-0">
+                                <p id="mobileUserNameDisplay" class="font-bold text-gray-800 truncate"></p>
+                                <p id="mobileUserEmailDisplay" class="text-sm text-gray-500 truncate"></p>
                             </div>
                         </div>
                         <a href="login.html" id="mobileLoginLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Login</a>
@@ -1852,7 +1854,6 @@
             const mobileBottomUserName = document.getElementById('mobileBottomUserName'); // New
 
 
-            const proceedToCheckoutBtn = document.getElementById('proceedToCheckoutBtn');
             const cartItemsContainer = document.getElementById('cartItems');
             
 
@@ -1862,6 +1863,8 @@
             const contactEmailInput = document.getElementById('email');
             const contactSubjectInput = document.getElementById('subject');
             const contactMessageInput = document.getElementById('message');
+
+            // REMOVED: The event listener for proceedToCheckoutBtn has been moved to homePage.js
 
             // Event delegation for cart item interactions
             if (cartItemsContainer) {
@@ -2099,9 +2102,6 @@
             }
 
 
-            // Attach event listeners for cart functionality
-            if (proceedToCheckoutBtn) proceedToCheckoutBtn.addEventListener('click', checkout);
-            
             // Simplified add to cart event listener, now directly calling addToCart from cartManager.js
             // Using event delegation on document.body to catch clicks on dynamically added '.add-to-cart-btn'
             document.body.addEventListener('click', async function(e) {
