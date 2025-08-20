@@ -110,3 +110,4 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Initial UI Update ---
     updateCartUI();
 });
+
