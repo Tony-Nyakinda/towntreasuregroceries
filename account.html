@@ -100,6 +100,18 @@
                 </div>
             </div>
         </section>
+
+        <!-- Order History Section -->
+        <section id="paidOrdersSection" class="mt-12">
+            <h2 class="text-2xl font-bold text-gray-700 mb-4">Order History</h2>
+            <div id="paidOrdersGrid" class="space-y-4">
+                <!-- Paid orders will be loaded here by account.js -->
+                <div class="text-center py-10 text-gray-500">
+                    <i class="fas fa-spinner fa-spin text-3xl"></i>
+                    <p class="mt-2">Loading your order history...</p>
+                </div>
+            </div>
+        </section>
         
          <!-- Waiting for Payment Modal -->
         <div id="waitingModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1001] hidden">
@@ -115,6 +127,24 @@
         <div id="toast" class="fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg transform translate-y-20 transition-transform duration-300 z-50 hidden flex items-center text-sm sm:text-base">
             <i class="fas fa-check-circle mr-2"></i>
             <span>Action completed!</span>
+        </div>
+
+        <!-- Order Confirmation Modal -->
+        <div id="confirmationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1001] hidden">
+            <div class="bg-white rounded-lg w-11/12 max-w-md mx-auto p-6 sm:p-8 text-center">
+                <div class="bg-green-100 p-4 sm:p-6 rounded-full inline-block mb-4 sm:mb-6">
+                    <i class="fas fa-check-circle text-3xl sm:text-4xl text-green-600"></i>
+                </div>
+                <h2 class="text-lg sm:text-xl font-bold mb-2">Order Confirmed!</h2>
+                <p id="confirmationMessage" class="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">Thank you for your order. Your payment was successful.</p>
+                <p class="font-medium mb-1 text-sm sm:text-base">Order Number: <span id="orderNumber" class="text-green-600"></span></p>
+                <p class="text-gray-600 mb-6 sm:mb-8 text-sm sm:text-base">A receipt has been sent to your email.</p>
+                <div class="flex flex-col space-y-3">
+                    <button id="continueShoppingButton" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg transition duration-300 text-sm sm:text-base">
+                        Continue Shopping
+                    </button>
+                </div>
+            </div>
         </div>
         
     </main>
