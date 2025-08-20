@@ -2,7 +2,7 @@
 // This script handles dynamic content for the catalog page,
 // including product display, category filtering, search, sorting, and pagination.
 // UPDATED to handle M-Pesa payment status by polling a Netlify Function instead of Firestore.
-
+import { supabase } from './supabase-config.js'; // Import Supabase instance
 import { getProducts } from './productsData.js'; // Correctly import getProducts function
 import { showToast, toggleCart, checkout, closeCheckout, showConfirmation, closeConfirmation, updateCartUI, showWaitingModal, hideWaitingModal } from './uiUpdater.js'; // AMENDMENT: Import waiting modal functions
 import { addToCart, updateCartItemQuantity, removeFromCart, getCart, clearCart } from './cartManager.js'; // Import cart management functions
