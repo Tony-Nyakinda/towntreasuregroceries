@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const { data: orders, error } = await supabase
             .from('unpaid_orders')
             .select('*')
-            .eq('user_id', user.uid); // FIXED: Changed 'userId' to 'user_id'
+            .eq('user_id', user.uid);
         
         if (error) {
             console.error("Error fetching unpaid orders from Supabase:", error);
@@ -90,7 +90,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const card = document.createElement('div');
         card.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col md:flex-row justify-between items-start md:items-center';
         
-        // Supabase stores timestamps in a format that can be directly used by new Date()
         const orderDate = order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A';
 
         card.innerHTML = `
@@ -106,38 +105,103 @@ document.addEventListener('DOMContentLoaded', async () => {
         return card;
     }
     
+    // --- ADDED: Payment Status Polling Function ---
+    /**
+     * Polls a serverless function to check the status of an M-Pesa payment.
+     * @param {string} checkoutRequestID - The M-Pesa CheckoutRequestID to track.
+     */
+    function waitForPaymentConfirmation(checkoutRequestID) {
+        const pollUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/getPaymentStatus";
+        const POLLING_INTERVAL = 3000; // Poll every 3 seconds
+        const TIMEOUT_DURATION = 90000; // 90 seconds timeout
+
+        let pollIntervalId = null;
+        let timeoutId = null;
+
+        showWaitingModal();
+
+        timeoutId = setTimeout(() => {
+            clearInterval(pollIntervalId);
+            hideWaitingModal();
+            showToast("Payment timed out. Please try again or check your M-Pesa account.");
+            fetchUnpaidOrders(); // Refresh list to re-enable button
+        }, TIMEOUT_DURATION);
+
+        pollIntervalId = setInterval(async () => {
+            try {
+                const response = await fetch(pollUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ checkoutRequestID }),
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Server error during polling.');
+
+                if (result.status === 'paid') {
+                    clearInterval(pollIntervalId);
+                    clearTimeout(timeoutId);
+                    hideWaitingModal();
+                    showToast("Payment successful!");
+                    fetchUnpaidOrders(); // Refresh the order list immediately
+                } else if (result.status === 'failed' || result.status === 'cancelled') {
+                    clearInterval(pollIntervalId);
+                    clearTimeout(timeoutId);
+                    hideWaitingModal();
+                    showToast(`Payment failed: ${result.message}`);
+                    fetchUnpaidOrders(); // Refresh list to re-enable button
+                }
+            } catch (error) {
+                console.error("Error during polling for payment status:", error);
+                clearInterval(pollIntervalId);
+                clearTimeout(timeoutId);
+                hideWaitingModal();
+                showToast("Error checking payment status. Please check your M-Pesa account.");
+                fetchUnpaidOrders(); // Refresh list to re-enable button
+            }
+        }, POLLING_INTERVAL);
+    }
+
     // --- Handle "Pay Now" Button Click (Updated for Supabase) ---
     unpaidOrdersGrid.addEventListener('click', async (event) => {
         if (event.target.classList.contains('pay-now-btn')) {
             const button = event.target;
-            const orderId = button.dataset.orderId; // This is the Supabase UUID
+            const orderId = button.dataset.orderId;
             
             button.disabled = true;
             button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
 
             try {
-                // Fetch the order details from Supabase using the order ID
                 const { data: orderDetails, error: fetchError } = await supabase
                     .from('unpaid_orders')
                     .select('*')
                     .eq('id', orderId)
-                    .single(); // .single() expects one row and simplifies the result
+                    .single();
 
                 if (fetchError || !orderDetails) {
                     throw new Error("Order not found or could not be fetched.");
                 }
 
-                // The call to the Netlify function remains the same.
-                // The function will handle the M-Pesa logic and update Supabase on the backend.
+                const formattedOrderDetails = {
+                    orderNumber: orderDetails.order_number,
+                    userId: orderDetails.user_id,
+                    fullName: orderDetails.full_name,
+                    phone: orderDetails.phone,
+                    address: orderDetails.address,
+                    instructions: orderDetails.instructions,
+                    items: orderDetails.items,
+                    total: orderDetails.total,
+                    paymentMethod: orderDetails.payment_method
+                };
+
                 const functionUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/initiateMpesaPayment";
                 const mpesaResponse = await fetch(functionUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        phone: orderDetails.phone,
-                        amount: orderDetails.total,
-                        orderDetails: orderDetails,
-                        unpaidOrderId: orderId // Pass the Supabase ID to the backend
+                        phone: formattedOrderDetails.phone,
+                        amount: formattedOrderDetails.total,
+                        orderDetails: formattedOrderDetails,
+                        unpaidOrderId: orderId
                     }),
                 });
 
@@ -147,29 +211,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     throw new Error(mpesaResult.error || 'M-Pesa API request failed.');
                 }
                 
-                showWaitingModal();
-                // We no longer need to wait for confirmation on the client-side.
-                // The backend will handle the database updates. We can just show a success message
-                // and refresh the order list after a delay.
-                setTimeout(() => {
-                    hideWaitingModal();
-                    showToast("Payment request sent! Please check your phone to complete.");
-                    // After a few seconds, refresh the list. If payment was successful, the order will be gone.
-                    setTimeout(fetchUnpaidOrders, 5000); 
-                }, 10000); // Give user time to see the modal
-
+                // --- REPLACED: The old setTimeout with the new polling function ---
+                waitForPaymentConfirmation(mpesaResult.checkoutRequestID);
+                
             } catch (error) {
                 console.error("Error initiating payment for order:", error);
                 showToast(`Payment failed: ${error.message}`);
-                button.disabled = false;
-                button.innerHTML = 'Pay Now';
+                // No need to re-enable button here, polling function handles it
             }
         }
     });
-
-    // --- REMOVED: waitForPaymentConfirmation function ---
-    // This logic is now handled entirely by the mpesa.js backend function.
-    // The frontend no longer needs to listen for Firestore changes.
 
     // --- Mobile Menu Toggle Logic (No Changes Here) ---
     function toggleMobileMenu() {
