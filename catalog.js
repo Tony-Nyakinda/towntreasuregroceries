@@ -862,7 +862,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (mobileLoginLink) mobileLoginLink.classList.add('hidden');
-        if (mobileMyProfileLink) mobileMyProfileLink.classList.remove('hidden');
         if (mobileLogoutButton) mobileLogoutButton.classList.remove('hidden');
 
         const mobileDropdownUserName = document.getElementById('mobileDropdownUserName');
@@ -903,7 +902,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (userProfileButton) userProfileButton.classList.add('hidden');
         if (userDropdownMenu) userDropdownMenu.classList.add('hidden');
         if (mobileLoginLink) mobileLoginLink.classList.remove('hidden');
-        if (mobileMyProfileLink) mobileMyProfileLink.classList.add('hidden');
         if (mobileLogoutButton) mobileLogoutButton.classList.add('hidden');
         if (adminLink) adminLink.classList.remove('hidden');
         if (mobileAdminLink) mobileAdminLink.classList.remove('hidden');
