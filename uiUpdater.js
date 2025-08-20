@@ -1,17 +1,15 @@
 // uiUpdater.js
 // This file handles all UI updates related to the cart, modals, and toast notifications.
-// It no longer handles checkout form submission, which is now in catalog.js.
+// Event listeners have been moved to catalog.js to centralize page logic.
 
-import { getCart, updateCartItemQuantity, removeFromCart, clearCart } from './cartManager.js';
-import { getProducts } from './productsData.js'; // Import getProducts to get full product details for cart display
-// Reverting Firebase imports to align with Compat SDK usage in catalog.js
-import { db, auth } from './firebase-config.js'; // Import db and auth instances (still needed for some UI elements like authentication status)
+import { getCart } from './cartManager.js';
+import { getProducts } from './productsData.js';
 
 // DOM elements (global references for efficiency)
 const cartCountSpan = document.getElementById('cartCount');
 const mobileCartCountSpan = document.getElementById('mobileCartCount');
 const fabCartCountSpan = document.getElementById('fabCartCount');
-const mobileBottomCartCountSpan = document.getElementById('mobileBottomCartCount'); // Added for mobile bottom nav cart count
+const mobileBottomCartCountSpan = document.getElementById('mobileBottomCartCount');
 const cartItemsContainer = document.getElementById('cartItems');
 const cartSummary = document.getElementById('cartSummary');
 const cartSubtotalSpan = document.getElementById('cartSubtotal');
@@ -23,17 +21,10 @@ const checkoutModal = document.getElementById('checkoutModal');
 const confirmationModal = document.getElementById('confirmationModal');
 const orderNumberSpan = document.getElementById('orderNumber');
 const toastElement = document.getElementById('toast');
-const waitingModal = document.getElementById('waitingModal'); // AMENDMENT: New waiting modal element
-
-// Checkout form elements (references remain for UI manipulation, but submission logic is moved)
-const paymentMethodRadios = document.querySelectorAll('input[name="paymentMethod"]');
-const mpesaPaymentDiv = document.getElementById('mpesaPayment');
-const cardPaymentDiv = document.getElementById('cardPayment');
-const bankPaymentDiv = document.getElementById('bankPayment');
+const waitingModal = document.getElementById('waitingModal');
 const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
 
-
-const DELIVERY_FEE = 0; // AMENDMENT: Delivery fee set to 0 as requested.
+const DELIVERY_FEE = 0;
 
 /**
  * Updates the displayed cart count in the navigation and FAB.
@@ -42,48 +33,28 @@ function updateCartCounts() {
     const cart = getCart();
     const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-    if (cartCountSpan) {
-        cartCountSpan.textContent = totalItems;
-        if (totalItems > 0) {
-            cartCountSpan.classList.remove('hidden');
-        } else {
-            cartCountSpan.classList.add('hidden');
+    const elements = [cartCountSpan, mobileCartCountSpan, fabCartCountSpan, mobileBottomCartCountSpan];
+    elements.forEach(el => {
+        if (el) {
+            el.textContent = totalItems;
+            if (totalItems > 0) {
+                // Use a consistent class for visibility
+                el.classList.add('visible');
+                el.classList.remove('hidden');
+            } else {
+                el.classList.remove('visible');
+                el.classList.add('hidden');
+            }
         }
-    }
-    if (mobileCartCountSpan) {
-        mobileCartCountSpan.textContent = totalItems;
-        if (totalItems > 0) {
-            mobileCartCountSpan.classList.remove('hidden');
-        } else {
-            mobileCartCountSpan.classList.add('hidden');
-        }
-    }
-    if (fabCartCountSpan) {
-        fabCartCountSpan.textContent = totalItems;
-        if (totalItems > 0) {
-            fabCartCountSpan.classList.remove('hidden');
-        } else {
-            fabCartCountSpan.classList.add('hidden');
-        }
-    }
-    // Update the mobile bottom nav cart count
-    if (mobileBottomCartCountSpan) {
-        mobileBottomCartCountSpan.textContent = totalItems;
-        if (totalItems > 0) {
-            mobileBottomCartCountSpan.classList.add('visible'); // Use 'visible' class for display
-        } else {
-            mobileBottomCartCountSpan.classList.remove('visible');
-        }
-    }
+    });
 }
 
 /**
  * Renders the items currently in the cart into the cart sidebar.
- * It now fetches product details from Firestore to ensure accurate display.
  */
 async function renderCartItems() {
     if (!cartItemsContainer) return;
-    cartItemsContainer.innerHTML = ''; // Clear existing items
+    cartItemsContainer.innerHTML = '';
     const cart = getCart();
 
     if (cart.length === 0) {
@@ -91,7 +62,7 @@ async function renderCartItems() {
             <div class="text-center py-10">
                 <i class="fas fa-shopping-cart text-4xl text-gray-300 mb-4"></i>
                 <p class="text-gray-500">Your cart is empty</p>
-                <a href="catalog.html" onclick="window.toggleCart()" class="inline-block mt-4 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-6 rounded-lg transition duration-300">
+                <a href="catalog.html" class="inline-block mt-4 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-6 rounded-lg transition duration-300">
                     Start Shopping
                 </a>
             </div>
@@ -100,34 +71,28 @@ async function renderCartItems() {
         return;
     }
 
-    // Fetch all products from Firestore to get up-to-date details
     const allProducts = await getProducts();
     const productsMap = {};
-    for (const category in allProducts) {
-        if (Array.isArray(allProducts[category])) { // Ensure it's an array before using find
-            allProducts[category].forEach(p => {
-                productsMap[p.id] = p;
-            });
-        }
-    }
+    Object.values(allProducts).flat().forEach(p => {
+        if(p && p.id) productsMap[p.id] = p;
+    });
+
 
     let subtotal = 0;
 
     cart.forEach(item => {
         const productDetails = productsMap[item.id];
-
-        // Use product details from Firestore, fallback to cart item if not found (shouldn't happen)
-        const displayImage = productDetails ? productDetails.image : item.image;
-        const displayName = productDetails ? productDetails.name : item.name;
-        const displayPrice = productDetails ? productDetails.price : item.price;
-        const displayUnit = productDetails ? productDetails.unit : item.unit;
+        const displayImage = productDetails?.image || item.image || 'https://placehold.co/80x80/e2e8f0/4a5568?text=No+Img';
+        const displayName = productDetails?.name || item.name;
+        const displayPrice = productDetails?.price || item.price;
+        const displayUnit = productDetails?.unit || item.unit;
 
         subtotal += displayPrice * item.quantity;
 
         const cartItemDiv = document.createElement('div');
         cartItemDiv.classList.add('flex', 'items-center', 'space-x-4', 'border-b', 'pb-4', 'mb-4');
         cartItemDiv.innerHTML = `
-            <img src="${displayImage || 'https://placehold.co/80x80/e2e8f0/4a5568?text=No+Img'}" alt="${displayName}" class="w-20 h-20 object-cover rounded-lg">
+            <img src="${displayImage}" alt="${displayName}" class="w-20 h-20 object-cover rounded-lg">
             <div class="flex-grow">
                 <h3 class="font-bold text-gray-800">${displayName}</h3>
                 <p class="text-gray-600 text-sm">KSh ${displayPrice.toLocaleString()} / ${displayUnit}</p>
@@ -150,11 +115,9 @@ async function renderCartItems() {
 
 /**
  * Updates the subtotal, delivery fee, and total in the cart summary.
- * @param {number} subtotal - The calculated subtotal of items in the cart.
  */
 function updateCartSummary(subtotal) {
     const total = subtotal + DELIVERY_FEE;
-
     if (cartSubtotalSpan) cartSubtotalSpan.textContent = `KSh ${subtotal.toLocaleString()}`;
     if (deliveryFeeSpan) deliveryFeeSpan.textContent = `KSh ${DELIVERY_FEE.toLocaleString()}`;
     if (cartTotalSpan) cartTotalSpan.textContent = `KSh ${total.toLocaleString()}`;
@@ -165,47 +128,39 @@ function updateCartSummary(subtotal) {
  */
 async function updateCartUI() {
     updateCartCounts();
-    await renderCartItems(); // Await rendering of cart items
+    await renderCartItems();
 }
 
 /**
  * Shows a toast notification with a given message.
- * @param {string} message - The message to display in the toast.
  */
 function showToast(message) {
-    if (!toastElement) {
-        console.warn("Toast element not found.");
-        return;
-    }
+    if (!toastElement) return;
     toastElement.querySelector('span').textContent = message;
-    toastElement.classList.remove('hidden');
-    toastElement.classList.add('show'); // Use 'show' class for animation
+    toastElement.classList.remove('hidden', 'translate-y-20');
+    toastElement.classList.add('show');
 
     setTimeout(() => {
         toastElement.classList.remove('show');
-        toastElement.classList.add('hidden');
-    }, 3000); // Hide after 3 seconds
+        toastElement.classList.add('hidden', 'translate-y-20');
+    }, 3000);
 }
 
 /**
  * Toggles the visibility of the cart sidebar and overlay.
  */
 function toggleCart() {
-    if (!cartSidebar || !overlay) {
-        console.error("Cart sidebar or overlay element not found. Cannot toggle.");
-        return;
-    }
+    if (!cartSidebar || !overlay) return;
     const isCartOpen = !cartSidebar.classList.contains('translate-x-full');
-
     if (isCartOpen) {
-        cartSidebar.classList.add('translate-x-full'); // Hide cart
-        overlay.classList.add('hidden'); // Hide overlay
-        document.body.classList.remove('overflow-hidden'); // Enable body scroll
+        cartSidebar.classList.add('translate-x-full');
+        overlay.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
     } else {
-        cartSidebar.classList.remove('translate-x-full'); // Show cart
-        overlay.classList.remove('hidden'); // Show overlay
-        document.body.classList.add('overflow-hidden'); // Disable body scroll
-        updateCartUI(); // Update cart UI when opening
+        cartSidebar.classList.remove('translate-x-full');
+        overlay.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+        updateCartUI();
     }
 }
 
@@ -213,14 +168,10 @@ function toggleCart() {
  * Shows the checkout modal.
  */
 function checkout() {
-    if (!checkoutModal || !overlay) {
-        console.error("Checkout modal or overlay element not found.");
-        return;
-    }
+    if (!checkoutModal || !overlay) return;
     checkoutModal.classList.remove('hidden');
     overlay.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden'); // Disable body scroll
-    // Ensure cart is hidden when checkout modal is shown
+    document.body.classList.add('overflow-hidden');
     if (cartSidebar) cartSidebar.classList.add('translate-x-full');
 }
 
@@ -228,145 +179,61 @@ function checkout() {
  * Closes the checkout modal.
  */
 function closeCheckout() {
-    if (!checkoutModal || !overlay) {
-        console.error("Checkout modal or overlay element not found.");
-        return;
-    }
+    if (!checkoutModal || !overlay) return;
     checkoutModal.classList.add('hidden');
     overlay.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden'); // Enable body scroll
+    document.body.classList.remove('overflow-hidden');
 }
 
 /**
- * AMENDMENT: Shows the order confirmation modal and prepares receipt data.
- * @param {string} orderNum - The order number to display.
- * @param {object} fullOrderData - The complete order data from Firestore.
+ * Shows the order confirmation modal and prepares receipt data.
  */
 function showConfirmation(orderNum, fullOrderData = {}) {
-    if (!confirmationModal || !overlay) {
-        console.error("Confirmation modal or overlay element not found.");
-        return;
-    }
+    if (!confirmationModal || !overlay) return;
     if (orderNumberSpan) {
         orderNumberSpan.textContent = orderNum;
     }
-    
-    // AMENDMENT: Store the full order data on the download button for receipt generation
     if (downloadReceiptBtn) {
         downloadReceiptBtn.dataset.orderDetails = JSON.stringify(fullOrderData);
     }
-
     confirmationModal.classList.remove('hidden');
     overlay.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden'); // Disable body scroll
+    document.body.classList.add('overflow-hidden');
 }
-
 
 /**
  * Closes the order confirmation modal.
  */
 function closeConfirmation() {
-    if (!confirmationModal || !overlay) {
-        console.error("Confirmation modal or overlay element not found.");
-        return;
-    }
+    if (!confirmationModal || !overlay) return;
     confirmationModal.classList.add('hidden');
     overlay.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden'); // Enable body scroll
+    document.body.classList.remove('overflow-hidden');
 }
 
 /**
- * AMENDMENT: Shows the waiting for payment modal.
+ * Shows the waiting for payment modal.
  */
 function showWaitingModal() {
-    if (!waitingModal || !overlay) {
-        console.error("Waiting modal or overlay element not found.");
-        return;
-    }
+    if (!waitingModal || !overlay) return;
     waitingModal.classList.remove('hidden');
     overlay.classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
 }
 
 /**
- * AMENDMENT: Hides the waiting for payment modal.
+ * Hides the waiting for payment modal.
  */
 function hideWaitingModal() {
-    if (!waitingModal || !overlay) {
-        console.error("Waiting modal or overlay element not found.");
-        return;
-    }
+    if (!waitingModal || !overlay) return;
     waitingModal.classList.add('hidden');
-    overlay.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
+    // Don't hide overlay if another modal (like confirmation) will appear
+    const isConfirmationVisible = confirmationModal && !confirmationModal.classList.contains('hidden');
+    if (!isConfirmationVisible) {
+        overlay.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
 }
-
-
-// Handle payment method display in checkout modal
-if (paymentMethodRadios && mpesaPaymentDiv && cardPaymentDiv && bankPaymentDiv) {
-    paymentMethodRadios.forEach(radio => {
-        radio.addEventListener('change', (event) => {
-            mpesaPaymentDiv.classList.add('hidden');
-            cardPaymentDiv.classList.add('hidden');
-            bankPaymentDiv.classList.add('hidden');
-
-            if (event.target.value === 'mpesa') {
-                mpesaPaymentDiv.classList.remove('hidden');
-            } else if (event.target.value === 'card') {
-                cardPaymentDiv.classList.remove('hidden');
-            } else if (event.target.value === 'bank') {
-                bankPaymentDiv.classList.remove('hidden');
-            }
-        });
-    });
-}
-
-// Event listener for Download Receipt button
-if (downloadReceiptBtn) {
-    downloadReceiptBtn.addEventListener('click', () => {
-        const orderDetailsString = downloadReceiptBtn.dataset.orderDetails;
-        if (orderDetailsString) {
-            try {
-                const orderDetails = JSON.parse(orderDetailsString);
-                // Assuming generateReceipt is a global function defined in catalog.js
-                if (window.generateReceipt) {
-                    window.generateReceipt(orderDetails);
-                } else {
-                    console.error("generateReceipt function not found.");
-                    showToast("Could not generate receipt.");
-                }
-            } catch (e) {
-                console.error("Error parsing order details for receipt:", e);
-                showToast("Could not generate receipt due to a data error.");
-            }
-        } else {
-            console.error("No order details found for receipt generation.");
-            showToast("Could not generate receipt. Order details missing.");
-        }
-    });
-}
-
 
 // Export functions for modular use
 export { updateCartUI, showToast, toggleCart, checkout, closeCheckout, showConfirmation, closeConfirmation, showWaitingModal, hideWaitingModal };
-
-// Event delegation for cart item actions
-// This ensures that event listeners work for items added dynamically to the cart.
-if (cartItemsContainer) {
-    cartItemsContainer.addEventListener('click', (event) => {
-        const target = event.target;
-        
-        // Handle quantity buttons
-        if (target.classList.contains('quantity-btn')) {
-            const productId = target.dataset.id;
-            const action = target.dataset.action;
-            updateCartItemQuantity(productId, action === 'increase' ? 1 : -1);
-        } 
-        // Handle remove buttons
-        else if (target.closest('.remove-item-btn')) {
-            const button = target.closest('.remove-item-btn');
-            const productId = button.dataset.id;
-            removeFromCart(productId);
-        }
-    });
-}
