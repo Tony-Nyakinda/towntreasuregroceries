@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const { data: orders, error } = await supabase
             .from('unpaid_orders')
             .select('*')
-            .eq('user_id', user.uid); // Filter by the Firebase user ID
+            .eq('user_id', user.uid); // FIXED: Changed 'userId' to 'user_id'
         
         if (error) {
             console.error("Error fetching unpaid orders from Supabase:", error);
@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // --- Create Order Card HTML (No Changes Here) ---
+    // --- Create Order Card HTML (Updated for snake_case) ---
     function createOrderCard(order) {
         const card = document.createElement('div');
         card.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col md:flex-row justify-between items-start md:items-center';
