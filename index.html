@@ -33,6 +33,7 @@
             color: #333;
             overflow-x: hidden; /* Prevent horizontal scroll */
             padding-bottom: 60px; /* Space for mobile nav */
+            zoom: 67%;
         }
 
         /* Class to hide mobile nav when mobile menu is active */
@@ -1724,13 +1725,14 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
-    <!-- Import firebase-config.js and auth.js as modules -->
+    <!-- App Scripts -->
     <script type="module" src="homePage.js"></script>
     <script type="module" src="cartManager.js"></script>
     <script type="module" src="firebase-config.js"></script>
     <script type="module" src="productsData.js"></script>
     <script type="module" src="auth.js"></script>
     <script type="module" src="uiUpdater.js"></script>
+    <script src="receipt.js"></script>
     <script type="module" src="eventListeners.js"></script>
     <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
 
@@ -2104,17 +2106,6 @@
 
             // Simplified add to cart event listener, now directly calling addToCart from cartManager.js
             // Using event delegation on document.body to catch clicks on dynamically added '.add-to-cart-btn'
-            document.body.addEventListener('click', async function(e) {
-                const addToCartBtn = e.target.closest('.add-to-cart-btn');
-                if (addToCartBtn) {
-                    const productId = addToCartBtn.dataset.productId;
-                    if (productId) {
-                        await addToCart(productId); // Call the imported addToCart function
-                    } else {
-                        console.error("Product ID not found for add to cart button:", addToCartBtn);
-                    }
-                }
-            });
 
             // Handle contact form submission
             if (contactForm) {
