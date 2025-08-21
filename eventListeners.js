@@ -2,13 +2,13 @@
 // This file sets up all general event listeners for the page,
 // including the checkout form, payment logic, and receipt generation.
 
-import { 
-    updateCartUI, 
-    showToast, 
-    toggleCart, 
-    checkout, 
-    closeCheckout, 
-    showConfirmation, 
+import {
+    updateCartUI,
+    showToast,
+    toggleCart,
+    checkout,
+    closeCheckout,
+    showConfirmation,
     closeConfirmation,
     showWaitingModal,
     hideWaitingModal
@@ -17,9 +17,6 @@ import { auth } from './firebase-config.js';
 import { supabase } from './supabase-config.js';
 import { getProducts } from './productsData.js';
 import { getCart, clearCart } from './cartManager.js';
-
-// The generateReceipt and toDataURL functions have been removed from this file.
-// Their logic now resides in receipt.js and is accessed via window.receiptGenerator.generate()
 
 /**
  * Polls a serverless function to check the status of an M-Pesa payment.
@@ -54,9 +51,10 @@ function waitForPaymentConfirmation(checkoutRequestID) {
                 clearTimeout(timeoutId);
                 hideWaitingModal();
                 showToast("Payment successful!");
-                
+
+                // This now passes the full order object with the database ID to the UI updater
                 showConfirmation(result.finalOrder.order_number, result.finalOrder);
-                
+
                 clearCart();
                 updateCartUI();
             } else if (result.status === 'failed' || result.status === 'cancelled') {
@@ -92,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeCheckoutButton = document.getElementById('closeCheckoutButton');
     const continueShoppingButton = document.getElementById('continueShoppingButton');
     const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
-    
+
     // --- Checkout Form Elements ---
     const checkoutForm = document.getElementById('checkoutForm');
     const fullNameInput = document.getElementById('fullName');
@@ -100,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const addressInput = document.getElementById('address');
     const instructionsInput = document.getElementById('instructions');
     const confirmationMessage = document.getElementById('confirmationMessage');
-    
+
     // --- Cart Button Listeners ---
     if (mainCartButton) mainCartButton.addEventListener('click', toggleCart);
     if (fabCartButton) fabCartButton.addEventListener('click', toggleCart);
@@ -117,27 +115,62 @@ document.addEventListener('DOMContentLoaded', () => {
     if (closeCheckoutButton) closeCheckoutButton.addEventListener('click', closeCheckout);
     if (continueShoppingButton) continueShoppingButton.addEventListener('click', closeConfirmation);
 
-    // --- Receipt Download Button Listener ---
+    // --- AMENDMENT: Receipt Download Button Listener ---
+    // This entire block is replaced to call your new Netlify Function.
     if (downloadReceiptBtn) {
-        downloadReceiptBtn.addEventListener('click', function() {
-            const orderDetailsString = this.dataset.orderDetails;
-            if (orderDetailsString) {
-                try {
-                    const orderDetails = JSON.parse(orderDetailsString);
-                    // UPDATED: Call the new global receipt generator
-                    if (window.receiptGenerator && typeof window.receiptGenerator.generate === 'function') {
-                        window.receiptGenerator.generate(orderDetails);
-                    } else {
-                        console.error("Receipt generator is not available.");
-                        showToast("Error: Could not generate receipt.");
-                    }
-                } catch (e) {
-                    console.error("Failed to parse order details for receipt:", e);
-                    showToast("Could not generate receipt due to a data error.");
+        downloadReceiptBtn.addEventListener('click', async () => {
+            // The orderId is now retrieved from the data attribute set by uiUpdater.js
+            const orderId = downloadReceiptBtn.dataset.orderId;
+
+            if (!orderId) {
+                showToast("Error: Could not find Order ID for receipt.");
+                return;
+            }
+
+            const originalText = downloadReceiptBtn.innerHTML;
+            downloadReceiptBtn.disabled = true;
+            downloadReceiptBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+
+            try {
+                // Call the new server-side function
+                const response = await fetch('/.netlify/functions/generate-receipt', {
+                    method: 'POST',
+                    body: JSON.stringify({ orderId: orderId }),
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Receipt generation failed.');
                 }
-            } else {
-                console.error("No order details found for receipt generation.");
-                showToast("Could not generate receipt. Order details missing.");
+
+                // Handle the PDF file returned from the function to trigger a download
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+
+                const disposition = response.headers.get('content-disposition');
+                let filename = 'receipt.pdf';
+                if (disposition && disposition.includes('attachment')) {
+                    const filenameMatch = /filename="([^"]+)"/.exec(disposition);
+                    if (filenameMatch && filenameMatch[1]) {
+                        filename = filenameMatch[1];
+                    }
+                }
+
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+
+            } catch (error) {
+                console.error('Download error:', error);
+                showToast(`Error: ${error.message}`);
+            } finally {
+                downloadReceiptBtn.disabled = false;
+                downloadReceiptBtn.innerHTML = originalText;
             }
         });
     }
@@ -164,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Login/Logout Link Logic ---
+    // --- Login/Logout Link Logic (No changes here) ---
     if (loginLink) {
         loginLink.addEventListener('click', async (e) => {
             if (loginLink.textContent === 'Logout') {
@@ -195,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Main Checkout Form Submission Listener ---
+    // --- Main Checkout Form Submission Listener (No changes here) ---
     if (checkoutForm) {
         checkoutForm.addEventListener('submit', async function(event) {
             event.preventDefault();
@@ -219,24 +252,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const deliveryInstructions = instructionsInput ? instructionsInput.value : '';
                 const selectedPaymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
                 const tempOrderNum = `TTG-${Date.now().toString().slice(-6)}`;
-                
+
                 const currentCart = getCart();
-                
-                // AMENDMENT: Simplified and robust product data fetching.
-                // This ALWAYS fetches product data on checkout, eliminating any timing issues.
-                console.log("Checkout initiated. Fetching all product data to ensure receipt is accurate.");
                 const productsData = await getProducts();
                 const allProds = Array.isArray(productsData.all) ? productsData.all : [];
 
                 if (allProds.length === 0) {
-                    // This is a critical error if the product list can't be fetched.
                     throw new Error("Could not fetch product data for checkout. Please try again.");
                 }
 
                 const productsMap = {};
                 allProds.forEach(p => { productsMap[p.id] = p; });
 
-                // Enrich cart items with full product details
                 const enrichedCartItems = currentCart.map(item => {
                     const productDetails = productsMap[item.id];
                     if (!productDetails) {
@@ -252,7 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 const subtotal = enrichedCartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-                const total = subtotal; // Assuming delivery fee is handled elsewhere or is 0
+                const total = subtotal;
                 const userId = auth.currentUser.uid;
 
                 const orderDetails = {
@@ -262,11 +289,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     phone: customerPhone,
                     address: customerAddress,
                     instructions: deliveryInstructions,
-                    items: enrichedCartItems, // Use the enriched cart data
+                    items: enrichedCartItems,
                     total: total,
                     paymentMethod: selectedPaymentMethod,
                 };
-                
+
                 if (selectedPaymentMethod === 'mpesa') {
                     const functionUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/initiateMpesaPayment";
                     const mpesaResponse = await fetch(functionUrl, {
@@ -276,7 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     const mpesaResult = await mpesaResponse.json();
                     if (!mpesaResponse.ok) throw new Error(mpesaResult.error || 'M-Pesa API request failed.');
-                    
+
                     closeCheckout();
                     showWaitingModal();
                     waitForPaymentConfirmation(mpesaResult.checkoutRequestID);
@@ -295,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         payment_method: 'delivery'
                     }]);
                     if (error) throw error;
-                    
+
                     closeCheckout();
                     if (confirmationMessage) confirmationMessage.textContent = "Your order has been placed successfully! Please have your payment ready for our delivery rider.";
                     showConfirmation(tempOrderNum, orderDetails);
