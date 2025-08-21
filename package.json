@@ -13,6 +13,7 @@
     "axios": "^1.7.2",
     "dotenv": "^16.4.5",
     "firebase-admin": "^12.2.0",
-    "pdfkit": "^0.15.0"
+    "pdfkit": "^0.15.0",
+    "qrcode": "^1.5.3"
   }
 }
