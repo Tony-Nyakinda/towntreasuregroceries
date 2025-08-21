@@ -42,8 +42,7 @@ exports.handler = async function(event) {
         const textGray = '#6B7280';
 
         // --- HEADER ---
-        // --- AMENDMENT 1: Logo Path (Final Fix) ---
-        // This path now correctly looks for the logo in the SAME directory as this script.
+        // The logo path is correct; it now relies on the netlify.toml fix to ensure the file is present.
         const logoPath = path.resolve(__dirname, 'Preloader.png');
         if (fs.existsSync(logoPath)) {
             doc.image(logoPath, 50, 45, { width: 100 });
@@ -61,21 +60,20 @@ exports.handler = async function(event) {
         doc.fontSize(20).font('Helvetica-Bold').fillColor(darkGray).text('Receipt', 50, 140);
         doc.moveDown(0.5);
 
+        // --- AMENDMENT: Reverted to 24-hour time format ---
         const orderDateTime = new Date(order.created_at).toLocaleString('en-KE', {
             dateStyle: 'short',
             timeStyle: 'short',
             timeZone: 'Africa/Nairobi',
-            hour24: true
+            hour12: false // Set to false for 24-hour format
         });
 
-        // --- AMENDMENT 2: Text Overlap Corrected ---
-        // Manually controlling the vertical position of each line to guarantee spacing.
         let detailsY = 145;
         doc.fontSize(10).font('Helvetica');
         doc.fillColor(textGray).text(`Order Number: ${order.order_number}`, 400, detailsY);
-        detailsY += 15; // Move down 15 points
+        detailsY += 15;
         doc.fillColor(textGray).text(`Order Date: ${orderDateTime}`, 400, detailsY);
-        detailsY += 15; // Move down another 15 points
+        detailsY += 15;
         doc.fillColor(brandColor).font('Helvetica-Bold').text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, 400, detailsY);
         doc.moveDown(3);
 
