@@ -18,7 +18,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- html2pdf.js library for generating PDF receipts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <link rel="stylesheet" href=""> <!-- Link to external CSS -->
+    <link rel="stylesheet" href="style.css"> <!-- Link to external CSS -->
     <link rel="apple-touch-icon" sizes="180x180" href="IMAGE/favicon/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="IMAGE/favicon/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="IMAGE/favicon/favicon-16x16.png">
@@ -328,11 +328,7 @@
             }
         }
 
-        /* Checkout Modal Scrollability */
-        #checkoutModal .bg-white {
-            max-height: 80vh; /* Reduced height to 80% of viewport height */
-            overflow-y: auto; /* Enable vertical scrolling */
-        }
+      
 
         /* Order Confirmation Modal Scrollability */
         #confirmationModal .bg-white {
@@ -545,74 +541,68 @@
         </div>
     </div>
 
-    <!-- Checkout Modal (Same as index.html) -->
-    <div id="checkoutModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4">
-        <!-- Adjusted max-h and padding for better fit -->
-        <div class="bg-white rounded-lg w-full max-w-md mx-auto overflow-hidden max-h-[80vh] overflow-y-auto">
-            <div class="p-4"> <!-- Reduced padding from p-6 to p-4 -->
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold">Checkout</h2>
-                    <button onclick="window.closeCheckout()" class="text-gray-500 hover:text-gray-700 transition duration-300">
-                        <i class="fas fa-times text-2xl"></i>
+    <!-- Checkout Modal -->
+    <div id="checkoutModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000] hidden">
+        <div class="bg-white rounded-lg w-11/12 sm:w-full md:max-w-md mx-auto overflow-y-auto max-h-[90vh]">
+            <div class="p-4 sm:p-6">
+                <div class="flex justify-between items-center mb-4 sm:mb-6">
+                    <h2 class="text-lg sm:text-xl font-bold">Checkout</h2>
+                    <button id="closeCheckoutButton" class="text-gray-500 hover:text-gray-700 transition duration-300">
+                        <i class="fas fa-times text-lg sm:text-xl"></i>
                     </button>
                 </div>
 
-                <form id="checkoutForm" class="space-y-4">
+                <form id="checkoutForm" class="space-y-3 sm:space-y-4">
                     <div class="floating-label-group">
-                        <input type="text" id="fullName" class="floating-input w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder=" " required>
-                        <label for="fullName" class="floating-label">Full Name</label>
+                        <input type="text" id="fullName" class="floating-input w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm sm:text-base" placeholder=" " required>
+                        <label for="fullName" class="floating-label text-sm sm:text-base">Full Name</label>
                     </div>
 
                     <div class="floating-label-group">
-                        <input type="tel" id="phone" class="floating-input w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder=" " required>
-                        <label for="phone" class="floating-label">Phone Number</label>
+                        <input type="tel" id="phone" class="floating-input w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm sm:text-base" placeholder=" " required>
+                        <label for="phone" class="floating-label text-sm sm:text-base">Phone Number</label>
                     </div>
 
                     <div class="floating-label-group">
-                        <textarea id="address" rows="3" class="floating-input w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder=" " required></textarea>
-                        <label for="address" class="floating-label">Delivery Address</label>
+                        <textarea id="address" rows="3" class="floating-input w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm sm:text-base" placeholder=" " required></textarea>
+                        <label for="address" class="floating-label text-sm sm:text-base">Delivery Address</label>
                     </div>
 
-                    <div class="floating-label-group">
-                        <textarea id="instructions" rows="2" class="floating-input w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder=" "></textarea>
-                        <label for="instructions" class="floating-label">Delivery Instructions (Optional)</label>
-                    </div>
-
-                    <div>
-                        <label class="block text-gray-700 mb-2">Payment Method</label>
-                        <div class="space-y-2">
-                            <label class="flex items-center space-x-3 p-3 border rounded-lg hover:border-green-500 transition duration-300">
+                    <!-- AMENDMENT: Payment Method Selection -->
+                    <div class="mb-4">
+                        <label class="block text-gray-700 font-medium mb-2 text-sm sm:text-base">Payment Method</label>
+                        <div class="flex flex-col space-y-2">
+                            <label class="inline-flex items-center">
                                 <input type="radio" name="paymentMethod" value="mpesa" class="form-radio text-green-600" checked>
-                                <span>Pay Now with M-Pesa</span>
-                                <img src="https://upload.wikimedia.org/wikipedia/commons/1/15/M-PESA_LOGO-01.svg" alt="M-Pesa" class="h-6 ml-auto">
+                                <span class="ml-2 text-gray-700 text-sm sm:text-base">Pay Now with M-Pesa</span>
                             </label>
-                            <label class="flex items-center space-x-3 p-3 border rounded-lg hover:border-green-500 transition duration-300">
+                            <label class="inline-flex items-center">
                                 <input type="radio" name="paymentMethod" value="delivery" class="form-radio text-green-600">
-                                <span>Pay on Delivery (with M-Pesa)</span>
+                                <span class="ml-2 text-gray-700 text-sm sm:text-base">Pay on Delivery (with M-Pesa)</span>
                             </label>
                         </div>
                     </div>
-                    
-                    <div id="mpesaPayment" class="p-4 bg-gray-50 rounded-lg">
-                        <p class="text-sm text-gray-600 mb-3">You will receive an MPESA push notification to complete payment after placing your order.</p>
+
+                    <div id="mpesaPayment" class="p-2 sm:p-3 bg-gray-50 rounded-lg text-sm">
+                        <p class="text-gray-600 mb-2 sm:mb-3">You will receive an MPESA push notification to complete payment after placing your order.</p>
                         <div class="flex items-center">
                             <i class="fas fa-info-circle text-yellow-500 mr-2"></i>
-                            <p class="text-sm text-gray-600">Ensure your phone is nearby and unlocked</p>
+                            <p class="text-gray-600">Ensure your phone is nearby and unlocked</p>
                         </div>
                     </div>
                     
-                    <div id="deliveryPayment" class="p-4 bg-gray-50 rounded-lg hidden">
-                        <p class="text-sm text-gray-600 mb-3">Your order will be prepared for delivery. You can complete the M-Pesa payment from your account page when the rider arrives.</p>
+                    <div id="deliveryPayment" class="p-2 sm:p-3 bg-gray-50 rounded-lg text-sm hidden">
+                        <p class="text-gray-600 mb-2 sm:mb-3">Your order will be prepared for delivery. You can complete the M-Pesa payment from your account page when the rider arrives.</p>
                     </div>
 
-                    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+
+                    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg transition duration-300 text-sm sm:text-base">
                         Place Order
                     </button>
                 </form>
             </div>
         </div>
     </div>
-
     <!-- Order Confirmation Modal (Same as index.html) -->
     <div id="confirmationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4">
         <div class="bg-white rounded-lg w-full max-w-md mx-auto p-8 text-center">
@@ -767,13 +757,14 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Import firebase-config.js and auth.js as modules -->
+    <!-- App Scripts -->
     <script type="module" src="supabase-config.js"></script>
     <script type="module" src="firebase-config.js"></script>
     <script type="module" src="productsData.js"></script>
     <script type="module" src="auth.js"></script>
     <script type="module" src="uiUpdater.js"></script>
     <script type="module" src="cartManager.js"></script>
+    <script src="receipt.js"></script>
     <script type="module" src="catalog.js"></script>
     <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
     <script type="module">
