@@ -186,16 +186,26 @@ function closeCheckout() {
 }
 
 /**
- * Shows the order confirmation modal and prepares receipt data.
+ * --- AMENDMENT ---
+ * Shows the order confirmation modal and prepares the receipt button for server-side generation.
+ * @param {string} orderNum - The human-readable order number (e.g., "TTG-12345").
+ * @param {object} fullOrderData - The final order object from the database, which must include the unique `id`.
  */
 function showConfirmation(orderNum, fullOrderData = {}) {
     if (!confirmationModal || !overlay) return;
     if (orderNumberSpan) {
         orderNumberSpan.textContent = orderNum;
     }
-    if (downloadReceiptBtn) {
-        downloadReceiptBtn.dataset.orderDetails = JSON.stringify(fullOrderData);
+
+    // This is the key change. Instead of storing the whole order, we now only
+    // store the unique ID. This ID will be sent to our serverless function.
+    if (downloadReceiptBtn && fullOrderData.id) {
+        downloadReceiptBtn.dataset.orderId = fullOrderData.id;
+    } else if (downloadReceiptBtn) {
+        // Clear any previous ID if the new data doesn't have one, to prevent errors.
+        delete downloadReceiptBtn.dataset.orderId;
     }
+
     confirmationModal.classList.remove('hidden');
     overlay.classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
