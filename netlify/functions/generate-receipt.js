@@ -6,7 +6,6 @@ const path = require('path');
 const fs = require('fs');
 const QRCode = require('qrcode');
 
-// Initialize Supabase client using environment variables
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -32,91 +31,124 @@ exports.handler = async function(event) {
             throw new Error('Order not found or could not be fetched.');
         }
 
-        const doc = new PDFDocument({ margin: 50, size: 'A4' });
+        const doc = new PDFDocument({ margin: 0, size: 'A4' });
         const buffers = [];
         doc.on('data', buffers.push.bind(buffers));
 
         // --- STYLING DEFINITIONS ---
-        const brandColor = '#2E7D32';
-        const lightGray = '#F3F4F6';
-        const darkGray = '#374151';
+        const brandColorGreen = '#64B93E';
+        const brandColorDark = '#333D44';
+        const lightGray = '#F2F2F2';
         const textGray = '#6B7280';
+        const pageMargin = 50;
 
-        // --- MODERN HEADER ---
-        doc.rect(0, 0, doc.page.width, 90).fill(lightGray); // Made header slightly smaller
+        // --- HELPER FUNCTION FOR TABLE ROWS ---
+        function generateTableRow(y, itemNumber, description, unitPrice, quantity, total) {
+            const rowIsEven = parseInt(itemNumber) % 2 === 0;
+            if (rowIsEven) {
+                doc.rect(pageMargin, y, doc.page.width - (pageMargin * 2), 25).fill(lightGray);
+            }
+            doc.fontSize(10).fillColor(brandColorDark)
+               .text(itemNumber, pageMargin + 15, y + 8)
+               .text(description, pageMargin + 80, y + 8, { width: 190 })
+               .text(`KSh ${unitPrice}`, pageMargin + 270, y + 8, { width: 80, align: 'right' })
+               .text(quantity, pageMargin + 370, y + 8, { width: 50, align: 'center' })
+               .text(`KSh ${total}`, pageMargin + 430, y + 8, { width: 80, align: 'right' });
+        }
+
+        // --- HEADER GRAPHICS ---
+        doc.save()
+           .moveTo(0, 0)
+           .lineTo(doc.page.width, 0)
+           .lineTo(doc.page.width, 120)
+           .quadraticCurveTo(doc.page.width / 2, 180, 0, 120)
+           .fill(brandColorGreen);
+
+        doc.save()
+           .moveTo(doc.page.width, 0)
+           .lineTo(doc.page.width, 80)
+           .quadraticCurveTo(doc.page.width - 200, 120, doc.page.width - 400, 80)
+           .lineTo(doc.page.width - 400, 0)
+           .fill(brandColorDark);
 
         const logoPath = path.resolve(__dirname, 'Preloader.png');
         if (fs.existsSync(logoPath)) {
-            // --- AMENDMENT 1: Moved logo higher ---
-            doc.image(logoPath, 50, 18, { width: 100 }); // Adjusted Y-coordinate from 25 to 20
+            doc.image(logoPath, pageMargin, 40, { width: 90 });
         }
+        
+        // --- RECEIPT INFO ---
+        const infoTop = 180;
+        doc.fontSize(20).font('Helvetica-Bold').fillColor(brandColorGreen).text('RECEIPT', pageMargin, infoTop);
+        doc.moveTo(pageMargin, infoTop + 25).lineTo(200, infoTop + 25).stroke(brandColorGreen);
 
-        doc.fontSize(10).font('Helvetica').fillColor(textGray)
-           .text('Town Treasure Groceries', doc.page.width - 200, 30, { align: 'right', width: 150 })
-           .text('City Park Market, Limuru Road', doc.page.width - 200, 45, { align: 'right', width: 150 })
-           .text('Nairobi, Kenya', doc.page.width - 200, 60, { align: 'right', width: 150 });
+        doc.fontSize(10).font('Helvetica-Bold').fillColor(brandColorDark)
+           .text('Receipt No:', 350, infoTop)
+           .text('Order Date:', 350, infoTop + 15);
+           
+        doc.font('Helvetica').fillColor(textGray)
+           .text(order.order_number, 420, infoTop)
+           .text(new Date(order.created_at).toLocaleDateString('en-KE'), 420, infoTop + 15);
 
-        // --- RECEIPT TITLE ---
-        doc.fontSize(24).font('Helvetica-Bold').fillColor(darkGray).text('Receipt', 50, 120);
-        doc.moveTo(50, 150).lineTo(doc.page.width - 50, 150).stroke(lightGray);
+        // --- BILL TO INFO ---
+        const billToTop = infoTop + 50;
+        doc.fontSize(12).font('Helvetica-Bold').fillColor(brandColorDark).text('BILLED TO:', pageMargin, billToTop);
+        doc.font('Helvetica').fillColor(textGray).fontSize(10)
+           .text(order.full_name, pageMargin, billToTop + 20)
+           .text(order.address, pageMargin, billToTop + 35)
+           .text(order.phone, pageMargin, billToTop + 50);
 
-        // --- ORDER & CUSTOMER INFO ---
-        const infoTop = 170;
-        doc.fontSize(10).font('Helvetica-Bold').fillColor(darkGray)
-           .text('BILLED TO', 50, infoTop)
-           .text('ORDER DETAILS', 300, infoTop);
+        // --- TABLE HEADER ---
+        const tableTop = 350;
+        doc.rect(pageMargin, tableTop, doc.page.width - (pageMargin * 2), 30).fill(brandColorDark);
+        doc.fontSize(10).fillColor('#FFF')
+           .text('SL No.', pageMargin + 15, tableTop + 10)
+           .text('Item Description', pageMargin + 80, tableTop + 10)
+           .text('Unit Price', pageMargin + 270, tableTop + 10, { width: 80, align: 'right' })
+           .text('Quantity', pageMargin + 370, tableTop + 10, { width: 50, align: 'center' })
+           .text('Total', pageMargin + 430, tableTop + 10, { width: 80, align: 'right' });
 
-        doc.font('Helvetica').fillColor(textGray);
-
-        // --- AMENDMENT 2: Fixed "BILLED TO" text overlap ---
-        let billToY = infoTop + 15;
-        doc.text(order.full_name, 50, billToY);
-        billToY += 15; // Manually increase Y position for the next line
-        doc.text(order.address, 50, billToY, { width: 200 });
-        billToY += 15; // Manually increase Y position for the next line
-        doc.text(order.phone, 50, billToY);
-
-        doc.text(`Order Number: ${order.order_number}`, 300, infoTop + 15)
-           .text(`Order Date: ${new Date(order.created_at).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Nairobi' })}`, 300, infoTop + 30)
-           .font('Helvetica-Bold').fillColor(brandColor)
-           .text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, 300, infoTop + 45);
-
-        // --- ITEMS TABLE ---
-        const tableTop = 260; // Adjusted table position
-        doc.font('Helvetica-Bold');
-        doc.rect(50, tableTop, doc.page.width - 100, 25).fill(lightGray);
-        doc.fillColor(darkGray).text('ITEM', 60, tableTop + 8)
-           .text('QTY', 320, tableTop + 8, { width: 50, align: 'center' })
-           .text('PRICE', 410, tableTop + 8, { width: 60, align: 'right' })
-           .text('TOTAL', 0, tableTop + 8, { align: 'right' });
-
-        let i = 0;
-        doc.font('Helvetica').fillColor(textGray);
-        order.items.forEach(item => {
-            const y = tableTop + 35 + (i * 25);
-            doc.text(item.name, 60, y)
-               .text(item.quantity.toString(), 320, y, { width: 50, align: 'center' })
-               .text(`KSh ${item.price.toLocaleString()}`, 410, y, { width: 60, align: 'right' })
-               .text(`KSh ${(item.quantity * item.price).toLocaleString()}`, 0, y, { align: 'right' });
-            i++;
+        let itemY = tableTop + 30;
+        let subtotal = 0;
+        order.items.forEach((item, i) => {
+            const itemTotal = item.quantity * item.price;
+            subtotal += itemTotal;
+            generateTableRow(itemY, (i + 1).toString().padStart(2, '0'), item.name, item.price.toLocaleString(), item.quantity, itemTotal.toLocaleString());
+            itemY += 25;
         });
 
-        // --- TOTAL ---
-        const totalY = tableTop + 40 + (i * 25);
-        doc.moveTo(300, totalY).lineTo(doc.page.width - 50, totalY).stroke(lightGray);
-        doc.font('Helvetica-Bold').fillColor(brandColor).fontSize(16)
-           .text('Total Paid:', 300, totalY + 10)
-           .text(`KSh ${order.total.toLocaleString()}`, 0, totalY + 10, { align: 'right' });
+        // --- TOTALS SECTION ---
+        const totalsTop = itemY + 20;
+        doc.fontSize(10).fillColor(brandColorDark)
+           .text('Sub Total:', 400, totalsTop, { align: 'right' })
+           .text(`KSh ${subtotal.toLocaleString()}`, 0, totalsTop, { align: 'right' });
+           
+        doc.rect(400, totalsTop + 25, doc.page.width - 450, 25).fill(brandColorGreen);
+        doc.font('Helvetica-Bold').fillColor('#FFF')
+           .text('Grand Total:', 400, totalsTop + 32, { align: 'right' })
+           .text(`KSh ${order.total.toLocaleString()}`, 0, totalsTop + 32, { align: 'right' });
 
-        // --- AMENDMENT 3: Realigned footer elements ---
-        const footerY = doc.page.height - 120; // Set a consistent starting point for the footer block
-        // Generate QR code (placeholder URL for now)
-        const qrCodeData = await QRCode.toDataURL('https://towntreasuregroceries.netlify.app/');
-        doc.image(qrCodeData, 50, footerY, { width: 70 });
+        // --- PAYMENT DETAILS & QR CODE ---
+        const paymentTop = itemY + 20;
+        doc.font('Helvetica-Bold').fontSize(12).fillColor(brandColorDark).text('Payment Details:', pageMargin, paymentTop);
+        doc.font('Helvetica').fontSize(10)
+           .text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, pageMargin, paymentTop + 20);
 
-        doc.fontSize(9).fillColor(textGray)
-           .text('Scan for our website', 50, footerY + 75) // Positioned text correctly below QR code
-           .text('Thank you for your business!', doc.page.width - 250, footerY + 35, { align: 'right', width: 200 }); // Aligned "Thank you"
+        // --- AMENDMENT: Add the dynamic QR code back ---
+        const orderUrl = `https://towntreasuregroceries.netlify.app/account?order=${order.order_number}`;
+        const qrCodeData = await QRCode.toDataURL(orderUrl);
+        doc.image(qrCodeData, pageMargin, paymentTop + 45, { width: 80 });
+        doc.fillColor(textGray).text('Scan to view your order online.', pageMargin, paymentTop + 130);
+
+        // --- FOOTER GRAPHICS ---
+        const footerY = doc.page.height - 100;
+        doc.save()
+           .moveTo(0, footerY)
+           .quadraticCurveTo(doc.page.width / 2, footerY - 50, doc.page.width, footerY)
+           .lineTo(doc.page.width, doc.page.height)
+           .lineTo(0, doc.page.height)
+           .fill(brandColorDark);
+           
+        doc.font('Helvetica-Bold').fillColor('#FFF').fontSize(14).text('THANK YOU FOR YOUR BUSINESS', pageMargin, footerY + 40);
 
         doc.end();
 
