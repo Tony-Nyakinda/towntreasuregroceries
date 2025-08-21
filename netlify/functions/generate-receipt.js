@@ -42,8 +42,9 @@ exports.handler = async function(event) {
         const textGray = '#6B7280';
 
         // --- HEADER ---
-        // --- AMENDMENT: Corrected the logo path to use Preloader.png ---
-        const logoPath = path.resolve(__dirname, '..', '..', 'IMAGE', 'Preloader.png');
+        // --- AMENDMENT 1: Updated Logo Path ---
+        // This path now looks for the logo inside the same directory as this function file.
+        const logoPath = path.resolve(__dirname, 'Preloader.png');
         if (fs.existsSync(logoPath)) {
             doc.image(logoPath, 50, 45, { width: 100 });
         }
@@ -60,10 +61,14 @@ exports.handler = async function(event) {
         doc.fontSize(20).font('Helvetica-Bold').fillColor(darkGray).text('Receipt', 50, 140);
         doc.moveDown(0.5);
 
+        // --- AMENDMENT 2: Added Payment Time ---
+        // Using toLocaleString() to include both date and time.
+        const orderDateTime = new Date(order.created_at).toLocaleString('en-KE', { dateStyle: 'short', timeStyle: 'short' });
+
         const detailsTop = 145;
         doc.fontSize(10).font('Helvetica');
         doc.fillColor(textGray).text(`Order Number: ${order.order_number}`, 400, detailsTop);
-        doc.fillColor(textGray).text(`Order Date: ${new Date(order.created_at).toLocaleDateString()}`, 400, detailsTop + 15);
+        doc.fillColor(textGray).text(`Order Date: ${orderDateTime}`, 400, detailsTop + 15);
         doc.fillColor(brandColor).font('Helvetica-Bold').text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, 400, detailsTop + 30);
         doc.moveDown(3);
 
@@ -84,24 +89,24 @@ exports.handler = async function(event) {
         doc.text('Unit Price', 350, tableTop + 5, { width: 90, align: 'right' });
         doc.text('Total', 450, tableTop + 5, { width: 90, align: 'right' });
         
-        let i = 0;
-        doc.font('Helvetica').fillColor(textGray);
-        order.items.forEach(item => {
-            const y = tableTop + 25 + (i * 30); // Increased spacing between items
+        const itemsStartY = tableTop + 25;
+        doc.fillColor(textGray);
+        order.items.forEach((item, i) => {
+            const y = itemsStartY + (i * 25);
+            // --- AMENDMENT 3: Use Courier font for item lines ---
+            // Switched to a classic monospaced "receipt" font for this section only.
+            doc.font('Courier').fontSize(9);
             doc.text(item.name, 60, y, { width: 220 });
             doc.text(item.quantity.toString(), 290, y, { width: 50, align: 'center' });
             doc.text(`KSh ${item.price.toLocaleString()}`, 350, y, { width: 90, align: 'right' });
             doc.text(`KSh ${(item.quantity * item.price).toLocaleString()}`, 450, y, { width: 90, align: 'right' });
-
-            // --- AMENDMENT: Add a light gray line under each item for a "receipt format" ---
-            if (i < order.items.length) { // Don't draw a line after the last item
-                 doc.moveTo(50, y + 20).lineTo(560, y + 20).stroke(lightGray);
-            }
-            i++;
+            
+            // Switch back to the default font for the rest of the document
+            doc.font('Helvetica').fontSize(10);
         });
 
         // --- TOTAL ---
-        const totalY = tableTop + 30 + (i * 30);
+        const totalY = itemsStartY + (order.items.length * 25) + 10;
         doc.font('Helvetica-Bold').fillColor(brandColor);
         doc.fontSize(14).text(`Total Paid: KSh ${order.total.toLocaleString()}`, 50, totalY, { align: 'right' });
         doc.moveDown(4);
