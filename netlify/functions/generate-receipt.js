@@ -197,8 +197,9 @@ exports.handler = async function (event) {
     const companyX = pageWidth - pageMargin - 200; // right-aligned block
     doc.text('Town Treasure Groceries', companyX, companyY, { width: 200, align: 'right' })
        .text('City Park Market, Limuru Road', companyX, companyY + 12, { width: 200, align: 'right' })
-       .text('Nairobi, Kenya', companyX, companyY + 24, { width: 200, align: 'right' })
-       .text('Tel: 0720559925 / 0708567696', companyX, companyY + 36, { width: 200, align: 'right' });
+       .text('Tel: 0720559925 / 0708567696', companyX, companyY + 36, { width: 200, align: 'right' })
+       .text('Nairobi, Kenya', companyX, companyY + 24, { width: 200, align: 'right' });
+       
 
     // ---- FOOTER ----
     const footerY = doc.page.height - 100;
