@@ -80,7 +80,7 @@
                     .header img { height: 80px; margin-bottom: 10px; }
                     .header h1 { color: #2e7d32; font-size: 24px; margin: 0; }
                     .details { margin-bottom: 20px; }
-                    table { width: 92%; border-collapse: collapse; margin-bottom: 20px; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
                     th, td { padding: 8px; border: 1px solid #ddd; }
                     th { background-color: #f0fdf4; text-align: left; }
                     .text-right { text-align: right; }
