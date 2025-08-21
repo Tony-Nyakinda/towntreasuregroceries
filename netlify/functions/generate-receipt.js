@@ -4,6 +4,7 @@ const { createClient } = require('@supabase/supabase-js');
 const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
+const QRCode = require('qrcode'); // Import the new QR code library
 
 // Initialize Supabase client using environment variables
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -37,84 +38,74 @@ exports.handler = async function(event) {
 
         // --- STYLING DEFINITIONS ---
         const brandColor = '#2E7D32';
-        const lightGray = '#E5E7EB';
-        const darkGray = '#4B5563';
+        const lightGray = '#F3F4F6'; // Lighter gray for backgrounds
+        const darkGray = '#374151';
         const textGray = '#6B7280';
 
-        // --- HEADER ---
-        // The logo path is correct; it now relies on the netlify.toml fix to ensure the file is present.
+        // --- MODERN HEADER ---
+        doc.rect(0, 0, doc.page.width, 100).fill(lightGray);
         const logoPath = path.resolve(__dirname, 'Preloader.png');
         if (fs.existsSync(logoPath)) {
-            doc.image(logoPath, 50, 45, { width: 100 });
+            doc.image(logoPath, 50, 25, { width: 100 });
         }
+        doc.fontSize(10).font('Helvetica').fillColor(textGray)
+           .text('Town Treasure Groceries', doc.page.width - 200, 35, { align: 'right', width: 150 })
+           .text('City Park Market, Limuru Road', doc.page.width - 200, 50, { align: 'right', width: 150 })
+           .text('Nairobi, Kenya', doc.page.width - 200, 65, { align: 'right', width: 150 });
 
-        doc.fontSize(10)
-           .font('Helvetica')
-           .fillColor(textGray)
-           .text('Town Treasure Groceries', 200, 50, { align: 'right' })
-           .text('City Park Market, Limuru Road', 200, 65, { align: 'right' })
-           .text('Nairobi, Kenya', 200, 80, { align: 'right' });
-        doc.moveDown(4);
+        // --- RECEIPT TITLE ---
+        doc.fontSize(24).font('Helvetica-Bold').fillColor(darkGray).text('Receipt', 50, 130);
+        doc.moveTo(50, 160).lineTo(doc.page.width - 50, 160).stroke(lightGray); // Horizontal line
 
-        // --- TITLE AND ORDER DETAILS ---
-        doc.fontSize(20).font('Helvetica-Bold').fillColor(darkGray).text('Receipt', 50, 140);
-        doc.moveDown(0.5);
+        // --- ORDER & CUSTOMER INFO ---
+        const infoTop = 180;
+        doc.fontSize(10).font('Helvetica-Bold').fillColor(darkGray)
+           .text('BILLED TO', 50, infoTop)
+           .text('ORDER DETAILS', 300, infoTop);
 
-        // --- AMENDMENT: Reverted to 24-hour time format ---
-        const orderDateTime = new Date(order.created_at).toLocaleString('en-KE', {
-            dateStyle: 'short',
-            timeStyle: 'short',
-            timeZone: 'Africa/Nairobi',
-            hour12: false // Set to false for 24-hour format
-        });
-
-        let detailsY = 145;
-        doc.fontSize(10).font('Helvetica');
-        doc.fillColor(textGray).text(`Order Number: ${order.order_number}`, 400, detailsY);
-        detailsY += 15;
-        doc.fillColor(textGray).text(`Order Date: ${orderDateTime}`, 400, detailsY);
-        detailsY += 15;
-        doc.fillColor(brandColor).font('Helvetica-Bold').text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, 400, detailsY);
-        doc.moveDown(3);
-
-        // --- BILL TO SECTION ---
-        doc.fontSize(10).font('Helvetica-Bold').fillColor(darkGray).text('Bill To:', 50);
-        doc.font('Helvetica').fillColor(textGray).text(order.full_name);
-        doc.text(order.address);
-        doc.text(order.phone);
-        doc.moveDown(2);
+        doc.font('Helvetica').fillColor(textGray)
+           .text(order.full_name, 50, infoTop + 15)
+           .text(order.address, 50, infoTop + 30, { width: 200 })
+           .text(order.phone, 50, infoTop + 45)
+           .text(`Order Number: ${order.order_number}`, 300, infoTop + 15)
+           .text(`Order Date: ${new Date(order.created_at).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Nairobi' })}`, 300, infoTop + 30)
+           .font('Helvetica-Bold').fillColor(brandColor)
+           .text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, 300, infoTop + 45);
 
         // --- ITEMS TABLE ---
-        const tableTop = doc.y;
-        doc.font('Helvetica-Bold').fillColor(darkGray);
+        const tableTop = 280;
+        doc.font('Helvetica-Bold');
+        doc.rect(50, tableTop, doc.page.width - 100, 25).fill(lightGray);
+        doc.fillColor(darkGray).text('ITEM', 60, tableTop + 8)
+           .text('QTY', 320, tableTop + 8, { width: 50, align: 'center' })
+           .text('PRICE', 410, tableTop + 8, { width: 60, align: 'right' })
+           .text('TOTAL', 0, tableTop + 8, { align: 'right' });
 
-        doc.rect(50, tableTop, 510, 20).fill(lightGray);
-        doc.fillColor(darkGray).text('Item Description', 60, tableTop + 5, { width: 220 });
-        doc.text('Qty', 290, tableTop + 5, { width: 50, align: 'center' });
-        doc.text('Unit Price', 350, tableTop + 5, { width: 90, align: 'right' });
-        doc.text('Total', 450, tableTop + 5, { width: 90, align: 'right' });
-        
-        const itemsStartY = tableTop + 25;
-        doc.font('Helvetica').fontSize(10).fillColor(textGray);
-        order.items.forEach((item, i) => {
-            const y = itemsStartY + (i * 25);
-            doc.text(item.name, 60, y, { width: 220 });
-            doc.text(item.quantity.toString(), 290, y, { width: 50, align: 'center' });
-            doc.text(`KSh ${item.price.toLocaleString()}`, 350, y, { width: 90, align: 'right' });
-            doc.text(`KSh ${(item.quantity * item.price).toLocaleString()}`, 450, y, { width: 90, align: 'right' });
+        let i = 0;
+        doc.font('Helvetica').fillColor(textGray);
+        order.items.forEach(item => {
+            const y = tableTop + 35 + (i * 25);
+            doc.text(item.name, 60, y)
+               .text(item.quantity.toString(), 320, y, { width: 50, align: 'center' })
+               .text(`KSh ${item.price.toLocaleString()}`, 410, y, { width: 60, align: 'right' })
+               .text(`KSh ${(item.quantity * item.price).toLocaleString()}`, 0, y, { align: 'right' });
+            i++;
         });
 
         // --- TOTAL ---
-        const totalY = itemsStartY + (order.items.length * 25) + 10;
-        doc.font('Helvetica-Bold').fillColor(brandColor);
-        doc.fontSize(14).text(`Total Paid: KSh ${order.total.toLocaleString()}`, 50, totalY, { align: 'right' });
-        doc.moveDown(4);
+        const totalY = tableTop + 40 + (i * 25);
+        doc.moveTo(300, totalY).lineTo(doc.page.width - 50, totalY).stroke(lightGray);
+        doc.font('Helvetica-Bold').fillColor(brandColor).fontSize(16)
+           .text('Total Paid:', 300, totalY + 10)
+           .text(`KSh ${order.total.toLocaleString()}`, 0, totalY + 10, { align: 'right' });
 
-        // --- FOOTER ---
-        const footerY = doc.page.height - 100;
-        doc.moveTo(50, footerY).lineTo(560, footerY).stroke(lightGray);
-        doc.fontSize(10).font('Helvetica').fillColor(textGray)
-           .text('Thank you for your business. We appreciate you!', 50, footerY + 15, { align: 'center', width: 510 });
+        // --- FOOTER AND QR CODE ---
+        const qrCodeData = await QRCode.toDataURL('https://towntreasuregroceries.netlify.app/');
+        doc.image(qrCodeData, 50, doc.page.height - 150, { width: 80 });
+
+        doc.fontSize(10).fillColor(textGray)
+           .text('Scan to visit our website.', 50, doc.page.height - 60)
+           .text('Thank you for your business!', 0, doc.page.height - 100, { align: 'right' });
 
         doc.end();
 
@@ -123,10 +114,7 @@ exports.handler = async function(event) {
                 const pdfData = Buffer.concat(buffers);
                 resolve({
                     statusCode: 200,
-                    headers: {
-                        'Content-Type': 'application/pdf',
-                        'Content-Disposition': `attachment; filename="receipt-${order.order_number}.pdf"`
-                    },
+                    headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="receipt-${order.order_number}.pdf"` },
                     body: pdfData.toString('base64'),
                     isBase64Encoded: true
                 });
