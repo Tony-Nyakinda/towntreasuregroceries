@@ -186,7 +186,7 @@ exports.handler = async function (event) {
     doc.font('Helvetica').fontSize(10).fillColor(textGray)
       .text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, pageMargin, payY + 20);
 
-    // ---- QR WITH LOGO (no background) ----
+    // ---- QR WITH LOGO (white circle background + dark green border) ----
     const orderUrl = `https://towntreasuregroceries.netlify.app/account?order=${order.order_number}`;
     const qrCodeData = await QRCode.toDataURL(orderUrl, { errorCorrectionLevel: 'H' });
 
@@ -195,12 +195,25 @@ exports.handler = async function (event) {
     const qrY = payY + 45;
     doc.image(qrCodeData, qrX, qrY, { width: qrSize });
 
-    // Overlay logo directly (no white background)
     if (fs.existsSync(logoPath)) {
       const logoSize = qrSize * 0.3;
-      const logoX = qrX + (qrSize - logoSize) / 2;
-      const logoY = qrY + (qrSize - logoSize) / 2;
+      const centerX = qrX + qrSize / 2;
+      const centerY = qrY + qrSize / 2;
+      const circleRadius = logoSize / 2 + 6; // padding around logo
+
+      // Circle background + border
+      doc.save()
+        .circle(centerX, centerY, circleRadius)
+        .fill('#FFFFFF')
+        .strokeColor(brandDark)
+        .lineWidth(2)
+        .stroke();
+
+      // Place logo on top
+      const logoX = centerX - logoSize / 2;
+      const logoY = centerY - logoSize / 2;
       doc.image(logoPath, logoX, logoY, { width: logoSize, height: logoSize });
+      doc.restore();
     }
 
     doc.fillColor(textGray).text('Scan to view your order online.', qrX, qrY + qrSize + 10);
@@ -212,8 +225,8 @@ exports.handler = async function (event) {
 
     doc.text('Town Treasure Groceries', companyX, companyY, { width: 200, align: 'right' })
        .text('City Park Market, Limuru Road', companyX, companyY + 12, { width: 200, align: 'right' })
-       .text('Tel: 0720559925 / 0708567696', companyX, companyY + 24, { width: 200, align: 'right' }) // moved up
-       .text('Nairobi, Kenya', companyX, companyY + 36, { width: 200, align: 'right' });              // moved down
+       .text('Tel: 0720559925 / 0708567696', companyX, companyY + 24, { width: 200, align: 'right' })
+       .text('Nairobi, Kenya', companyX, companyY + 36, { width: 200, align: 'right' });
 
     // ---- FOOTER ----
     const footerY = doc.page.height - 100;
