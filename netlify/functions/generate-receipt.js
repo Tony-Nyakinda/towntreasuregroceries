@@ -65,7 +65,7 @@ exports.handler = async function(event) {
             dateStyle: 'short',
             timeStyle: 'short',
             timeZone: 'Africa/Nairobi',
-            hour12: true
+            hour24: true
         });
 
         // --- AMENDMENT 2: Text Overlap Corrected ---
