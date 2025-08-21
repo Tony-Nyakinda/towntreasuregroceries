@@ -16,7 +16,7 @@ exports.handler = async function (event) {
   }
 
   try {
-    const { orderId } = JSON.parse(event.body);
+    const { orderId } = JSON.parse(event.body || '{}');
     if (!orderId) {
       return { statusCode: 400, body: 'Order ID is required.' };
     }
@@ -31,70 +31,63 @@ exports.handler = async function (event) {
       throw new Error('Order not found or could not be fetched.');
     }
 
+    // Normalize items in case they’re stored as JSON string
+    const items = Array.isArray(order.items)
+      ? order.items
+      : (() => { try { return JSON.parse(order.items || '[]'); } catch { return []; } })();
+
     const doc = new PDFDocument({ margin: 0, size: 'A4' });
     const buffers = [];
     doc.on('data', buffers.push.bind(buffers));
 
-    // --- COLORS ---
-    const brandColorGreen = '#64B93E';
-    const brandColorDark = '#333D44';
+    // --- THEME & LAYOUT ---
+    const brandGreen = '#64B93E';
+    const brandDark = '#333D44';
     const lightGray = '#F2F2F2';
     const textGray = '#6B7280';
     const pageMargin = 50;
+    const pageWidth = doc.page.width;
+    const contentWidth = pageWidth - pageMargin * 2;
 
-    // --- TABLE ROW HELPER ---
-    function generateTableRow(y, itemNumber, description, unitPrice, quantity, total) {
-      const rowIsEven = parseInt(itemNumber) % 2 === 0;
-      if (rowIsEven) {
-        doc.rect(pageMargin, y, doc.page.width - pageMargin * 2, 25).fill(lightGray);
-      }
-      doc.fontSize(10).fillColor(brandColorDark)
-        .text(itemNumber, pageMargin + 15, y + 8)
-        .text(description, pageMargin + 80, y + 8, { width: 190 })
-        .text(`KSh ${unitPrice}`, pageMargin + 270, y + 8, { width: 80, align: 'right' })
-        .text(quantity, pageMargin + 370, y + 8, { width: 50, align: 'center' })
-        .text(`KSh ${total}`, pageMargin + 430, y + 8, { width: 80, align: 'right' });
-    }
+    const KES = (n) => `KSh ${Number(n || 0).toLocaleString('en-KE')}`;
 
-    // --- HEADER GRAPHICS ---
+    // ---- HEADER SHAPES ----
     doc.save()
-      .moveTo(0, 0)
-      .lineTo(doc.page.width, 0)
-      .lineTo(doc.page.width, 120)
-      .quadraticCurveTo(doc.page.width / 2, 180, 0, 120)
-      .fill(brandColorGreen);
+      .moveTo(0, 0).lineTo(pageWidth, 0).lineTo(pageWidth, 120)
+      .quadraticCurveTo(pageWidth / 2, 180, 0, 120)
+      .fill(brandGreen);
 
     doc.save()
-      .moveTo(doc.page.width, 0)
-      .lineTo(doc.page.width, 80)
-      .quadraticCurveTo(doc.page.width - 200, 120, doc.page.width - 400, 80)
-      .lineTo(doc.page.width - 400, 0)
-      .fill(brandColorDark);
+      .moveTo(pageWidth, 0).lineTo(pageWidth, 80)
+      .quadraticCurveTo(pageWidth - 200, 120, pageWidth - 400, 80)
+      .lineTo(pageWidth - 400, 0)
+      .fill(brandDark);
 
-    // --- LOGO ---
+    // ---- LOGO ----
     const logoPath = path.resolve(__dirname, 'Preloader.png');
     if (fs.existsSync(logoPath)) {
       doc.image(logoPath, pageMargin, 40, { width: 90 });
     }
 
-    // --- HEADER TEXT ---
+    // ---- HEADER TEXT (right) ----
     let headerTextY = 45;
-    doc.fontSize(10).font('Helvetica').fillColor(brandColorDark)
-      .text('Town Treasure Groceries', 350, headerTextY, { align: 'right' })
-      .text('City Park Market, Limuru Road', 350, headerTextY += 15, { align: 'right' })
-      .text('Nairobi, Kenya', 350, headerTextY += 15, { align: 'right' });
+    doc.fontSize(10).font('Helvetica').fillColor(brandDark)
+      .text('Town Treasure Groceries', pageWidth - pageMargin - 250, headerTextY, { width: 250, align: 'right' })
+      .text('City Park Market, Limuru Road', pageWidth - pageMargin - 250, headerTextY += 15, { width: 250, align: 'right' })
+      .text('Nairobi, Kenya', pageWidth - pageMargin - 250, headerTextY += 15, { width: 250, align: 'right' });
 
-    // --- RECEIPT INFO ---
+    // ---- TITLE + RECEIPT META ----
     const infoTop = 180;
-    doc.fontSize(20).font('Helvetica-Bold').fillColor(brandColorGreen).text('RECEIPT', pageMargin, infoTop);
-    doc.moveTo(pageMargin, infoTop + 25).lineTo(200, infoTop + 25).stroke(brandColorGreen);
+    doc.font('Helvetica-Bold').fontSize(20).fillColor(brandGreen).text('RECEIPT', pageMargin, infoTop);
+    doc.moveTo(pageMargin, infoTop + 25).lineTo(pageMargin + 150, infoTop + 25).stroke(brandGreen);
 
-    doc.fontSize(10).font('Helvetica-Bold').fillColor(brandColorDark)
-      .text('Receipt No:', 350, infoTop)
-      .text('Order Date:', 350, infoTop + 15);
+    doc.fontSize(10).fillColor(brandDark).font('Helvetica-Bold')
+      .text('Receipt No:', pageWidth - pageMargin - 200, infoTop, { width: 100, align: 'left' })
+      .text('Order Date:', pageWidth - pageMargin - 200, infoTop + 15, { width: 100, align: 'left' });
 
-    // Format with time AM/PM
-    const orderDate = new Date(order.created_at).toLocaleString('en-KE', {
+    // Local time in Nairobi (no more 3-hour lag)
+    const orderDateStr = new Date(order.created_at).toLocaleString('en-KE', {
+      timeZone: 'Africa/Nairobi',
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -104,119 +97,154 @@ exports.handler = async function (event) {
     });
 
     doc.font('Helvetica').fillColor(textGray)
-      .text(order.order_number, 420, infoTop)
-      .text(orderDate, 420, infoTop + 15);
+      .text(String(order.order_number || ''), pageWidth - pageMargin - 100, infoTop, { width: 100, align: 'right' })
+      .text(orderDateStr, pageWidth - pageMargin - 100, infoTop + 15, { width: 100, align: 'right' });
 
-    // --- BILLED TO ---
+    // ---- BILLED TO (dynamic lines, no overlap) ----
     const billToTop = infoTop + 50;
-    doc.fontSize(12).font('Helvetica-Bold').fillColor(brandColorDark).text('BILLED TO:', pageMargin, billToTop);
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(brandDark).text('BILLED TO:', pageMargin, billToTop);
 
-    let billToY = billToTop + 20;
-    doc.font('Helvetica').fillColor(textGray).fontSize(10);
-    if (order.full_name) {
-      doc.text(order.full_name, pageMargin, billToY);
-      billToY += 18;
-    }
-    if (order.address) {
-      doc.text(order.address, pageMargin, billToY);
-      billToY += 18;
-    }
-    if (order.phone) {
-      doc.text(order.phone, pageMargin, billToY);
-      billToY += 18;
-    }
+    let y = billToTop + 16;
+    doc.font('Helvetica').fontSize(10).fillColor(textGray);
 
-    // --- TABLE HEADER ---
-    const tableTop = billToY + 40;
-    doc.rect(pageMargin, tableTop, doc.page.width - pageMargin * 2, 30).fill(brandColorDark);
-    doc.fontSize(10).fillColor('#FFF')
-      .text('SL No.', pageMargin + 15, tableTop + 10)
-      .text('Item Description', pageMargin + 80, tableTop + 10)
-      .text('Unit Price', pageMargin + 270, tableTop + 10, { width: 80, align: 'right' })
-      .text('Quantity', pageMargin + 370, tableTop + 10, { width: 50, align: 'center' })
-      .text('Total', pageMargin + 430, tableTop + 10, { width: 80, align: 'right' });
+    const addLine = (line) => {
+      if (!line) return;
+      const h = doc.heightOfString(String(line), { width: 260 });
+      doc.text(String(line), pageMargin, y, { width: 260 });
+      y += h + 6; // 6px breathing space
+    };
 
-    // --- TABLE ROWS ---
-    let itemY = tableTop + 30;
+    addLine(order.full_name);
+    addLine(order.address);
+    addLine(order.phone);
+
+    // Ensure some space before table
+    y += 12;
+
+    // ---- TABLE HEADER ----
+    const tableTop = Math.max(y, 300);
+    const col = {
+      sl: 40,
+      gap: 10,
+      unit: 90,
+      qty: 60,
+      total: 90,
+    };
+    col.desc = contentWidth - (col.sl + col.gap * 4 + col.unit + col.qty + col.total);
+
+    // Header bar
+    doc.rect(pageMargin, tableTop, contentWidth, 28).fill(brandDark);
+    doc.fontSize(10).fillColor('#FFFFFF').font('Helvetica-Bold');
+    doc.text('SL No.', pageMargin + 8, tableTop + 9, { width: col.sl - 16, align: 'left' });
+    doc.text('Item Description', pageMargin + col.sl + col.gap, tableTop + 9, { width: col.desc, align: 'left' });
+    doc.text('Unit Price', pageMargin + col.sl + col.gap + col.desc + col.gap, tableTop + 9, { width: col.unit, align: 'right' });
+    doc.text('Quantity', pageMargin + col.sl + col.gap + col.desc + col.gap + col.unit + col.gap, tableTop + 9, { width: col.qty, align: 'center' });
+    doc.text('Total', pageMargin + col.sl + col.gap + col.desc + col.gap + col.unit + col.gap + col.qty + col.gap, tableTop + 9, { width: col.total, align: 'right' });
+
+    // ---- TABLE ROWS (dynamic height) ----
+    let rowY = tableTop + 28;
+    let zebra = false;
     let subtotal = 0;
-    order.items.forEach((item, i) => {
-      const itemTotal = item.quantity * item.price;
-      subtotal += itemTotal;
-      generateTableRow(
-        itemY,
-        (i + 1).toString().padStart(2, '0'),
-        item.name,
-        item.price.toLocaleString(),
-        item.quantity,
-        itemTotal.toLocaleString()
+
+    doc.font('Helvetica').fillColor(brandDark);
+
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i] || {};
+      const name = String(it.name ?? it.item ?? '');
+      const qty = Number(it.quantity ?? it.qty ?? 0);
+      const price = Number(it.price ?? it.unit_price ?? 0);
+      const total = qty * price;
+      subtotal += total;
+
+      const descH = Math.max(
+        12,
+        doc.heightOfString(name || '-', { width: col.desc })
       );
-      itemY += 25;
-    });
+      const rowH = Math.max(24, descH + 12); // padding
 
-    // --- SEPARATOR LINE UNDER TABLE ---
-    const separatorY = itemY + 10;
-    doc.moveTo(pageMargin, separatorY)
-      .lineTo(doc.page.width - pageMargin, separatorY)
-      .strokeColor('#CCCCCC')
-      .lineWidth(1)
-      .stroke();
+      if (zebra) {
+        doc.rect(pageMargin, rowY, contentWidth, rowH).fill(lightGray);
+        doc.fillColor(brandDark);
+      }
+      zebra = !zebra;
 
-    // --- TOTALS ---
-    const totalsTop = separatorY + 20;
-    doc.fontSize(10).fillColor(brandColorDark)
-      .text('Sub Total:', doc.page.width - pageMargin - 100, totalsTop, { align: 'right' })
-      .text(`KSh ${subtotal.toLocaleString()}`, doc.page.width - pageMargin, totalsTop, { align: 'right' });
+      // cells
+      doc.fontSize(10);
+      doc.text(String(i + 1).padStart(2, '0'), pageMargin + 8, rowY + 8, { width: col.sl - 16, align: 'left' });
+      doc.text(name || '-', pageMargin + col.sl + col.gap, rowY + 8, { width: col.desc });
+      doc.text(KES(price), pageMargin + col.sl + col.gap + col.desc + col.gap, rowY + 8, { width: col.unit, align: 'right' });
+      doc.text(String(qty), pageMargin + col.sl + col.gap + col.desc + col.gap + col.unit + col.gap, rowY + 8, { width: col.qty, align: 'center' });
+      doc.text(KES(total), pageMargin + col.sl + col.gap + col.desc + col.gap + col.unit + col.gap + col.qty + col.gap, rowY + 8, { width: col.total, align: 'right' });
 
-    const grandTotalY = totalsTop + 25;
-    doc.rect(doc.page.width - pageMargin - 120, grandTotalY, 120, 25).fill(brandColorGreen);
-    doc.font('Helvetica-Bold').fillColor('#FFF')
-      .text('Grand Total:', doc.page.width - pageMargin - 100, grandTotalY + 7, { align: 'right' })
-      .text(`KSh ${order.total.toLocaleString()}`, doc.page.width - pageMargin, grandTotalY + 7, { align: 'right' });
+      rowY += rowH;
+    }
 
-    // --- PAYMENT DETAILS ---
-    const paymentTop = grandTotalY + 60;
-    doc.font('Helvetica-Bold').fontSize(12).fillColor(brandColorDark)
-      .text('Payment Details:', pageMargin, paymentTop);
+    // ---- SEPARATOR BELOW TABLE ----
+    const sepY = rowY + 6;
+    doc.moveTo(pageMargin, sepY).lineTo(pageWidth - pageMargin, sepY)
+      .lineWidth(1).strokeColor('#CCCCCC').stroke();
+
+    // ---- TOTALS (right aligned boxes; no overlap) ----
+    const totalsY = sepY + 16;
+    const labelW = 110;
+    const valueW = 110;
+    const valueX = pageMargin + contentWidth - valueW;
+    const labelX = valueX - labelW;
+
+    doc.font('Helvetica').fontSize(10).fillColor(brandDark);
+    doc.text('Sub Total:', labelX, totalsY, { width: labelW, align: 'right' });
+    doc.text(KES(subtotal), valueX, totalsY, { width: valueW, align: 'right' });
+
+    const gtY = totalsY + 26;
+    // grand total background box
+    doc.rect(valueX - 10, gtY, valueW + 10, 26).fill(brandGreen);
+    doc.font('Helvetica-Bold').fillColor('#FFFFFF');
+    doc.text('Grand Total:', labelX, gtY + 6, { width: labelW, align: 'right' });
+    doc.text(KES(order.total ?? subtotal), valueX, gtY + 6, { width: valueW, align: 'right' });
+
+    // ---- PAYMENT DETAILS & QR (placed after totals) ----
+    const payY = gtY + 48;
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(brandDark)
+      .text('Payment Details:', pageMargin, payY);
     doc.font('Helvetica').fontSize(10).fillColor(textGray)
-      .text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, pageMargin, paymentTop + 20);
+      .text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, pageMargin, payY + 20);
 
     const orderUrl = `https://towntreasuregroceries.netlify.app/account?order=${order.order_number}`;
     const qrCodeData = await QRCode.toDataURL(orderUrl);
-    doc.image(qrCodeData, pageMargin, paymentTop + 45, { width: 80 });
-    doc.fillColor(textGray).text('Scan to view your order online.', pageMargin, paymentTop + 130);
+    doc.image(qrCodeData, pageMargin, payY + 45, { width: 80 });
+    doc.fillColor(textGray).text('Scan to view your order online.', pageMargin, payY + 130);
 
-    // --- FOOTER ---
+    // ---- FOOTER ----
     const footerY = doc.page.height - 100;
     doc.save()
       .moveTo(0, footerY)
-      .quadraticCurveTo(doc.page.width / 2, footerY - 50, doc.page.width, footerY)
-      .lineTo(doc.page.width, doc.page.height)
+      .quadraticCurveTo(pageWidth / 2, footerY - 50, pageWidth, footerY)
+      .lineTo(pageWidth, doc.page.height)
       .lineTo(0, doc.page.height)
-      .fill(brandColorDark);
+      .fill(brandDark);
 
-    doc.font('Helvetica-Bold').fillColor('#FFF').fontSize(14)
+    doc.font('Helvetica-Bold').fillColor('#FFFFFF').fontSize(14)
       .text('THANK YOU FOR YOUR BUSINESS', pageMargin, footerY + 40);
 
-    // --- END PDF ---
+    // ---- FINISH ----
     doc.end();
 
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       doc.on('end', () => {
         const pdfData = Buffer.concat(buffers);
         resolve({
           statusCode: 200,
           headers: {
             'Content-Type': 'application/pdf',
-            'Content-Disposition': `attachment; filename="receipt-${order.order_number}.pdf"`
+            'Content-Disposition': `attachment; filename="receipt-${order.order_number}.pdf"`,
           },
           body: pdfData.toString('base64'),
-          isBase64Encoded: true
+          isBase64Encoded: true,
         });
       });
     });
-
-  } catch (error) {
-    console.error('Error generating PDF:', error);
-    return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
+  } catch (err) {
+    console.error('Error generating PDF:', err);
+    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
   }
 };
