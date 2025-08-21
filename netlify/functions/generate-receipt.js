@@ -48,7 +48,7 @@ exports.handler = async function(event) {
         const logoPath = path.resolve(__dirname, 'Preloader.png');
         if (fs.existsSync(logoPath)) {
             // --- AMENDMENT 1: Moved logo higher ---
-            doc.image(logoPath, 50, 20, { width: 90 }); // Adjusted Y-coordinate from 25 to 20
+            doc.image(logoPath, 50, 18, { width: 100 }); // Adjusted Y-coordinate from 25 to 20
         }
 
         doc.fontSize(10).font('Helvetica').fillColor(textGray)
