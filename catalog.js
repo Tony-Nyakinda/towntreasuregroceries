@@ -380,90 +380,7 @@ async function handleCategoryAndPageFromUrl() {
     }
 }
 
-
-/**
- * Generates and downloads a PDF receipt based on provided order data.
- * @param {Object} orderData - An object containing order details.
- */
-window.generateReceipt = function(orderData) {
-    const receiptContent = document.createElement('div');
-    receiptContent.style.padding = '15px';
-    receiptContent.style.fontFamily = '"Roboto Mono", monospace, sans-serif';
-    receiptContent.style.fontSize = '9px';
-    receiptContent.style.width = '210mm';
-    receiptContent.style.height = '297mm';
-    receiptContent.style.boxSizing = 'border-box';
-    receiptContent.style.color = '#333';
-
-    receiptContent.innerHTML = `
-        <div style="text-align: center; margin-bottom: 20px;">
-            <img src="IMAGE/LOG.png" alt="Town Treasure Logo" style="height: 100px; margin-bottom: 14px;">
-            <h2 style="color: #006d12ff; font-size: 17px; margin-bottom: 3px; font-weight: bold;">Town Treasure Groceries</h2>
-            <p style="font-size: 10px; color: #555;">Fresh Market Delivery</p>
-        </div>
-        <div style="margin-bottom: 15px; border-bottom: 1px dashed #ccc; padding-bottom: 10px;">
-            <p style="margin: 3px 0;"><strong>Order Number:</strong> <span style="color: #278a00ff;">${orderData.orderNumber}</span></p>
-            <p style="margin: 3px 0;"><strong>Date:</strong> ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-            <p style="margin: 3px 0;"><strong>Customer:</strong> ${orderData.fullName}</p>
-            <p style="margin: 3px 0;"><strong>Phone:</strong> ${orderData.phone || 'N/A'}</p>
-            <p style="margin: 3px 0;"><strong>Delivery Address:</strong> ${orderData.address}</p>
-            ${orderData.instructions ? `<p style="margin: 3px 0;"><strong>Instructions:</strong> ${orderData.instructions}</p>` : ''}
-        </div>
-        <h3 style="color: #4a6851ff; font-size: 13px; margin-bottom: 10px;">Order Details:</h3>
-        <table style="width: 92%; border-collapse: collapse; margin-bottom: 15px; table-layout: fixed;">
-            <thead>
-                <tr style="background-color: #f0fdf4; border-bottom: 2px solid #06bb00ff;">
-                    <th style="padding: 5px; border: 1px solid #eee; text-align: left; width: 10%; font-size: 8px;">Item</th>
-                    <th style="padding: 5px; border: 1px solid #eee; text-align: left; width: 10%; font-size: 8px;">Unit</th>
-                    <th style="padding: 5px; border: 1px solid #eee; text-align: right; width: 10%; font-size: 8px;">Price</th>
-                    <th style="padding: 5px; border: 1px solid #eee; text-align: right; width: 10%; font-size: 8px;">Qty</th>
-                    <th style="padding: 5px; border: 1px solid #eee; text-align: right; width: 10%; font-size: 8px;">Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${orderData.items.map(item => `
-                    <tr style="page-break-inside: avoid;">
-                        <td style="padding: 5px; border: 1px solid #eee; word-wrap: break-word; font-size: 8px;">${item.name}</td>
-                        <td style="padding: 5px; border: 1px solid #eee; font-size: 8px;">${item.unit}</td>
-                        <td style="padding: 5px; border: 1px solid #eee; text-align: right; font-size: 8px;">KSh ${item.price.toLocaleString()}</td>
-                        <td style="padding: 5px; border: 1px solid #eee; text-align: right; font-size: 8px;">${item.quantity}</td>
-                        <td style="padding: 5px; border: 1px solid #eee; text-align: right; font-size: 8px;">KSh ${(item.price * item.quantity).toLocaleString()}</td>
-                    </tr>
-                `).join('')}
-            </tbody>
-            <tfoot>
-                <tr style="page-break-inside: avoid;">
-                    <td colspan="4" style="padding: 5px; border: 1px solid #eee; text-align: right; font-weight: bold; font-size: 9px;">Subtotal:</td>
-                    <td style="padding: 5px; border: 1px solid #eee; text-align: right; font-weight: bold; font-size: 9px;">KSh ${orderData.subtotal.toLocaleString()}</td>
-                </tr>
-                <tr style="page-break-inside: avoid;">
-                    <td colspan="4" style="padding: 5px; border: 1px solid #eee; text-align: right; font-weight: bold; font-size: 9px;">Delivery Fee:</td>
-                    <td style="padding: 5px; border: 1px solid #eee; text-align: right; font-weight: bold; font-size: 9px;">KSh ${orderData.deliveryFee.toLocaleString()}</td>
-                </tr>
-                <tr style="background-color: #d1f5d1ff; page-break-inside: avoid;">
-                    <td colspan="4" style="padding: 5px; border: 1px solid #eee; text-align: right; font-weight: bold; font-size: 11px;">Grand Total:</td>
-                    <td style="padding: 5px; border: 1px solid #eee; text-align: right; font-weight: bold; font-size: 11px;">KSh ${orderData.total.toLocaleString()}</td>
-                </tr>
-            </tfoot>
-        </table>
-        <div style="text-align: center; margin-top: 20px; color: #666; font-size: 8px;">
-            <p style="margin-bottom: 3px;">Thank you for your purchase from Town Treasure Groceries!</p>
-            <p style="margin-bottom: 3px;">We appreciate your business and look forward to serving you again.</p>
-            <p style="margin-bottom: 3px;">City Park Market, Limuru Road, Nairobi</p>
-            <p>Contact: +254 720 559925 | towntreasuregroceries@gmail.com</p>
-        </div>
-    `;
-
-    const options = {
-        margin: 10,
-        filename: `receipt_${orderData.orderNumber}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 1 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-
-    html2pdf().set(options).from(receiptContent).save();
-};
+// REMOVED: The generateReceipt function has been moved to receipt.js
 
 /**
  * AMENDMENT: Listens for the creation of the final order document.
@@ -602,12 +519,25 @@ if (checkoutForm) {
         let subtotal = 0;
         const productsData = await getProducts();
         const productsMap = {};
-        Object.values(productsData).flat().forEach(p => { productsMap[p.id] = p; });
+        // Ensure productsData.all is an array before trying to flatten
+        const allProds = Array.isArray(productsData.all) ? productsData.all : [];
+        allProds.forEach(p => { productsMap[p.id] = p; });
 
-        currentCart.forEach(item => {
+
+        // FIX: Create a new array of cart items that includes full product details (name, price, etc.)
+        // This is necessary because the cart stored in localStorage only has id and quantity.
+        const enrichedCartItems = currentCart.map(item => {
             const productDetails = productsMap[item.id];
-            subtotal += (productDetails ? productDetails.price : item.price) * item.quantity;
+            return {
+                ...item, // This keeps the original id and quantity
+                name: productDetails ? productDetails.name : 'Unknown Product',
+                price: productDetails ? productDetails.price : 0,
+                unit: productDetails ? productDetails.unit : ''
+            };
         });
+
+        // Recalculate subtotal based on the enriched data to be safe
+        subtotal = enrichedCartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
         const DELIVERY_FEE = 0;
         const total = subtotal + DELIVERY_FEE;
@@ -622,7 +552,7 @@ if (checkoutForm) {
             email: customerEmail,
             address: customerAddress,
             instructions: deliveryInstructions,
-            items: JSON.parse(JSON.stringify(currentCart)),
+            items: enrichedCartItems, // USE THE ENRICHED CART ARRAY HERE
             subtotal: subtotal,
             deliveryFee: DELIVERY_FEE,
             total: total,
@@ -705,8 +635,19 @@ if (downloadReceiptBtn) {
     downloadReceiptBtn.addEventListener('click', function() {
         const orderDetailsString = this.dataset.orderDetails;
         if (orderDetailsString) {
-            const orderDetails = JSON.parse(orderDetailsString);
-            window.generateReceipt(orderDetails);
+            try {
+                const orderDetails = JSON.parse(orderDetailsString);
+                // UPDATED: Call the new global receipt generator
+                if (window.receiptGenerator && typeof window.receiptGenerator.generate === 'function') {
+                    window.receiptGenerator.generate(orderDetails);
+                } else {
+                    console.error("Receipt generator is not available.");
+                    showToast("Error: Could not generate receipt.");
+                }
+            } catch (e) {
+                console.error("Failed to parse order details for receipt:", e);
+                showToast("Could not generate receipt due to a data error.");
+            }
         } else {
             console.error("No order details found for receipt generation.");
             showToast("Could not generate receipt. Order details missing.");
@@ -960,4 +901,4 @@ window.updateCartItemQuantity = updateCartItemQuantity;
 window.removeFromCart = removeFromCart;
 window.addToCart = addToCart;
 window.clearCart = clearCart;
-window.updateCartUI = updateCart
+window.updateCartUI = updateCartUI;
