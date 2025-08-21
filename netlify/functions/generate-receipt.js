@@ -186,7 +186,7 @@ exports.handler = async function (event) {
     doc.font('Helvetica').fontSize(10).fillColor(textGray)
       .text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, pageMargin, payY + 20);
 
-    // ---- QR WITH LOGO ----
+    // ---- QR WITH LOGO (no background) ----
     const orderUrl = `https://towntreasuregroceries.netlify.app/account?order=${order.order_number}`;
     const qrCodeData = await QRCode.toDataURL(orderUrl, { errorCorrectionLevel: 'H' });
 
@@ -195,26 +195,25 @@ exports.handler = async function (event) {
     const qrY = payY + 45;
     doc.image(qrCodeData, qrX, qrY, { width: qrSize });
 
-    // Overlay logo in QR
+    // Overlay logo directly (no white background)
     if (fs.existsSync(logoPath)) {
-      const logoSize = qrSize * 0.3; // 30% of QR size
+      const logoSize = qrSize * 0.3;
       const logoX = qrX + (qrSize - logoSize) / 2;
       const logoY = qrY + (qrSize - logoSize) / 2;
-      doc.rect(logoX, logoY, logoSize, logoSize).fill('#FFFFFF');
       doc.image(logoPath, logoX, logoY, { width: logoSize, height: logoSize });
     }
 
     doc.fillColor(textGray).text('Scan to view your order online.', qrX, qrY + qrSize + 10);
 
-    // ---- COMPANY INFO (right side, aligned with QR) ----
+    // ---- COMPANY INFO (right side, reordered) ----
     const companyY = payY;
     doc.font('Helvetica').fontSize(9).fillColor(textGray);
     const companyX = pageWidth - pageMargin - 200;
+
     doc.text('Town Treasure Groceries', companyX, companyY, { width: 200, align: 'right' })
        .text('City Park Market, Limuru Road', companyX, companyY + 12, { width: 200, align: 'right' })
-       .text('Tel: 0720559925 / 0708567696', companyX, companyY + 36, { width: 200, align: 'right' })
-       .text('Nairobi, Kenya', companyX, companyY + 24, { width: 200, align: 'right' });
-       
+       .text('Tel: 0720559925 / 0708567696', companyX, companyY + 24, { width: 200, align: 'right' }) // moved up
+       .text('Nairobi, Kenya', companyX, companyY + 36, { width: 200, align: 'right' });              // moved down
 
     // ---- FOOTER ----
     const footerY = doc.page.height - 100;
