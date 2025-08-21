@@ -6,7 +6,6 @@ const path = require('path');
 const fs = require('fs');
 
 // Initialize Supabase client using environment variables
-// Make sure to set these in your Netlify dashboard!
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -22,7 +21,6 @@ exports.handler = async function(event) {
             return { statusCode: 400, body: 'Order ID is required.' };
         }
 
-        // 1. Fetch the complete order details from Supabase
         const { data: order, error } = await supabase
             .from('paid_orders')
             .select('*')
@@ -37,92 +35,84 @@ exports.handler = async function(event) {
         const buffers = [];
         doc.on('data', buffers.push.bind(buffers));
 
-        // --- AMENDMENT: Helper function for drawing horizontal lines ---
-        function drawHr(y) {
-            doc.strokeColor("#aaaaaa")
-               .lineWidth(1)
-               .moveTo(50, y)
-               .lineTo(550, y)
-               .stroke();
-        }
+        // --- STYLING AMENDMENTS ---
+        const brandColor = '#2E7D32'; // A nice green from your theme
+        const lightGray = '#E5E7EB';
+        const darkGray = '#4B5563';
+        const textGray = '#6B7280';
 
-        // --- AMENDMENT: Add Logo and Header ---
-        // IMPORTANT: Place your logo image in your project, e.g., at the root in an `assets` folder.
-        // The path here is relative to the function's location at build time.
-        // Let's assume you have an 'IMAGE/LOG.png' at your project root.
+        // --- HEADER ---
         const logoPath = path.resolve(__dirname, '..', '..', 'IMAGE', 'LOG.png');
         if (fs.existsSync(logoPath)) {
             doc.image(logoPath, 50, 45, { width: 100 });
-        } else {
-            doc.fontSize(20).text('Town Treasure Groceries', 50, 57);
         }
 
         doc.fontSize(10)
+           .font('Helvetica')
+           .fillColor(textGray)
            .text('Town Treasure Groceries', 200, 50, { align: 'right' })
            .text('City Park Market, Limuru Road', 200, 65, { align: 'right' })
            .text('Nairobi, Kenya', 200, 80, { align: 'right' });
-        doc.moveDown(3);
-
-        drawHr(doc.y);
-        doc.moveDown();
-
-        // --- AMENDMENT: Add Customer Details and Order Info ---
-        doc.fontSize(12).font('Helvetica-Bold').text('Receipt', { align: 'center' });
-        doc.moveDown();
-
-        const customerInfoTop = doc.y;
-        doc.fontSize(10).font('Helvetica-Bold');
-        doc.text('Bill To:', 50, customerInfoTop);
-        doc.text('Order Details:', 350, customerInfoTop);
-
-        doc.font('Helvetica');
-        doc.text(order.full_name, 50, customerInfoTop + 15);
-        doc.text(order.address, 50, customerInfoTop + 30);
-        doc.text(order.phone, 50, customerInfoTop + 45);
-
-        // --- AMENDMENT: Add M-Pesa Code and other order details ---
-        doc.text(`Order Number: ${order.order_number}`, 350, customerInfoTop + 15);
-        doc.text(`Order Date: ${new Date(order.created_at).toLocaleDateString()}`, 350, customerInfoTop + 30);
-        doc.text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, 350, customerInfoTop + 45);
         doc.moveDown(4);
 
-        // --- AMENDMENT: Create a professional-looking table for items ---
-        const invoiceTableTop = doc.y;
-        doc.font('Helvetica-Bold');
-        doc.text('Item Description', 50, invoiceTableTop);
-        doc.text('Qty', 280, invoiceTableTop, { width: 90, align: 'center' });
-        doc.text('Unit Price', 370, invoiceTableTop, { width: 90, align: 'right' });
-        doc.text('Total', 0, invoiceTableTop, { align: 'right' });
-        doc.font('Helvetica');
-        drawHr(doc.y + 15);
-        doc.moveDown();
+        // --- TITLE AND ORDER DETAILS ---
+        doc.fontSize(20).font('Helvetica-Bold').fillColor(darkGray).text('Receipt', 50, 140);
+        doc.moveDown(0.5);
 
+        const detailsTop = 145;
+        doc.fontSize(10).font('Helvetica');
+        doc.fillColor(textGray).text(`Order Number: ${order.order_number}`, 400, detailsTop);
+        doc.fillColor(textGray).text(`Order Date: ${new Date(order.created_at).toLocaleDateString()}`, 400, detailsTop + 15);
+        doc.fillColor(brandColor).font('Helvetica-Bold').text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, 400, detailsTop + 30);
+        doc.moveDown(3);
+
+        // --- BILL TO SECTION ---
+        doc.fontSize(10).font('Helvetica-Bold').fillColor(darkGray).text('Bill To:', 50);
+        doc.font('Helvetica').fillColor(textGray).text(order.full_name);
+        doc.text(order.address);
+        doc.text(order.phone);
+        doc.moveDown(2);
+
+
+        // --- ITEMS TABLE ---
+        const tableTop = doc.y;
+        doc.font('Helvetica-Bold').fillColor(darkGray);
+
+        // Table Header with background
+        doc.rect(50, tableTop, 510, 20).fill(lightGray);
+        doc.fillColor(darkGray).text('Item Description', 60, tableTop + 5, { width: 220 });
+        doc.text('Qty', 290, tableTop + 5, { width: 50, align: 'center' });
+        doc.text('Unit Price', 350, tableTop + 5, { width: 90, align: 'right' });
+        doc.text('Total', 450, tableTop + 5, { width: 90, align: 'right' });
+        
         let i = 0;
+        doc.font('Helvetica').fillColor(textGray);
         order.items.forEach(item => {
-            const y = doc.y;
-            doc.text(item.name, 50, y);
-            doc.text(item.quantity.toString(), 280, y, { width: 90, align: 'center' });
-            doc.text(`KSh ${item.price.toLocaleString()}`, 370, y, { width: 90, align: 'right' });
-            doc.text(`KSh ${(item.quantity * item.price).toLocaleString()}`, 0, y, { align: 'right' });
-            doc.moveDown();
+            const y = tableTop + 25 + (i * 25);
+            doc.text(item.name, 60, y, { width: 220 });
+            doc.text(item.quantity.toString(), 290, y, { width: 50, align: 'center' });
+            doc.text(`KSh ${item.price.toLocaleString()}`, 350, y, { width: 90, align: 'right' });
+            doc.text(`KSh ${(item.quantity * item.price).toLocaleString()}`, 450, y, { width: 90, align: 'right' });
             i++;
         });
 
-        drawHr(doc.y);
-        doc.moveDown();
+        // --- TOTAL ---
+        const totalY = tableTop + 30 + (i * 25);
+        doc.font('Helvetica-Bold').fillColor(brandColor);
+        doc.fontSize(14).text(`Total Paid: KSh ${order.total.toLocaleString()}`, 50, totalY, { align: 'right' });
+        doc.moveDown(4);
 
-        // --- Summary section ---
-        doc.font('Helvetica-Bold');
-        doc.text(`Total Paid: KSh ${order.total.toLocaleString()}`, { align: 'right' });
-        doc.font('Helvetica');
-        doc.moveDown(3);
+        // --- FOOTER ---
+        const footerY = doc.page.height - 100;
+        doc.moveTo(50, footerY).lineTo(560, footerY).stroke(lightGray);
+        doc.fontSize(10).font('Helvetica').fillColor(textGray)
+           .text('Thank you for your business. We appreciate you!', 50, footerY + 15, { align: 'center', width: 510 });
 
-        // --- Footer ---
-        doc.fontSize(10).text('Thank you for your business. We appreciate you!', { align: 'center', width: 500 });
+
+        // --- END OF STYLING ---
 
         doc.end();
 
-        // Return the PDF as a base64 encoded string
         return new Promise(resolve => {
             doc.on('end', () => {
                 const pdfData = Buffer.concat(buffers);
