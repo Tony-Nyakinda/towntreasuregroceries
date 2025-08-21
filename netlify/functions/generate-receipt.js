@@ -39,7 +39,7 @@ exports.handler = async function (event) {
     const buffers = [];
     doc.on('data', buffers.push.bind(buffers));
 
-    // --- THEME & LAYOUT ---
+    // --- THEME ---
     const brandGreen = '#64B93E';
     const brandDark = '#333D44';
     const lightGray = '#F2F2F2';
@@ -50,7 +50,7 @@ exports.handler = async function (event) {
 
     const KES = (n) => `KSh ${Number(n || 0).toLocaleString('en-KE')}`;
 
-    // ---- HEADER SHAPES ----
+    // ---- HEADER BACKGROUND ----
     doc.save()
       .moveTo(0, 0).lineTo(pageWidth, 0).lineTo(pageWidth, 120)
       .quadraticCurveTo(pageWidth / 2, 180, 0, 120)
@@ -114,13 +114,7 @@ exports.handler = async function (event) {
 
     // ---- TABLE HEADER ----
     const tableTop = Math.max(y, 300);
-    const col = {
-      sl: 40,
-      gap: 10,
-      unit: 90,
-      qty: 60,
-      total: 90,
-    };
+    const col = { sl: 40, gap: 10, unit: 90, qty: 60, total: 90 };
     col.desc = contentWidth - (col.sl + col.gap * 4 + col.unit + col.qty + col.total);
 
     doc.rect(pageMargin, tableTop, contentWidth, 28).fill(brandDark);
@@ -135,7 +129,6 @@ exports.handler = async function (event) {
     let rowY = tableTop + 28;
     let zebra = false;
     let subtotal = 0;
-
     doc.font('Helvetica').fillColor(brandDark);
 
     for (let i = 0; i < items.length; i++) {
@@ -167,14 +160,13 @@ exports.handler = async function (event) {
 
     // ---- SEPARATOR ----
     const sepY = rowY + 6;
-    doc.moveTo(pageMargin, sepY).lineTo(pageWidth - pageMargin, sepY)
-      .lineWidth(1).strokeColor('#CCCCCC').stroke();
+    doc.moveTo(pageMargin, sepY).lineTo(pageWidth - pageMargin, sepY).lineWidth(1).strokeColor('#CCCCCC').stroke();
 
     // ---- TOTALS ----
     const totalsY = sepY + 16;
     const labelW = 110;
     const valueW = 110;
-    const boxW = labelW + valueW + 20; // wider box
+    const boxW = labelW + valueW + 20;
     const boxX = pageMargin + contentWidth - boxW;
 
     doc.font('Helvetica').fontSize(10).fillColor(brandDark);
@@ -182,20 +174,13 @@ exports.handler = async function (event) {
     doc.text(KES(subtotal), boxX + labelW, totalsY, { width: valueW, align: 'right' });
 
     const gtY = totalsY + 28;
-    doc.rect(boxX, gtY, boxW, 28).fill(brandGreen); // full width box for label + value
+    doc.rect(boxX, gtY, boxW, 28).fill(brandGreen);
     doc.font('Helvetica-Bold').fillColor('#FFFFFF');
     doc.text('Grand Total:', boxX, gtY + 7, { width: labelW, align: 'right' });
     doc.text(KES(order.total ?? subtotal), boxX + labelW, gtY + 7, { width: valueW, align: 'right' });
 
-    // ---- COMPANY INFO MOVED HERE ----
-    const infoY = gtY + 40;
-    doc.font('Helvetica').fontSize(9).fillColor(textGray)
-      .text('Town Treasure Groceries', pageMargin, infoY)
-      .text('City Park Market, Limuru Road', pageMargin, infoY + 12)
-      .text('Nairobi, Kenya', pageMargin, infoY + 24);
-
-    // ---- PAYMENT DETAILS ----
-    const payY = infoY + 50;
+    // ---- PAYMENT DETAILS (left) ----
+    const payY = gtY + 50;
     doc.font('Helvetica-Bold').fontSize(12).fillColor(brandDark)
       .text('Payment Details:', pageMargin, payY);
     doc.font('Helvetica').fontSize(10).fillColor(textGray)
@@ -205,6 +190,15 @@ exports.handler = async function (event) {
     const qrCodeData = await QRCode.toDataURL(orderUrl);
     doc.image(qrCodeData, pageMargin, payY + 45, { width: 80 });
     doc.fillColor(textGray).text('Scan to view your order online.', pageMargin, payY + 130);
+
+    // ---- COMPANY INFO (moved to right side, aligned with QR) ----
+    const companyY = payY;
+    doc.font('Helvetica').fontSize(9).fillColor(textGray);
+    const companyX = pageWidth - pageMargin - 200; // right-aligned block
+    doc.text('Town Treasure Groceries', companyX, companyY, { width: 200, align: 'right' })
+       .text('City Park Market, Limuru Road', companyX, companyY + 12, { width: 200, align: 'right' })
+       .text('Nairobi, Kenya', companyX, companyY + 24, { width: 200, align: 'right' })
+       .text('Tel: 0720559925 / 0708567696', companyX, companyY + 36, { width: 200, align: 'right' });
 
     // ---- FOOTER ----
     const footerY = doc.page.height - 100;
