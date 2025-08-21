@@ -42,11 +42,11 @@ exports.handler = async function(event) {
         const textGray = '#6B7280';
 
         // --- HEADER ---
-        // --- AMENDMENT 1: Corrected Logo Path ---
-        // This path now correctly looks for the IMAGE folder from the project root.
-        const logoPath = path.resolve(__dirname, '..', '..', 'IMAGE', 'Preloader.png');
+        // --- AMENDMENT 1: Logo Path (Final Fix) ---
+        // This path now correctly looks for the logo in the SAME directory as this script.
+        const logoPath = path.resolve(__dirname, 'Preloader.png');
         if (fs.existsSync(logoPath)) {
-            doc.image(logoPath, 50, 45, { width: 20 });
+            doc.image(logoPath, 50, 45, { width: 100 });
         }
 
         doc.fontSize(10)
@@ -61,8 +61,6 @@ exports.handler = async function(event) {
         doc.fontSize(20).font('Helvetica-Bold').fillColor(darkGray).text('Receipt', 50, 140);
         doc.moveDown(0.5);
 
-        // --- AMENDMENT 2: Corrected Timezone and Format ---
-        // This explicitly sets the timezone to Africa/Nairobi (EAT) and forces AM/PM format.
         const orderDateTime = new Date(order.created_at).toLocaleString('en-KE', {
             dateStyle: 'short',
             timeStyle: 'short',
@@ -70,11 +68,15 @@ exports.handler = async function(event) {
             hour12: true
         });
 
-        const detailsTop = 145;
+        // --- AMENDMENT 2: Text Overlap Corrected ---
+        // Manually controlling the vertical position of each line to guarantee spacing.
+        let detailsY = 145;
         doc.fontSize(10).font('Helvetica');
-        doc.fillColor(textGray).text(`Order Number: ${order.order_number}`, 400, detailsTop);
-        doc.fillColor(textGray).text(`Order Date: ${orderDateTime}`, 400, detailsTop + 15);
-        doc.fillColor(brandColor).font('Helvetica-Bold').text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, 400, detailsTop + 30);
+        doc.fillColor(textGray).text(`Order Number: ${order.order_number}`, 400, detailsY);
+        detailsY += 15; // Move down 15 points
+        doc.fillColor(textGray).text(`Order Date: ${orderDateTime}`, 400, detailsY);
+        detailsY += 15; // Move down another 15 points
+        doc.fillColor(brandColor).font('Helvetica-Bold').text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, 400, detailsY);
         doc.moveDown(3);
 
         // --- BILL TO SECTION ---
@@ -95,8 +97,6 @@ exports.handler = async function(event) {
         doc.text('Total', 450, tableTop + 5, { width: 90, align: 'right' });
         
         const itemsStartY = tableTop + 25;
-        // --- AMENDMENT 3: Reverted Item Font ---
-        // The font is now back to the standard Helvetica for a clean, consistent look.
         doc.font('Helvetica').fontSize(10).fillColor(textGray);
         order.items.forEach((item, i) => {
             const y = itemsStartY + (i * 25);
