@@ -186,15 +186,30 @@ exports.handler = async function (event) {
     doc.font('Helvetica').fontSize(10).fillColor(textGray)
       .text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, pageMargin, payY + 20);
 
+    // ---- QR WITH LOGO ----
     const orderUrl = `https://towntreasuregroceries.netlify.app/account?order=${order.order_number}`;
-    const qrCodeData = await QRCode.toDataURL(orderUrl);
-    doc.image(qrCodeData, pageMargin, payY + 45, { width: 80 });
-    doc.fillColor(textGray).text('Scan to view your order online.', pageMargin, payY + 130);
+    const qrCodeData = await QRCode.toDataURL(orderUrl, { errorCorrectionLevel: 'H' });
 
-    // ---- COMPANY INFO (moved to right side, aligned with QR) ----
+    const qrSize = 120;
+    const qrX = pageMargin;
+    const qrY = payY + 45;
+    doc.image(qrCodeData, qrX, qrY, { width: qrSize });
+
+    // Overlay logo in QR
+    if (fs.existsSync(logoPath)) {
+      const logoSize = qrSize * 0.3; // 30% of QR size
+      const logoX = qrX + (qrSize - logoSize) / 2;
+      const logoY = qrY + (qrSize - logoSize) / 2;
+      doc.rect(logoX, logoY, logoSize, logoSize).fill('#FFFFFF');
+      doc.image(logoPath, logoX, logoY, { width: logoSize, height: logoSize });
+    }
+
+    doc.fillColor(textGray).text('Scan to view your order online.', qrX, qrY + qrSize + 10);
+
+    // ---- COMPANY INFO (right side, aligned with QR) ----
     const companyY = payY;
     doc.font('Helvetica').fontSize(9).fillColor(textGray);
-    const companyX = pageWidth - pageMargin - 200; // right-aligned block
+    const companyX = pageWidth - pageMargin - 200;
     doc.text('Town Treasure Groceries', companyX, companyY, { width: 200, align: 'right' })
        .text('City Park Market, Limuru Road', companyX, companyY + 12, { width: 200, align: 'right' })
        .text('Tel: 0720559925 / 0708567696', companyX, companyY + 36, { width: 200, align: 'right' })
