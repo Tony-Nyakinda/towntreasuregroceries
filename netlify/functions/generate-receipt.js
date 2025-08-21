@@ -35,14 +35,14 @@ exports.handler = async function (event) {
     const buffers = [];
     doc.on('data', buffers.push.bind(buffers));
 
-    // --- COLORS & STYLING ---
+    // --- COLORS ---
     const brandColorGreen = '#64B93E';
     const brandColorDark = '#333D44';
     const lightGray = '#F2F2F2';
     const textGray = '#6B7280';
     const pageMargin = 50;
 
-    // --- HELPER FUNCTION: TABLE ROWS ---
+    // --- TABLE ROW HELPER ---
     function generateTableRow(y, itemNumber, description, unitPrice, quantity, total) {
       const rowIsEven = parseInt(itemNumber) % 2 === 0;
       if (rowIsEven) {
@@ -93,7 +93,7 @@ exports.handler = async function (event) {
       .text('Receipt No:', 350, infoTop)
       .text('Order Date:', 350, infoTop + 15);
 
-    // Format date with time (AM/PM)
+    // Format with time AM/PM
     const orderDate = new Date(order.created_at).toLocaleString('en-KE', {
       year: 'numeric',
       month: '2-digit',
@@ -112,15 +112,22 @@ exports.handler = async function (event) {
     doc.fontSize(12).font('Helvetica-Bold').fillColor(brandColorDark).text('BILLED TO:', pageMargin, billToTop);
 
     let billToY = billToTop + 20;
-    doc.font('Helvetica').fillColor(textGray).fontSize(10)
-      .text(order.full_name, pageMargin, billToY);
-    billToY += 18;
-    doc.text(order.address, pageMargin, billToY);
-    billToY += 18;
-    doc.text(order.phone, pageMargin, billToY);
+    doc.font('Helvetica').fillColor(textGray).fontSize(10);
+    if (order.full_name) {
+      doc.text(order.full_name, pageMargin, billToY);
+      billToY += 18;
+    }
+    if (order.address) {
+      doc.text(order.address, pageMargin, billToY);
+      billToY += 18;
+    }
+    if (order.phone) {
+      doc.text(order.phone, pageMargin, billToY);
+      billToY += 18;
+    }
 
     // --- TABLE HEADER ---
-    const tableTop = 350;
+    const tableTop = billToY + 40;
     doc.rect(pageMargin, tableTop, doc.page.width - pageMargin * 2, 30).fill(brandColorDark);
     doc.fontSize(10).fillColor('#FFF')
       .text('SL No.', pageMargin + 15, tableTop + 10)
@@ -146,8 +153,16 @@ exports.handler = async function (event) {
       itemY += 25;
     });
 
+    // --- SEPARATOR LINE UNDER TABLE ---
+    const separatorY = itemY + 10;
+    doc.moveTo(pageMargin, separatorY)
+      .lineTo(doc.page.width - pageMargin, separatorY)
+      .strokeColor('#CCCCCC')
+      .lineWidth(1)
+      .stroke();
+
     // --- TOTALS ---
-    const totalsTop = itemY + 20;
+    const totalsTop = separatorY + 20;
     doc.fontSize(10).fillColor(brandColorDark)
       .text('Sub Total:', doc.page.width - pageMargin - 100, totalsTop, { align: 'right' })
       .text(`KSh ${subtotal.toLocaleString()}`, doc.page.width - pageMargin, totalsTop, { align: 'right' });
@@ -158,9 +173,10 @@ exports.handler = async function (event) {
       .text('Grand Total:', doc.page.width - pageMargin - 100, grandTotalY + 7, { align: 'right' })
       .text(`KSh ${order.total.toLocaleString()}`, doc.page.width - pageMargin, grandTotalY + 7, { align: 'right' });
 
-    // --- PAYMENT DETAILS & QR CODE ---
-    const paymentTop = grandTotalY + 50;
-    doc.font('Helvetica-Bold').fontSize(12).fillColor(brandColorDark).text('Payment Details:', pageMargin, paymentTop);
+    // --- PAYMENT DETAILS ---
+    const paymentTop = grandTotalY + 60;
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(brandColorDark)
+      .text('Payment Details:', pageMargin, paymentTop);
     doc.font('Helvetica').fontSize(10).fillColor(textGray)
       .text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, pageMargin, paymentTop + 20);
 
