@@ -252,6 +252,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const fetchedProducts = await getProducts();
     // Ensure allProducts is populated from the 'all' category of getProducts
     allProducts = fetchedProducts.all;
+    // FIX: Store the complete product list on the window object so other scripts can access it.
+    window.allProducts = allProducts;
+
 
     // Load initial wholesale products
     await displayWholesaleProducts();
