@@ -186,7 +186,7 @@ exports.handler = async function (event) {
     doc.font('Helvetica').fontSize(10).fillColor(textGray)
       .text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, pageMargin, payY + 20);
 
-    // ---- QR WITH LOGO (white circle background + dark green border) ----
+    // ---- QR WITH LOGO + WHITE CIRCLE + THICK BORDER ----
     const orderUrl = `https://towntreasuregroceries.netlify.app/account?order=${order.order_number}`;
     const qrCodeData = await QRCode.toDataURL(orderUrl, { errorCorrectionLevel: 'H' });
 
@@ -199,21 +199,26 @@ exports.handler = async function (event) {
       const logoSize = qrSize * 0.3;
       const centerX = qrX + qrSize / 2;
       const centerY = qrY + qrSize / 2;
-      const circleRadius = logoSize / 2 + 6; // padding around logo
+      const circleRadius = logoSize / 2 + 10; // more breathing space
 
-      // Circle background + border
+      // White fill
       doc.save()
         .circle(centerX, centerY, circleRadius)
         .fill('#FFFFFF')
-        .strokeColor(brandDark)
-        .lineWidth(2)
-        .stroke();
+        .restore();
 
-      // Place logo on top
+      // Dark green border (visible & thick)
+      doc.save()
+        .circle(centerX, centerY, circleRadius)
+        .strokeColor(brandDark)
+        .lineWidth(6)
+        .stroke()
+        .restore();
+
+      // Logo in center
       const logoX = centerX - logoSize / 2;
       const logoY = centerY - logoSize / 2;
       doc.image(logoPath, logoX, logoY, { width: logoSize, height: logoSize });
-      doc.restore();
     }
 
     doc.fillColor(textGray).text('Scan to view your order online.', qrX, qrY + qrSize + 10);
