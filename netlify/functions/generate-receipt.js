@@ -4,7 +4,7 @@ const { createClient } = require('@supabase/supabase-js');
 const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
-const QRCode = require('qrcode'); // Import the new QR code library
+const QRCode = require('qrcode');
 
 // Initialize Supabase client using environment variables
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -38,42 +38,51 @@ exports.handler = async function(event) {
 
         // --- STYLING DEFINITIONS ---
         const brandColor = '#2E7D32';
-        const lightGray = '#F3F4F6'; // Lighter gray for backgrounds
+        const lightGray = '#F3F4F6';
         const darkGray = '#374151';
         const textGray = '#6B7280';
 
         // --- MODERN HEADER ---
-        doc.rect(0, 0, doc.page.width, 100).fill(lightGray);
+        doc.rect(0, 0, doc.page.width, 90).fill(lightGray); // Made header slightly smaller
+
         const logoPath = path.resolve(__dirname, 'Preloader.png');
         if (fs.existsSync(logoPath)) {
-            doc.image(logoPath, 50, 25, { width: 100 });
+            // --- AMENDMENT 1: Moved logo higher ---
+            doc.image(logoPath, 50, 20, { width: 90 }); // Adjusted Y-coordinate from 25 to 20
         }
+
         doc.fontSize(10).font('Helvetica').fillColor(textGray)
-           .text('Town Treasure Groceries', doc.page.width - 200, 35, { align: 'right', width: 150 })
-           .text('City Park Market, Limuru Road', doc.page.width - 200, 50, { align: 'right', width: 150 })
-           .text('Nairobi, Kenya', doc.page.width - 200, 65, { align: 'right', width: 150 });
+           .text('Town Treasure Groceries', doc.page.width - 200, 30, { align: 'right', width: 150 })
+           .text('City Park Market, Limuru Road', doc.page.width - 200, 45, { align: 'right', width: 150 })
+           .text('Nairobi, Kenya', doc.page.width - 200, 60, { align: 'right', width: 150 });
 
         // --- RECEIPT TITLE ---
-        doc.fontSize(24).font('Helvetica-Bold').fillColor(darkGray).text('Receipt', 50, 130);
-        doc.moveTo(50, 160).lineTo(doc.page.width - 50, 160).stroke(lightGray); // Horizontal line
+        doc.fontSize(24).font('Helvetica-Bold').fillColor(darkGray).text('Receipt', 50, 120);
+        doc.moveTo(50, 150).lineTo(doc.page.width - 50, 150).stroke(lightGray);
 
         // --- ORDER & CUSTOMER INFO ---
-        const infoTop = 180;
+        const infoTop = 170;
         doc.fontSize(10).font('Helvetica-Bold').fillColor(darkGray)
            .text('BILLED TO', 50, infoTop)
            .text('ORDER DETAILS', 300, infoTop);
 
-        doc.font('Helvetica').fillColor(textGray)
-           .text(order.full_name, 50, infoTop + 15)
-           .text(order.address, 50, infoTop + 30, { width: 200 })
-           .text(order.phone, 50, infoTop + 45)
-           .text(`Order Number: ${order.order_number}`, 300, infoTop + 15)
+        doc.font('Helvetica').fillColor(textGray);
+
+        // --- AMENDMENT 2: Fixed "BILLED TO" text overlap ---
+        let billToY = infoTop + 15;
+        doc.text(order.full_name, 50, billToY);
+        billToY += 15; // Manually increase Y position for the next line
+        doc.text(order.address, 50, billToY, { width: 200 });
+        billToY += 15; // Manually increase Y position for the next line
+        doc.text(order.phone, 50, billToY);
+
+        doc.text(`Order Number: ${order.order_number}`, 300, infoTop + 15)
            .text(`Order Date: ${new Date(order.created_at).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Nairobi' })}`, 300, infoTop + 30)
            .font('Helvetica-Bold').fillColor(brandColor)
            .text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, 300, infoTop + 45);
 
         // --- ITEMS TABLE ---
-        const tableTop = 280;
+        const tableTop = 260; // Adjusted table position
         doc.font('Helvetica-Bold');
         doc.rect(50, tableTop, doc.page.width - 100, 25).fill(lightGray);
         doc.fillColor(darkGray).text('ITEM', 60, tableTop + 8)
@@ -99,13 +108,15 @@ exports.handler = async function(event) {
            .text('Total Paid:', 300, totalY + 10)
            .text(`KSh ${order.total.toLocaleString()}`, 0, totalY + 10, { align: 'right' });
 
-        // --- FOOTER AND QR CODE ---
+        // --- AMENDMENT 3: Realigned footer elements ---
+        const footerY = doc.page.height - 120; // Set a consistent starting point for the footer block
+        // Generate QR code (placeholder URL for now)
         const qrCodeData = await QRCode.toDataURL('https://towntreasuregroceries.netlify.app/');
-        doc.image(qrCodeData, 50, doc.page.height - 150, { width: 80 });
+        doc.image(qrCodeData, 50, footerY, { width: 70 });
 
-        doc.fontSize(10).fillColor(textGray)
-           .text('Scan to visit our website.', 50, doc.page.height - 60)
-           .text('Thank you for your business!', 0, doc.page.height - 100, { align: 'right' });
+        doc.fontSize(9).fillColor(textGray)
+           .text('Scan for our website', 50, footerY + 75) // Positioned text correctly below QR code
+           .text('Thank you for your business!', doc.page.width - 250, footerY + 35, { align: 'right', width: 200 }); // Aligned "Thank you"
 
         doc.end();
 
