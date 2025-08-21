@@ -71,11 +71,18 @@ exports.handler = async function(event) {
            .lineTo(doc.page.width - 400, 0)
            .fill(brandColorDark);
 
+        // --- AMENDMENT 1: Corrected Header Content Layout ---
         const logoPath = path.resolve(__dirname, 'Preloader.png');
         if (fs.existsSync(logoPath)) {
             doc.image(logoPath, pageMargin, 40, { width: 90 });
         }
         
+        let headerTextY = 45;
+        doc.fontSize(10).font('Helvetica').fillColor(brandColorDark)
+            .text('Town Treasure Groceries', 350, headerTextY, { align: 'right' })
+            .text('City Park Market, Limuru Road', 350, headerTextY += 15, { align: 'right' })
+            .text('Nairobi, Kenya', 350, headerTextY += 15, { align: 'right' });
+
         // --- RECEIPT INFO ---
         const infoTop = 180;
         doc.fontSize(20).font('Helvetica-Bold').fillColor(brandColorGreen).text('RECEIPT', pageMargin, infoTop);
@@ -89,13 +96,17 @@ exports.handler = async function(event) {
            .text(order.order_number, 420, infoTop)
            .text(new Date(order.created_at).toLocaleDateString('en-KE'), 420, infoTop + 15);
 
-        // --- BILL TO INFO ---
+        // --- AMENDMENT 2: Corrected "BILLED TO" Overlap ---
         const billToTop = infoTop + 50;
         doc.fontSize(12).font('Helvetica-Bold').fillColor(brandColorDark).text('BILLED TO:', pageMargin, billToTop);
+        
+        let billToY = billToTop + 20;
         doc.font('Helvetica').fillColor(textGray).fontSize(10)
-           .text(order.full_name, pageMargin, billToTop + 20)
-           .text(order.address, pageMargin, billToTop + 35)
-           .text(order.phone, pageMargin, billToTop + 50);
+           .text(order.full_name, pageMargin, billToY);
+        billToY += 18; // Increased vertical spacing
+        doc.text(order.address, pageMargin, billToY);
+        billToY += 18; // Increased vertical spacing
+        doc.text(order.phone, pageMargin, billToY);
 
         // --- TABLE HEADER ---
         const tableTop = 350;
@@ -116,16 +127,17 @@ exports.handler = async function(event) {
             itemY += 25;
         });
 
-        // --- TOTALS SECTION ---
+        // --- AMENDMENT 3: Corrected Totals Section Overlap ---
         const totalsTop = itemY + 20;
         doc.fontSize(10).fillColor(brandColorDark)
            .text('Sub Total:', 400, totalsTop, { align: 'right' })
            .text(`KSh ${subtotal.toLocaleString()}`, 0, totalsTop, { align: 'right' });
            
-        doc.rect(400, totalsTop + 25, doc.page.width - 450, 25).fill(brandColorGreen);
+        const grandTotalY = totalsTop + 20; // Added space between subtotal and grand total
+        doc.rect(400, grandTotalY, doc.page.width - 450, 25).fill(brandColorGreen);
         doc.font('Helvetica-Bold').fillColor('#FFF')
-           .text('Grand Total:', 400, totalsTop + 32, { align: 'right' })
-           .text(`KSh ${order.total.toLocaleString()}`, 0, totalsTop + 32, { align: 'right' });
+           .text('Grand Total:', 400, grandTotalY + 7, { align: 'right' })
+           .text(`KSh ${order.total.toLocaleString()}`, 0, grandTotalY + 7, { align: 'right' });
 
         // --- PAYMENT DETAILS & QR CODE ---
         const paymentTop = itemY + 20;
@@ -133,7 +145,6 @@ exports.handler = async function(event) {
         doc.font('Helvetica').fontSize(10)
            .text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, pageMargin, paymentTop + 20);
 
-        // --- AMENDMENT: Add the dynamic QR code back ---
         const orderUrl = `https://towntreasuregroceries.netlify.app/account?order=${order.order_number}`;
         const qrCodeData = await QRCode.toDataURL(orderUrl);
         doc.image(qrCodeData, pageMargin, paymentTop + 45, { width: 80 });
