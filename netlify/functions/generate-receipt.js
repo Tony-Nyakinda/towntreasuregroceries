@@ -35,14 +35,15 @@ exports.handler = async function(event) {
         const buffers = [];
         doc.on('data', buffers.push.bind(buffers));
 
-        // --- STYLING AMENDMENTS ---
-        const brandColor = '#2E7D32'; // A nice green from your theme
+        // --- STYLING DEFINITIONS ---
+        const brandColor = '#2E7D32';
         const lightGray = '#E5E7EB';
         const darkGray = '#4B5563';
         const textGray = '#6B7280';
 
         // --- HEADER ---
-        const logoPath = path.resolve(__dirname, '..', '..', 'IMAGE', 'LOG.png');
+        // --- AMENDMENT: Corrected the logo path to use Preloader.png ---
+        const logoPath = path.resolve(__dirname, '..', '..', 'IMAGE', 'Preloader.png');
         if (fs.existsSync(logoPath)) {
             doc.image(logoPath, 50, 45, { width: 100 });
         }
@@ -73,12 +74,10 @@ exports.handler = async function(event) {
         doc.text(order.phone);
         doc.moveDown(2);
 
-
         // --- ITEMS TABLE ---
         const tableTop = doc.y;
         doc.font('Helvetica-Bold').fillColor(darkGray);
 
-        // Table Header with background
         doc.rect(50, tableTop, 510, 20).fill(lightGray);
         doc.fillColor(darkGray).text('Item Description', 60, tableTop + 5, { width: 220 });
         doc.text('Qty', 290, tableTop + 5, { width: 50, align: 'center' });
@@ -88,16 +87,21 @@ exports.handler = async function(event) {
         let i = 0;
         doc.font('Helvetica').fillColor(textGray);
         order.items.forEach(item => {
-            const y = tableTop + 25 + (i * 25);
+            const y = tableTop + 25 + (i * 30); // Increased spacing between items
             doc.text(item.name, 60, y, { width: 220 });
             doc.text(item.quantity.toString(), 290, y, { width: 50, align: 'center' });
             doc.text(`KSh ${item.price.toLocaleString()}`, 350, y, { width: 90, align: 'right' });
             doc.text(`KSh ${(item.quantity * item.price).toLocaleString()}`, 450, y, { width: 90, align: 'right' });
+
+            // --- AMENDMENT: Add a light gray line under each item for a "receipt format" ---
+            if (i < order.items.length) { // Don't draw a line after the last item
+                 doc.moveTo(50, y + 20).lineTo(560, y + 20).stroke(lightGray);
+            }
             i++;
         });
 
         // --- TOTAL ---
-        const totalY = tableTop + 30 + (i * 25);
+        const totalY = tableTop + 30 + (i * 30);
         doc.font('Helvetica-Bold').fillColor(brandColor);
         doc.fontSize(14).text(`Total Paid: KSh ${order.total.toLocaleString()}`, 50, totalY, { align: 'right' });
         doc.moveDown(4);
@@ -107,9 +111,6 @@ exports.handler = async function(event) {
         doc.moveTo(50, footerY).lineTo(560, footerY).stroke(lightGray);
         doc.fontSize(10).font('Helvetica').fillColor(textGray)
            .text('Thank you for your business. We appreciate you!', 50, footerY + 15, { align: 'center', width: 510 });
-
-
-        // --- END OF STYLING ---
 
         doc.end();
 
