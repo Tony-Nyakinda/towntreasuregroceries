@@ -186,7 +186,7 @@ exports.handler = async function (event) {
     doc.font('Helvetica').fontSize(10).fillColor(textGray)
       .text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, pageMargin, payY + 20);
 
-    // ---- QR WITH LOGO + WHITE CIRCLE + THICK BORDER ----
+    // ---- QR WITH LOGO (safe size) ----
     const orderUrl = `https://towntreasuregroceries.netlify.app/account?order=${order.order_number}`;
     const qrCodeData = await QRCode.toDataURL(orderUrl, { errorCorrectionLevel: 'H' });
 
@@ -196,26 +196,26 @@ exports.handler = async function (event) {
     doc.image(qrCodeData, qrX, qrY, { width: qrSize });
 
     if (fs.existsSync(logoPath)) {
-      const logoSize = qrSize * 0.3;
+      const logoSize = qrSize * 0.22; // smaller ~22%
       const centerX = qrX + qrSize / 2;
       const centerY = qrY + qrSize / 2;
-      const circleRadius = logoSize / 2 + 10; // more breathing space
+      const circleRadius = logoSize / 2 + 6; // small padding
 
-      // White fill
+      // White circle
       doc.save()
         .circle(centerX, centerY, circleRadius)
         .fill('#FFFFFF')
         .restore();
 
-      // Dark green border (visible & thick)
+      // Dark green border
       doc.save()
         .circle(centerX, centerY, circleRadius)
         .strokeColor(brandDark)
-        .lineWidth(6)
+        .lineWidth(3)
         .stroke()
         .restore();
 
-      // Logo in center
+      // Logo inside
       const logoX = centerX - logoSize / 2;
       const logoY = centerY - logoSize / 2;
       doc.image(logoPath, logoX, logoY, { width: logoSize, height: logoSize });
