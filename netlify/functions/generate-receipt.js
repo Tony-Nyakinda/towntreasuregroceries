@@ -31,7 +31,6 @@ exports.handler = async function (event) {
       throw new Error('Order not found or could not be fetched.');
     }
 
-    // Normalize items in case they’re stored as JSON string
     const items = Array.isArray(order.items)
       ? order.items
       : (() => { try { return JSON.parse(order.items || '[]'); } catch { return []; } })();
@@ -69,14 +68,7 @@ exports.handler = async function (event) {
       doc.image(logoPath, pageMargin, 40, { width: 90 });
     }
 
-    // ---- HEADER TEXT (right) ----
-    let headerTextY = 45;
-    doc.fontSize(10).font('Helvetica').fillColor(brandDark)
-      .text('Town Treasure Groceries', pageWidth - pageMargin - 250, headerTextY, { width: 250, align: 'right' })
-      .text('City Park Market, Limuru Road', pageWidth - pageMargin - 250, headerTextY += 15, { width: 250, align: 'right' })
-      .text('Nairobi, Kenya', pageWidth - pageMargin - 250, headerTextY += 15, { width: 250, align: 'right' });
-
-    // ---- TITLE + RECEIPT META ----
+    // ---- RECEIPT INFO ----
     const infoTop = 180;
     doc.font('Helvetica-Bold').fontSize(20).fillColor(brandGreen).text('RECEIPT', pageMargin, infoTop);
     doc.moveTo(pageMargin, infoTop + 25).lineTo(pageMargin + 150, infoTop + 25).stroke(brandGreen);
@@ -85,7 +77,7 @@ exports.handler = async function (event) {
       .text('Receipt No:', pageWidth - pageMargin - 200, infoTop, { width: 100, align: 'left' })
       .text('Order Date:', pageWidth - pageMargin - 200, infoTop + 15, { width: 100, align: 'left' });
 
-    // Local time in Nairobi (no more 3-hour lag)
+    // Local time in Nairobi
     const orderDateStr = new Date(order.created_at).toLocaleString('en-KE', {
       timeZone: 'Africa/Nairobi',
       year: 'numeric',
@@ -100,7 +92,7 @@ exports.handler = async function (event) {
       .text(String(order.order_number || ''), pageWidth - pageMargin - 100, infoTop, { width: 100, align: 'right' })
       .text(orderDateStr, pageWidth - pageMargin - 100, infoTop + 15, { width: 100, align: 'right' });
 
-    // ---- BILLED TO (dynamic lines, no overlap) ----
+    // ---- BILLED TO ----
     const billToTop = infoTop + 50;
     doc.font('Helvetica-Bold').fontSize(12).fillColor(brandDark).text('BILLED TO:', pageMargin, billToTop);
 
@@ -111,14 +103,13 @@ exports.handler = async function (event) {
       if (!line) return;
       const h = doc.heightOfString(String(line), { width: 260 });
       doc.text(String(line), pageMargin, y, { width: 260 });
-      y += h + 6; // 6px breathing space
+      y += h + 6;
     };
 
     addLine(order.full_name);
     addLine(order.address);
     addLine(order.phone);
 
-    // Ensure some space before table
     y += 12;
 
     // ---- TABLE HEADER ----
@@ -132,7 +123,6 @@ exports.handler = async function (event) {
     };
     col.desc = contentWidth - (col.sl + col.gap * 4 + col.unit + col.qty + col.total);
 
-    // Header bar
     doc.rect(pageMargin, tableTop, contentWidth, 28).fill(brandDark);
     doc.fontSize(10).fillColor('#FFFFFF').font('Helvetica-Bold');
     doc.text('SL No.', pageMargin + 8, tableTop + 9, { width: col.sl - 16, align: 'left' });
@@ -141,7 +131,7 @@ exports.handler = async function (event) {
     doc.text('Quantity', pageMargin + col.sl + col.gap + col.desc + col.gap + col.unit + col.gap, tableTop + 9, { width: col.qty, align: 'center' });
     doc.text('Total', pageMargin + col.sl + col.gap + col.desc + col.gap + col.unit + col.gap + col.qty + col.gap, tableTop + 9, { width: col.total, align: 'right' });
 
-    // ---- TABLE ROWS (dynamic height) ----
+    // ---- TABLE ROWS ----
     let rowY = tableTop + 28;
     let zebra = false;
     let subtotal = 0;
@@ -156,11 +146,8 @@ exports.handler = async function (event) {
       const total = qty * price;
       subtotal += total;
 
-      const descH = Math.max(
-        12,
-        doc.heightOfString(name || '-', { width: col.desc })
-      );
-      const rowH = Math.max(24, descH + 12); // padding
+      const descH = Math.max(12, doc.heightOfString(name || '-', { width: col.desc }));
+      const rowH = Math.max(24, descH + 12);
 
       if (zebra) {
         doc.rect(pageMargin, rowY, contentWidth, rowH).fill(lightGray);
@@ -168,7 +155,6 @@ exports.handler = async function (event) {
       }
       zebra = !zebra;
 
-      // cells
       doc.fontSize(10);
       doc.text(String(i + 1).padStart(2, '0'), pageMargin + 8, rowY + 8, { width: col.sl - 16, align: 'left' });
       doc.text(name || '-', pageMargin + col.sl + col.gap, rowY + 8, { width: col.desc });
@@ -179,31 +165,37 @@ exports.handler = async function (event) {
       rowY += rowH;
     }
 
-    // ---- SEPARATOR BELOW TABLE ----
+    // ---- SEPARATOR ----
     const sepY = rowY + 6;
     doc.moveTo(pageMargin, sepY).lineTo(pageWidth - pageMargin, sepY)
       .lineWidth(1).strokeColor('#CCCCCC').stroke();
 
-    // ---- TOTALS (right aligned boxes; no overlap) ----
+    // ---- TOTALS ----
     const totalsY = sepY + 16;
     const labelW = 110;
     const valueW = 110;
-    const valueX = pageMargin + contentWidth - valueW;
-    const labelX = valueX - labelW;
+    const boxW = labelW + valueW + 20; // wider box
+    const boxX = pageMargin + contentWidth - boxW;
 
     doc.font('Helvetica').fontSize(10).fillColor(brandDark);
-    doc.text('Sub Total:', labelX, totalsY, { width: labelW, align: 'right' });
-    doc.text(KES(subtotal), valueX, totalsY, { width: valueW, align: 'right' });
+    doc.text('Sub Total:', boxX, totalsY, { width: labelW, align: 'right' });
+    doc.text(KES(subtotal), boxX + labelW, totalsY, { width: valueW, align: 'right' });
 
-    const gtY = totalsY + 26;
-    // grand total background box
-    doc.rect(valueX - 10, gtY, valueW + 10, 26).fill(brandGreen);
+    const gtY = totalsY + 28;
+    doc.rect(boxX, gtY, boxW, 28).fill(brandGreen); // full width box for label + value
     doc.font('Helvetica-Bold').fillColor('#FFFFFF');
-    doc.text('Grand Total:', labelX, gtY + 6, { width: labelW, align: 'right' });
-    doc.text(KES(order.total ?? subtotal), valueX, gtY + 6, { width: valueW, align: 'right' });
+    doc.text('Grand Total:', boxX, gtY + 7, { width: labelW, align: 'right' });
+    doc.text(KES(order.total ?? subtotal), boxX + labelW, gtY + 7, { width: valueW, align: 'right' });
 
-    // ---- PAYMENT DETAILS & QR (placed after totals) ----
-    const payY = gtY + 48;
+    // ---- COMPANY INFO MOVED HERE ----
+    const infoY = gtY + 40;
+    doc.font('Helvetica').fontSize(9).fillColor(textGray)
+      .text('Town Treasure Groceries', pageMargin, infoY)
+      .text('City Park Market, Limuru Road', pageMargin, infoY + 12)
+      .text('Nairobi, Kenya', pageMargin, infoY + 24);
+
+    // ---- PAYMENT DETAILS ----
+    const payY = infoY + 50;
     doc.font('Helvetica-Bold').fontSize(12).fillColor(brandDark)
       .text('Payment Details:', pageMargin, payY);
     doc.font('Helvetica').fontSize(10).fillColor(textGray)
