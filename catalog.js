@@ -20,20 +20,7 @@ const noResultsMessage = document.getElementById('noResults');
 const paginationContainer = document.getElementById('pagination'); // Parent container for pagination buttons
 const currentPageSpan = document.getElementById('currentPage'); // Span to display current page number
 
-// --- AMENDMENT: Add reference to the download receipt button ---
-const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
-
 // DOM Elements - Checkout/Confirmation Modals (can be present on multiple pages)
-const checkoutForm = document.getElementById('checkoutForm');
-const fullNameInput = document.getElementById('fullName');
-const phoneInput = document.getElementById('phone');
-const addressInput = document.getElementById('address');
-const instructionsInput = document.getElementById('instructions');
-const paymentMethodRadios = document.querySelectorAll('input[name="paymentMethod"]');
-const mpesaPaymentDiv = document.getElementById('mpesaPayment');
-const deliveryPaymentDiv = document.getElementById('deliveryPayment');
-const orderNumberSpan = document.getElementById('orderNumber');
-const confirmationMessage = document.getElementById('confirmationMessage');
 const proceedToCheckoutBtn = document.getElementById('proceedToCheckoutBtn');
 
 // DOM Elements - Navigation and User Profile (for mobile sidebar logic)
@@ -304,57 +291,6 @@ async function handleCategoryAndPageFromUrl() {
     }
 }
 
-/**
- * Polls for M-Pesa payment confirmation.
- */
-function waitForPaymentConfirmation(checkoutRequestID) {
-    const pollUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/getPaymentStatus";
-    const POLLING_INTERVAL = 3000;
-    const TIMEOUT_DURATION = 90000;
-
-    let pollIntervalId = null;
-    let timeoutId = null;
-
-    timeoutId = setTimeout(() => {
-        clearInterval(pollIntervalId);
-        hideWaitingModal();
-        showToast("Payment timed out. Please try again or check your M-Pesa account.");
-    }, TIMEOUT_DURATION);
-
-    pollIntervalId = setInterval(async () => {
-        try {
-            const response = await fetch(pollUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ checkoutRequestID }),
-            });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.error || 'Server error during polling.');
-
-            if (result.status === 'paid') {
-                clearInterval(pollIntervalId);
-                clearTimeout(timeoutId);
-                hideWaitingModal();
-                showToast("Payment successful!");
-                showConfirmation(result.finalOrder.order_number, result.finalOrder);
-                clearCart();
-                updateCartUI();
-            } else if (result.status === 'failed' || result.status === 'cancelled') {
-                clearInterval(pollIntervalId);
-                clearTimeout(timeoutId);
-                hideWaitingModal();
-                showToast(`Payment failed: ${result.message}`);
-            }
-        } catch (error) {
-            console.error("Error during polling for payment status:", error);
-            clearInterval(pollIntervalId);
-            clearTimeout(timeoutId);
-            hideWaitingModal();
-            showToast("Error checking payment status. Please check your M-Pesa account.");
-        }
-    }, POLLING_INTERVAL);
-}
-
 // --- Event Listeners ---
 if (categoryTabsContainer) {
     categoryTabsContainer.addEventListener('click', (event) => {
@@ -395,118 +331,10 @@ if (proceedToCheckoutBtn) {
     });
 }
 
-if (checkoutForm) {
-    checkoutForm.addEventListener('submit', async function(event) {
-        event.preventDefault();
-        const placeOrderBtn = this.querySelector('button[type="submit"]');
-        placeOrderBtn.disabled = true;
-        placeOrderBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-
-        if (!auth.currentUser) {
-            showToast("You must be logged in to place an order. Redirecting to login...");
-            setTimeout(() => { window.location.href = 'login.html'; }, 2000);
-            return;
-        }
-
-        const customerName = fullNameInput ? fullNameInput.value : '';
-        const customerPhone = phoneInput ? phoneInput.value : '';
-        const customerAddress = addressInput ? addressInput.value : '';
-        const deliveryInstructions = instructionsInput ? instructionsInput.value : '';
-        const customerEmail = auth.currentUser.email;
-        const selectedPaymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
-        const tempOrderNum = `TTG-${Date.now().toString().slice(-6)}`;
-        const currentCart = getCart();
-        const productsData = await getProducts();
-        const allProds = Array.isArray(productsData.all) ? productsData.all : [];
-        const productsMap = {};
-        allProds.forEach(p => { productsMap[p.id] = p; });
-
-        const enrichedCartItems = currentCart.map(item => {
-            const productDetails = productsMap[item.id];
-            return {
-                ...item,
-                name: productDetails ? productDetails.name : 'Unknown Product',
-                price: productDetails ? productDetails.price : 0,
-                unit: productDetails ? productDetails.unit : ''
-            };
-        });
-
-        const subtotal = enrichedCartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-        const total = subtotal; // Assuming DELIVERY_FEE is 0 or handled elsewhere
-        const userId = auth.currentUser.uid;
-
-        const orderDetails = {
-            orderNumber: tempOrderNum,
-            userId,
-            fullName: customerName,
-            phone: customerPhone,
-            email: customerEmail,
-            address: customerAddress,
-            instructions: deliveryInstructions,
-            items: enrichedCartItems,
-            total,
-            paymentMethod: selectedPaymentMethod,
-            paymentStatus: 'pending',
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        };
-
-        if (selectedPaymentMethod === 'mpesa') {
-            try {
-                const functionUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/initiateMpesaPayment";
-                const mpesaResponse = await fetch(functionUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone: customerPhone, amount: total, orderDetails }),
-                });
-                const mpesaResult = await mpesaResponse.json();
-                if (!mpesaResponse.ok) throw new Error(mpesaResult.error || 'M-Pesa API request failed.');
-                closeCheckout();
-                showWaitingModal();
-                waitForPaymentConfirmation(mpesaResult.checkoutRequestID);
-            } catch (error) {
-                console.error("Error during M-Pesa checkout:", error);
-                showToast(`Checkout failed: ${error.message}. Please try again.`);
-            } finally {
-                placeOrderBtn.disabled = false;
-                placeOrderBtn.innerHTML = 'Place Order';
-            }
-        } else if (selectedPaymentMethod === 'delivery') {
-            try {
-                const { error } = await supabase.from('unpaid_orders').insert([{
-                    order_number: orderDetails.orderNumber,
-                    user_id: orderDetails.userId,
-                    full_name: orderDetails.fullName,
-                    phone: orderDetails.phone,
-                    address: orderDetails.address,
-                    items: orderDetails.items,
-                    total: orderDetails.total,
-                    payment_status: 'unpaid'
-                }]);
-                if (error) throw error;
-                closeCheckout();
-                if (confirmationMessage) confirmationMessage.textContent = "Your order has been placed successfully! Please have your payment ready for our delivery rider.";
-                showConfirmation(tempOrderNum, orderDetails);
-                clearCart();
-                updateCartUI();
-            } catch(error) {
-                console.error("Error placing 'Pay on Delivery' order in Supabase:", error);
-                showToast(`Order placement failed: ${error.message}. Please try again.`);
-            } finally {
-                placeOrderBtn.disabled = false;
-                placeOrderBtn.innerHTML = 'Place Order';
-            }
-        }
-    });
-}
-
-if (paymentMethodRadios) {
-    paymentMethodRadios.forEach(radio => {
-        radio.addEventListener('change', (event) => {
-            mpesaPaymentDiv.classList.toggle('hidden', event.target.value !== 'mpesa');
-            deliveryPaymentDiv.classList.toggle('hidden', event.target.value !== 'delivery');
-        });
-    });
-}
+// --- *** DELETED CONFLICTING CODE *** ---
+// The 'checkoutForm' submit event listener has been removed from this file.
+// The correct version in 'eventListeners.js' will now handle all checkout logic
+// without any conflicts, ensuring the proper order data is used.
 
 if (paginationContainer) {
     paginationContainer.addEventListener('click', (event) => {
@@ -523,61 +351,9 @@ if (paginationContainer) {
     });
 }
 
-// --- AMENDMENT: Added event listener for the receipt download button ---
-if (downloadReceiptBtn) {
-    downloadReceiptBtn.addEventListener('click', async () => {
-        const orderId = downloadReceiptBtn.dataset.orderId;
-
-        if (!orderId) {
-            showToast("Error: Could not find Order ID for receipt.");
-            return;
-        }
-
-        const originalText = downloadReceiptBtn.innerHTML;
-        downloadReceiptBtn.disabled = true;
-        downloadReceiptBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
-
-        try {
-            const response = await fetch('/.netlify/functions/generate-receipt', {
-                method: 'POST',
-                body: JSON.stringify({ orderId: orderId }),
-            });
-
-            if (!response.ok) {
-                const err = await response.json().catch(() => ({ error: 'Receipt generation failed.' }));
-                throw new Error(err.error);
-            }
-
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-
-            const disposition = response.headers.get('content-disposition');
-            let filename = 'receipt.pdf';
-            if (disposition && disposition.includes('attachment')) {
-                const filenameMatch = /filename="([^"]+)"/.exec(disposition);
-                if (filenameMatch && filenameMatch[1]) {
-                    filename = filenameMatch[1];
-                }
-            }
-            
-            a.download = filename;
-            document.body.appendChild(a);
-a.click();
-            window.URL.revokeObjectURL(url);
-            a.remove();
-
-        } catch (error) {
-            console.error('Download error:', error);
-            showToast(`Error: ${error.message}`);
-        } finally {
-            downloadReceiptBtn.disabled = false;
-            downloadReceiptBtn.innerHTML = originalText;
-        }
-    });
-}
+// --- *** DELETED CONFLICTING CODE *** ---
+// The 'downloadReceiptBtn' event listener has been removed from this file.
+// The correct, consolidated version in 'eventListeners.js' now handles this.
 
 function getInitials(name, email) {
     if (name && name.trim() !== '') {
