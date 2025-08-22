@@ -274,8 +274,11 @@ exports.handler = async function (event) {
 
     // ---- PAGE NUMBER ----
     const range = doc.bufferedPageRange();
+    const currentPage = range.start + range.count; // last page index + 1
+    const totalPages = range.count;
+
     doc.font('Helvetica').fontSize(10).fillColor('#FFFFFF')
-      .text(`Page ${doc.page.number} of ${range.count}`, pageWidth - pageMargin - 80, footerY + 35, {
+      .text(`Page ${currentPage} of ${totalPages}`, pageWidth - pageMargin - 80, footerY + 35, {
         width: 80,
         align: 'right',
       });
