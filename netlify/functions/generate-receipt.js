@@ -210,7 +210,7 @@ exports.handler = async function (event) {
       // Dark green border
       doc.save()
         .circle(centerX, centerY, circleRadius)
-        .strokeColor(brandDark)
+        .strokeColor(brandGreen)
         .lineWidth(3)
         .stroke()
         .restore();
