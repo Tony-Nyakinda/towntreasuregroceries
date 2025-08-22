@@ -8,3 +8,4 @@
 # with your deployed functions, which will solve the logo issue.
 [functions]
   included_files = ["netlify/functions/Preloader.png"]
+  included_files = ["netlify/functions/Preloader_stamp.png"]
