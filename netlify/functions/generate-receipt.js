@@ -14,7 +14,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 function addWatermark(doc, text, options = {}) {
   const {
     color = '#E5E7EB',
-    opacity = 0.15,
+    opacity = 0.14,
     fontSize = 60,
     yOffset = 0,
     stamp = false,
