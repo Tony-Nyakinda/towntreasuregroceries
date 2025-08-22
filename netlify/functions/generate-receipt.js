@@ -13,7 +13,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // --- Watermark helper ---
 function addWatermark(doc, text) {
   doc.save();
-  doc.fontSize(60)
+  doc.font('Helvetica-Bold').fontSize(60) // bold + large
     .fillColor('#E5E7EB') // light gray
     .opacity(0.15) // transparent
     .rotate(-30, { origin: [doc.page.width / 2, doc.page.height / 2] })
@@ -93,8 +93,7 @@ exports.handler = async function (event) {
 
     doc.fontSize(10).fillColor(brandDark).font('Helvetica-Bold')
       .text('Receipt No:', pageWidth - pageMargin - 200, infoTop, { width: 100, align: 'left' })
-      .text('Customer ID:', pageWidth - pageMargin - 200, infoTop + 15, { width: 100, align: 'left' })
-      .text('Order Date:', pageWidth - pageMargin - 200, infoTop + 30, { width: 100, align: 'left' });
+      .text('Order Date:', pageWidth - pageMargin - 200, infoTop + 15, { width: 100, align: 'left' });
 
     const orderDateStr = new Date(order.created_at).toLocaleString('en-KE', {
       timeZone: 'Africa/Nairobi',
@@ -108,8 +107,7 @@ exports.handler = async function (event) {
 
     doc.font('Helvetica').fillColor(textGray)
       .text(String(order.order_number || ''), pageWidth - pageMargin - 100, infoTop, { width: 100, align: 'right' })
-      .text(String(order.customer_id || `CUST-${order.id}`), pageWidth - pageMargin - 100, infoTop + 15, { width: 100, align: 'right' })
-      .text(orderDateStr, pageWidth - pageMargin - 100, infoTop + 30, { width: 100, align: 'right' });
+      .text(orderDateStr, pageWidth - pageMargin - 100, infoTop + 15, { width: 100, align: 'right' });
 
     // ---- BILLED TO ----
     const billToTop = infoTop + 50;
@@ -164,10 +162,9 @@ exports.handler = async function (event) {
       const descH = Math.max(12, doc.heightOfString(name || '-', { width: col.desc }));
       const rowH = Math.max(24, descH + 12);
 
-      // If not enough space, add a new page
-      if (rowY + rowH > doc.page.height - 150) {
+      if (rowY + rowH > doc.page.height - 200) {
         doc.addPage();
-        addWatermark(doc, 'Town Treasure Groceries'); // watermark on new page
+        addWatermark(doc, 'Town Treasure Groceries');
         rowY = pageMargin;
         drawTableHeader(rowY);
         rowY += 28;
@@ -190,11 +187,10 @@ exports.handler = async function (event) {
       rowY += rowH;
     }
 
-    // ---- SEPARATOR ----
+    // ---- TOTALS ----
     const sepY = rowY + 6;
     doc.moveTo(pageMargin, sepY).lineTo(pageWidth - pageMargin, sepY).lineWidth(1).strokeColor('#CCCCCC').stroke();
 
-    // ---- TOTALS ----
     const totalsY = sepY + 16;
     const labelW = 110;
     const valueW = 110;
@@ -211,25 +207,23 @@ exports.handler = async function (event) {
     doc.text('Grand Total:', boxX, gtY + 7, { width: labelW, align: 'right' });
     doc.text(KES(order.total ?? subtotal), boxX + labelW, gtY + 7, { width: valueW, align: 'right' });
 
-    // ---- PAYMENT + QR + COMPANY INFO (last page only) ----
-    let blockY = gtY + 50;
-    const qrBlockHeight = 200;
-    const footerHeight = 100;
-    const safeArea = blockY + qrBlockHeight + footerHeight;
+    // ---- FOOTER DECOR ----
+    const footerY = doc.page.height - 100;
+    doc.save()
+      .moveTo(0, footerY)
+      .quadraticCurveTo(pageWidth / 2, footerY - 50, pageWidth, footerY)
+      .lineTo(pageWidth, doc.page.height)
+      .lineTo(0, doc.page.height)
+      .fill(brandDark);
 
-    if (safeArea > doc.page.height - pageMargin) {
-      doc.addPage();
-      addWatermark(doc, 'Town Treasure Groceries');
-      blockY = pageMargin;
-    }
+    // ---- PAYMENT + QR + COMPANY INFO (always pinned above footer) ----
+    let blockY = footerY - 220;
 
-    // Payment details
     doc.font('Helvetica-Bold').fontSize(12).fillColor(brandDark)
       .text('Payment Details:', pageMargin, blockY);
     doc.font('Helvetica').fontSize(10).fillColor(textGray)
       .text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, pageMargin, blockY + 20);
 
-    // QR Code
     const orderUrl = `https://towntreasuregroceries.netlify.app/account?order=${order.order_number}`;
     const qrCodeData = await QRCode.toDataURL(orderUrl, { errorCorrectionLevel: 'H' });
 
@@ -245,14 +239,13 @@ exports.handler = async function (event) {
       const circleRadius = logoSize / 2 + 6;
 
       doc.save().circle(centerX, centerY, circleRadius).fill('#FFFFFF').restore();
-      doc.save().circle(centerX, centerY, circleRadius).strokeColor(brandDark).lineWidth(3).stroke().restore();
+      doc.save().circle(centerX, centerY, circleRadius).strokeColor(brandGreen).lineWidth(3).stroke().restore();
 
       doc.image(logoPath, centerX - logoSize / 2, centerY - logoSize / 2, {
         width: logoSize, height: logoSize
       });
     }
 
-    // Friendly QR message (centered)
     doc.fillColor(textGray).fontSize(9).text(
       'Scan here anytime to view and confirm your receipt online.',
       qrX,
@@ -260,7 +253,6 @@ exports.handler = async function (event) {
       { width: qrSize, align: 'center' }
     );
 
-    // Company info
     const companyX = pageWidth - pageMargin - 200;
     doc.font('Helvetica').fontSize(9).fillColor(textGray);
     doc.text('Town Treasure Groceries', companyX, blockY, { width: 200, align: 'right' })
@@ -268,28 +260,19 @@ exports.handler = async function (event) {
        .text('Tel: 0720559925 / 0708567696', companyX, blockY + 24, { width: 200, align: 'right' })
        .text('Nairobi, Kenya', companyX, blockY + 36, { width: 200, align: 'right' });
 
-    // ---- FOOTER (last page) ----
-    const footerY = doc.page.height - 100;
-    doc.save()
-      .moveTo(0, footerY)
-      .quadraticCurveTo(pageWidth / 2, footerY - 50, pageWidth, footerY)
-      .lineTo(pageWidth, doc.page.height)
-      .lineTo(0, doc.page.height)
-      .fill(brandDark);
-
-    // Personalized THANK YOU (first name only)
+    // ---- THANK YOU NOTE ----
     const customerName = order.full_name ? order.full_name.split(' ')[0] : '';
     const thankYouMsg = customerName
-      ? `THANK YOU, ${customerName.toUpperCase()}, FOR YOUR BUSINESS`
-      : 'THANK YOU FOR YOUR BUSINESS';
+      ? `Thank you, ${customerName}, for your business`
+      : 'Thank you for your business';
 
-    doc.font('Helvetica-Bold').fillColor('#FFFFFF').fontSize(14)
+    doc.font('Helvetica-Oblique').fillColor('#FFFFFF').fontSize(14) // italic, not bold
       .text(thankYouMsg, 0, footerY + 30, {
         align: 'center',
         width: pageWidth
       });
 
-    // Page numbering (inside footer, right side, white)
+    // ---- PAGE NUMBER ----
     const range = doc.bufferedPageRange();
     doc.font('Helvetica').fontSize(10).fillColor('#FFFFFF')
       .text(`Page ${doc.page.number} of ${range.count}`, pageWidth - pageMargin - 80, footerY + 35, {
