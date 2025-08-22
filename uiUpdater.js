@@ -1,11 +1,16 @@
 // uiUpdater.js
-// This file handles all UI updates related to the cart, modals, and toast notifications.
-// Event listeners have been moved to catalog.js to centralize page logic.
+// Handles all UI updates related to the cart, modals, and toast notifications.
 
 import { getCart } from './cartManager.js';
 import { getProducts } from './productsData.js';
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-// DOM elements (global references for efficiency)
+// --- Supabase Setup ---
+const supabaseUrl = 'https://toviekzgoxwumanyxkvv.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvdmlla3pnb3h3dW1hbnl4a3Z2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1MzIxNzUsImV4cCI6MjA3MTEwODE3NX0.eDgM2Bu7UsL3YMdFqVNruNCyiJvqsao44Noba1LfjdY';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// --- DOM Elements ---
 const cartCountSpan = document.getElementById('cartCount');
 const mobileCartCountSpan = document.getElementById('mobileCartCount');
 const fabCartCountSpan = document.getElementById('fabCartCount');
@@ -26,9 +31,7 @@ const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
 
 const DELIVERY_FEE = 0;
 
-/**
- * Updates the displayed cart count in the navigation and FAB.
- */
+// --- Cart Counts ---
 function updateCartCounts() {
     const cart = getCart();
     const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -38,7 +41,6 @@ function updateCartCounts() {
         if (el) {
             el.textContent = totalItems;
             if (totalItems > 0) {
-                // Use a consistent class for visibility
                 el.classList.add('visible');
                 el.classList.remove('hidden');
             } else {
@@ -49,9 +51,7 @@ function updateCartCounts() {
     });
 }
 
-/**
- * Renders the items currently in the cart into the cart sidebar.
- */
+// --- Render Cart Items ---
 async function renderCartItems() {
     if (!cartItemsContainer) return;
     cartItemsContainer.innerHTML = '';
@@ -74,9 +74,8 @@ async function renderCartItems() {
     const allProducts = await getProducts();
     const productsMap = {};
     Object.values(allProducts).flat().forEach(p => {
-        if(p && p.id) productsMap[p.id] = p;
+        if (p && p.id) productsMap[p.id] = p;
     });
-
 
     let subtotal = 0;
 
@@ -113,9 +112,7 @@ async function renderCartItems() {
     if (cartSummary) cartSummary.classList.remove('hidden');
 }
 
-/**
- * Updates the subtotal, delivery fee, and total in the cart summary.
- */
+// --- Update Cart Summary ---
 function updateCartSummary(subtotal) {
     const total = subtotal + DELIVERY_FEE;
     if (cartSubtotalSpan) cartSubtotalSpan.textContent = `KSh ${subtotal.toLocaleString()}`;
@@ -123,17 +120,13 @@ function updateCartSummary(subtotal) {
     if (cartTotalSpan) cartTotalSpan.textContent = `KSh ${total.toLocaleString()}`;
 }
 
-/**
- * The main function to call to update all cart-related UI elements.
- */
+// --- Update Cart UI ---
 async function updateCartUI() {
     updateCartCounts();
     await renderCartItems();
 }
 
-/**
- * Shows a toast notification with a given message.
- */
+// --- Toast Notifications ---
 function showToast(message) {
     if (!toastElement) return;
     toastElement.querySelector('span').textContent = message;
@@ -146,9 +139,7 @@ function showToast(message) {
     }, 3000);
 }
 
-/**
- * Toggles the visibility of the cart sidebar and overlay.
- */
+// --- Cart Sidebar Toggle ---
 function toggleCart() {
     if (!cartSidebar || !overlay) return;
     const isCartOpen = !cartSidebar.classList.contains('translate-x-full');
@@ -164,9 +155,7 @@ function toggleCart() {
     }
 }
 
-/**
- * Shows the checkout modal.
- */
+// --- Checkout Modal ---
 function checkout() {
     if (!checkoutModal || !overlay) return;
     checkoutModal.classList.remove('hidden');
@@ -174,10 +163,6 @@ function checkout() {
     document.body.classList.add('overflow-hidden');
     if (cartSidebar) cartSidebar.classList.add('translate-x-full');
 }
-
-/**
- * Closes the checkout modal.
- */
 function closeCheckout() {
     if (!checkoutModal || !overlay) return;
     checkoutModal.classList.add('hidden');
@@ -185,35 +170,49 @@ function closeCheckout() {
     document.body.classList.remove('overflow-hidden');
 }
 
-/**
- * --- AMENDMENT ---
- * Shows the order confirmation modal and prepares the receipt button.
- * It now handles both paid and unpaid orders differently.
- */
-function showConfirmation(orderNum, fullOrderData = {}) {
+// --- Confirmation Modal (PAID + UNPAID orders) ---
+async function showConfirmation(orderNum, fullOrderData = {}) {
     if (!confirmationModal || !overlay) return;
     if (orderNumberSpan) {
         orderNumberSpan.textContent = orderNum;
     }
 
     if (downloadReceiptBtn) {
-        // For PAID orders (from M-Pesa Now or Account Page), we get a database ID.
+        // --- Case 1: Paid orders (already in Supabase paid_orders) ---
         if (fullOrderData.id && fullOrderData.payment_status === 'paid') {
             downloadReceiptBtn.dataset.orderId = fullOrderData.id;
-            // Clear any temporary data from a previous unpaid order
             delete downloadReceiptBtn.dataset.orderDetails;
             downloadReceiptBtn.classList.remove('hidden');
         } 
-        // For UNPAID "Pay on Delivery" orders, we pass the full temporary details.
-        else if (fullOrderData.paymentMethod === 'delivery') {
-            downloadReceiptBtn.dataset.orderDetails = JSON.stringify(fullOrderData);
-            // Clear any previous ID from a paid order
-            delete downloadReceiptBtn.dataset.orderId;
-            downloadReceiptBtn.classList.remove('hidden');
-        }
-        // Hide the button if it's neither of the above for safety.
+        // --- Case 2: Unpaid "Pay on Delivery" orders (fetch from Supabase unpaid_orders) ---
         else {
-            downloadReceiptBtn.classList.add('hidden');
+            let unpaidOrder = null;
+
+            if (fullOrderData.id && fullOrderData.paymentMethod === 'delivery') {
+                const { data, error } = await supabase
+                    .from('unpaid_orders')
+                    .select('*')
+                    .eq('id', fullOrderData.id)
+                    .single();
+                if (!error) unpaidOrder = data;
+            }
+
+            if (!unpaidOrder && orderNum) {
+                const { data, error } = await supabase
+                    .from('unpaid_orders')
+                    .select('*')
+                    .eq('order_number', orderNum)
+                    .single();
+                if (!error) unpaidOrder = data;
+            }
+
+            if (unpaidOrder) {
+                downloadReceiptBtn.dataset.orderDetails = JSON.stringify(unpaidOrder);
+                delete downloadReceiptBtn.dataset.orderId;
+                downloadReceiptBtn.classList.remove('hidden');
+            } else {
+                downloadReceiptBtn.classList.add('hidden');
+            }
         }
     }
 
@@ -222,9 +221,6 @@ function showConfirmation(orderNum, fullOrderData = {}) {
     document.body.classList.add('overflow-hidden');
 }
 
-/**
- * Closes the order confirmation modal.
- */
 function closeConfirmation() {
     if (!confirmationModal || !overlay) return;
     confirmationModal.classList.add('hidden');
@@ -232,19 +228,13 @@ function closeConfirmation() {
     document.body.classList.remove('overflow-hidden');
 }
 
-/**
- * Shows the waiting for payment modal.
- */
+// --- Waiting Modal ---
 function showWaitingModal() {
     if (!waitingModal || !overlay) return;
     waitingModal.classList.remove('hidden');
     overlay.classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
 }
-
-/**
- * Hides the waiting for payment modal.
- */
 function hideWaitingModal() {
     if (!waitingModal || !overlay) return;
     waitingModal.classList.add('hidden');
@@ -255,5 +245,8 @@ function hideWaitingModal() {
     }
 }
 
-// Export functions for modular use
-export { updateCartUI, showToast, toggleCart, checkout, closeCheckout, showConfirmation, closeConfirmation, showWaitingModal, hideWaitingModal };
+// --- Exports ---
+export { 
+    updateCartUI, showToast, toggleCart, checkout, closeCheckout, 
+    showConfirmation, closeConfirmation, showWaitingModal, hideWaitingModal 
+};
