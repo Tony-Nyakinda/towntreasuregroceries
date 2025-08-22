@@ -9,6 +9,9 @@ import { getCurrentUserWithRole, logout } from './auth.js';
 import { showToast, showWaitingModal, hideWaitingModal, showConfirmation, closeConfirmation } from './uiUpdater.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // --- AMENDMENT: Keep a local copy of all fetched orders ---
+    let allUserOrders = []; 
+
     // DOM Elements
     const loader = document.getElementById('loader');
     const mainContent = document.getElementById('mainContent');
@@ -20,10 +23,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const unpaidOrdersGrid = document.getElementById('unpaidOrdersGrid');
     const paidOrdersGrid = document.getElementById('paidOrdersGrid');
     const continueShoppingButton = document.getElementById('continueShoppingButton');
-    
-    // --- AMENDMENT: Add reference to the download receipt button ---
     const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
 
+    // --- AMENDMENT: Get references for the new Order Details Modal ---
+    const orderDetailsModal = document.getElementById('orderDetailsModal');
+    const closeOrderDetailsModal = document.getElementById('closeOrderDetailsModal');
+    
     // Mobile Menu DOM Elements
     const mobileMenuButton = document.getElementById('mobileMenuButton');
     const mobileMenu = document.getElementById('mobileMenu');
@@ -32,7 +37,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const { user } = await getCurrentUserWithRole();
 
-    // Page Guard: Redirect if user is not logged in
     if (!user) {
         window.location.href = 'login.html';
         return;
@@ -68,6 +72,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             unpaidOrdersGrid.innerHTML = '<p class="text-center text-red-500">Could not load your orders.</p>';
             return;
         }
+        // Store fetched orders
+        allUserOrders = [...allUserOrders.filter(o => o.payment_status !== 'unpaid'), ...orders];
+        
         if (!orders || orders.length === 0) {
             unpaidOrdersGrid.innerHTML = '<p class="text-center text-gray-500">You have no pending orders to pay.</p>';
             return;
@@ -85,6 +92,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             paidOrdersGrid.innerHTML = '<p class="text-center text-red-500">Could not load your order history.</p>';
             return;
         }
+        // Store fetched orders
+        allUserOrders = [...allUserOrders.filter(o => o.payment_status === 'unpaid'), ...orders];
+
         if (!orders || orders.length === 0) {
             paidOrdersGrid.innerHTML = '<p class="text-center text-gray-500">You have no completed orders yet.</p>';
             return;
@@ -96,10 +106,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Create HTML Cards for Orders ---
     function createUnpaidOrderCard(order) {
         const card = document.createElement('div');
-        card.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col md:flex-row justify-between items-start md:items-center';
+        // --- AMENDMENT: Add classes and data-attribute to make the card clickable ---
+        card.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col md:flex-row justify-between items-start md:items-center order-card-clickable';
+        card.dataset.orderId = order.id;
+        card.dataset.orderType = 'unpaid';
+
         const orderDate = order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A';
         card.innerHTML = `
-            <div>
+            <div class="pointer-events-none">
                 <p class="font-bold text-lg text-green-600">Order #${order.order_number}</p>
                 <p class="text-sm text-gray-500">Date: ${orderDate}</p>
                 <p class="font-semibold mt-2">Total: KSh ${order.total.toLocaleString()}</p>
@@ -110,10 +124,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function createPaidOrderCard(order) {
         const card = document.createElement('div');
-        card.className = 'bg-white p-4 rounded-lg shadow-md';
+        // --- AMENDMENT: Add classes and data-attribute to make the card clickable ---
+        card.className = 'bg-white p-4 rounded-lg shadow-md order-card-clickable';
+        card.dataset.orderId = order.id;
+        card.dataset.orderType = 'paid';
+
         const orderDate = order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A';
         card.innerHTML = `
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+            <div class="pointer-events-none flex flex-col md:flex-row justify-between items-start md:items-center w-full">
                 <div>
                     <p class="font-bold text-lg text-gray-800">Order #${order.order_number}</p>
                     <p class="text-sm text-gray-500">Date: ${orderDate}</p>
@@ -156,10 +174,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     clearTimeout(timeoutId);
                     hideWaitingModal();
                     showToast("Payment successful!");
-                    // Show the confirmation modal with the final order details
                     showConfirmation(result.finalOrder.order_number, result.finalOrder);
                     fetchUnpaidOrders();
-                    fetchPaidOrders(); // Refresh history as well
+                    fetchPaidOrders();
                 } else if (result.status === 'failed' || result.status === 'cancelled') {
                     clearInterval(pollIntervalId);
                     clearTimeout(timeoutId);
@@ -180,6 +197,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Handle "Pay Now" Button Click ---
     unpaidOrdersGrid.addEventListener('click', async (event) => {
         if (event.target.classList.contains('pay-now-btn')) {
+            event.stopPropagation(); // Prevent the card click from firing
             const button = event.target;
             const orderId = button.dataset.orderId;
             button.disabled = true;
@@ -205,59 +223,46 @@ document.addEventListener('DOMContentLoaded', async () => {
                 waitForPaymentConfirmation(mpesaResult.checkoutRequestID);
             } catch (error) {
                 showToast(`Payment failed: ${error.message}`);
-                // Refresh the list to re-enable the button
                 fetchUnpaidOrders();
             }
         }
     });
 
-    // --- AMENDMENT: Add event listener for the receipt download button ---
     if (downloadReceiptBtn) {
         downloadReceiptBtn.addEventListener('click', async () => {
             const orderId = downloadReceiptBtn.dataset.orderId;
-
             if (!orderId) {
                 showToast("Error: Could not find Order ID for receipt.");
                 return;
             }
-
             const originalText = downloadReceiptBtn.innerHTML;
             downloadReceiptBtn.disabled = true;
             downloadReceiptBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
-
             try {
                 const response = await fetch('/.netlify/functions/generate-receipt', {
                     method: 'POST',
                     body: JSON.stringify({ orderId: orderId }),
                 });
-
                 if (!response.ok) {
                     const err = await response.json();
                     throw new Error(err.error || 'Receipt generation failed.');
                 }
-
-                // Handle the PDF download
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.style.display = 'none';
                 a.href = url;
-
                 const disposition = response.headers.get('content-disposition');
                 let filename = 'receipt.pdf';
                 if (disposition && disposition.includes('attachment')) {
                     const filenameMatch = /filename="([^"]+)"/.exec(disposition);
-                    if (filenameMatch && filenameMatch[1]) {
-                        filename = filenameMatch[1];
-                    }
+                    if (filenameMatch && filenameMatch[1]) filename = filenameMatch[1];
                 }
-                
                 a.download = filename;
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
                 a.remove();
-
             } catch (error) {
                 console.error('Download error:', error);
                 showToast(`Error: ${error.message}`);
@@ -268,12 +273,67 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-
-    // --- Event Listener for Confirmation Modal Button ---
     if(continueShoppingButton) {
-        // This button now correctly closes the modal, which is its only job here.
         continueShoppingButton.addEventListener('click', closeConfirmation);
     }
+
+    // --- AMENDMENT: Logic for the Order Details Modal ---
+    function populateAndShowModal(order) {
+        if (!order) return;
+
+        // Populate the modal fields
+        document.getElementById('modalOrderNumber').textContent = order.order_number || 'N/A';
+        document.getElementById('modalOrderDate').textContent = new Date(order.created_at).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' });
+        document.getElementById('modalMpesaCode').textContent = order.mpesa_receipt_number || 'N/A';
+        document.getElementById('modalOrderTotal').textContent = `KSh ${order.total.toLocaleString()}`;
+        
+        const statusEl = document.getElementById('modalOrderStatus');
+        statusEl.textContent = order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1);
+        statusEl.className = order.payment_status === 'paid' ? 'font-bold text-green-600' : 'font-bold text-yellow-600';
+
+        const itemsContainer = document.getElementById('modalOrderItems');
+        itemsContainer.innerHTML = ''; // Clear previous items
+        order.items.forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'flex justify-between items-center text-sm py-1';
+            itemDiv.innerHTML = `
+                <span>${item.name} (x${item.quantity})</span>
+                <span class="text-gray-600">KSh ${(item.price * item.quantity).toLocaleString()}</span>
+            `;
+            itemsContainer.appendChild(itemDiv);
+        });
+
+        // Show the modal and overlay
+        orderDetailsModal.classList.remove('hidden');
+        overlay.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+    }
+
+    // Event listener for clicking on an order card (for both paid and unpaid)
+    function handleOrderCardClick(event) {
+        const card = event.target.closest('.order-card-clickable');
+        if (!card) return;
+
+        const orderId = parseInt(card.dataset.orderId);
+        const clickedOrder = allUserOrders.find(o => o.id === orderId);
+        
+        if (clickedOrder) {
+            populateAndShowModal(clickedOrder);
+        }
+    }
+
+    paidOrdersGrid.addEventListener('click', handleOrderCardClick);
+    unpaidOrdersGrid.addEventListener('click', handleOrderCardClick);
+
+    // Event listener for closing the new modal
+    if (closeOrderDetailsModal) {
+        closeOrderDetailsModal.addEventListener('click', () => {
+            orderDetailsModal.classList.add('hidden');
+            overlay.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+        });
+    }
+
 
     // --- Mobile Menu Toggle Logic ---
     function toggleMobileMenu() {
@@ -296,6 +356,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // --- Initial Data Fetch ---
-    fetchUnpaidOrders();
-    fetchPaidOrders();
+    await fetchUnpaidOrders();
+    await fetchPaidOrders();
 });
