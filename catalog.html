@@ -384,7 +384,8 @@
                             <div id="dropdownUserInitials" class="w-8 h-8 rounded-full profile-pic-placeholder text-sm mr-2 hidden"></div>
                             <div>
                                 <p class="font-bold" id="dropdownUserName"></p>
-                                <p class="text-gray-500" id="dropdownUserEmail"></p>
+                                <!-- AMENDMENT: Changed to break-all for better word wrapping -->
+                                <p class="text-gray-500 break-all" id="dropdownUserEmail"></p>
                             </div>
                         </div>
                         <!-- AMENDMENT: Removed My Profile link -->
@@ -982,7 +983,8 @@
                         if (mobileBottomProfilePic) mobileBottomProfilePic.classList.add('hidden');
                     }
                     if (mobileBottomUserName) mobileBottomUserName.textContent = firstName;
-                    mobileAccountButton.href = "#"; // Change to a profile page if one exists
+                    // AMENDMENT: Corrected the href to link to the account page
+                    mobileAccountButton.href = "account.html"; 
                 }
 
             } else {
