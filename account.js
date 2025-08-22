@@ -63,50 +63,46 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // --- Fetch and Display Unpaid Orders ---
+    // --- AMENDMENT: Simplified Fetch Functions ---
     async function fetchUnpaidOrders() {
-        if (!unpaidOrdersGrid) return;
+        if (!unpaidOrdersGrid) return [];
         const { data: orders, error } = await supabase.from('unpaid_orders').select('*').eq('user_id', user.uid);
         if (error) {
             console.error("Error fetching unpaid orders:", error);
             unpaidOrdersGrid.innerHTML = '<p class="text-center text-red-500">Could not load your orders.</p>';
-            return;
+            return [];
         }
-        // Store fetched orders
-        allUserOrders = [...allUserOrders.filter(o => o.payment_status !== 'unpaid'), ...orders];
         
         if (!orders || orders.length === 0) {
             unpaidOrdersGrid.innerHTML = '<p class="text-center text-gray-500">You have no pending orders to pay.</p>';
-            return;
+        } else {
+            unpaidOrdersGrid.innerHTML = '';
+            orders.forEach(order => unpaidOrdersGrid.appendChild(createUnpaidOrderCard(order)));
         }
-        unpaidOrdersGrid.innerHTML = '';
-        orders.forEach(order => unpaidOrdersGrid.appendChild(createUnpaidOrderCard(order)));
+        return orders;
     }
 
-    // --- Fetch and Display Paid Orders (History) ---
     async function fetchPaidOrders() {
-        if (!paidOrdersGrid) return;
+        if (!paidOrdersGrid) return [];
         const { data: orders, error } = await supabase.from('paid_orders').select('*').eq('user_id', user.uid).order('created_at', { ascending: false });
         if (error) {
             console.error("Error fetching paid orders:", error);
             paidOrdersGrid.innerHTML = '<p class="text-center text-red-500">Could not load your order history.</p>';
-            return;
+            return [];
         }
-        // Store fetched orders
-        allUserOrders = [...allUserOrders.filter(o => o.payment_status === 'unpaid'), ...orders];
 
         if (!orders || orders.length === 0) {
             paidOrdersGrid.innerHTML = '<p class="text-center text-gray-500">You have no completed orders yet.</p>';
-            return;
+        } else {
+            paidOrdersGrid.innerHTML = '';
+            orders.forEach(order => paidOrdersGrid.appendChild(createPaidOrderCard(order)));
         }
-        paidOrdersGrid.innerHTML = '';
-        orders.forEach(order => paidOrdersGrid.appendChild(createPaidOrderCard(order)));
+        return orders;
     }
 
     // --- Create HTML Cards for Orders ---
     function createUnpaidOrderCard(order) {
         const card = document.createElement('div');
-        // --- AMENDMENT: Add classes and data-attribute to make the card clickable ---
         card.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col md:flex-row justify-between items-start md:items-center order-card-clickable';
         card.dataset.orderId = order.id;
         card.dataset.orderType = 'unpaid';
@@ -124,7 +120,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function createPaidOrderCard(order) {
         const card = document.createElement('div');
-        // --- AMENDMENT: Add classes and data-attribute to make the card clickable ---
         card.className = 'bg-white p-4 rounded-lg shadow-md order-card-clickable';
         card.dataset.orderId = order.id;
         card.dataset.orderType = 'paid';
@@ -175,8 +170,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     hideWaitingModal();
                     showToast("Payment successful!");
                     showConfirmation(result.finalOrder.order_number, result.finalOrder);
-                    fetchUnpaidOrders();
-                    fetchPaidOrders();
+                    // Refetch all orders to update the UI and local data store
+                    const unpaid = await fetchUnpaidOrders();
+                    const paid = await fetchPaidOrders();
+                    allUserOrders = [...unpaid, ...paid];
                 } else if (result.status === 'failed' || result.status === 'cancelled') {
                     clearInterval(pollIntervalId);
                     clearTimeout(timeoutId);
@@ -277,22 +274,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         continueShoppingButton.addEventListener('click', closeConfirmation);
     }
 
-    // --- AMENDMENT: Logic for the Order Details Modal ---
+    // --- Logic for the Order Details Modal ---
     function populateAndShowModal(order) {
         if (!order) return;
 
-        // Populate the modal fields
         document.getElementById('modalOrderNumber').textContent = order.order_number || 'N/A';
         document.getElementById('modalOrderDate').textContent = new Date(order.created_at).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' });
         document.getElementById('modalMpesaCode').textContent = order.mpesa_receipt_number || 'N/A';
         document.getElementById('modalOrderTotal').textContent = `KSh ${order.total.toLocaleString()}`;
         
         const statusEl = document.getElementById('modalOrderStatus');
-        statusEl.textContent = order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1);
+        statusEl.textContent = (order.payment_status || 'unpaid').charAt(0).toUpperCase() + (order.payment_status || 'unpaid').slice(1);
         statusEl.className = order.payment_status === 'paid' ? 'font-bold text-green-600' : 'font-bold text-yellow-600';
 
         const itemsContainer = document.getElementById('modalOrderItems');
-        itemsContainer.innerHTML = ''; // Clear previous items
+        itemsContainer.innerHTML = '';
         order.items.forEach(item => {
             const itemDiv = document.createElement('div');
             itemDiv.className = 'flex justify-between items-center text-sm py-1';
@@ -303,13 +299,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             itemsContainer.appendChild(itemDiv);
         });
 
-        // Show the modal and overlay
         orderDetailsModal.classList.remove('hidden');
         overlay.classList.remove('hidden');
         document.body.classList.add('overflow-hidden');
     }
 
-    // Event listener for clicking on an order card (for both paid and unpaid)
     function handleOrderCardClick(event) {
         const card = event.target.closest('.order-card-clickable');
         if (!card) return;
@@ -325,7 +319,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     paidOrdersGrid.addEventListener('click', handleOrderCardClick);
     unpaidOrdersGrid.addEventListener('click', handleOrderCardClick);
 
-    // Event listener for closing the new modal
     if (closeOrderDetailsModal) {
         closeOrderDetailsModal.addEventListener('click', () => {
             orderDetailsModal.classList.add('hidden');
@@ -333,7 +326,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.body.classList.remove('overflow-hidden');
         });
     }
-
 
     // --- Mobile Menu Toggle Logic ---
     function toggleMobileMenu() {
@@ -355,7 +347,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         overlay.addEventListener('click', () => { if (mobileMenu.classList.contains('is-active')) toggleMobileMenu(); });
     }
 
-    // --- Initial Data Fetch ---
-    await fetchUnpaidOrders();
-    await fetchPaidOrders();
+    // --- AMENDMENT: Corrected Initial Data Fetch ---
+    // Fetch both sets of orders first, then combine them into the master list.
+    const unpaidOrders = await fetchUnpaidOrders();
+    const paidOrders = await fetchPaidOrders();
+    allUserOrders = [...unpaidOrders, ...paidOrders];
 });
