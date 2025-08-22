@@ -274,7 +274,7 @@ exports.handler = async function (event) {
       const circleRadius = logoSize / 2 + 6;
 
       doc.save().circle(centerX, centerY, circleRadius).fill('#FFFFFF').restore();
-      doc.save().circle(centerX, centerY, circleRadius).strokeColor(brandDark).lineWidth(3).stroke().restore();
+      doc.save().circle(centerX, centerY, circleRadius).strokeColor(brandGreen).lineWidth(3).stroke().restore();
 
       doc.image(logoPath, centerX - logoSize / 2, centerY - logoSize / 2, {
         width: logoSize, height: logoSize
