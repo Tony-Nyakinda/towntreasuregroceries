@@ -10,6 +10,21 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// --- Watermark helper ---
+function addWatermark(doc, text) {
+  doc.save();
+  doc.fontSize(60)
+    .fillColor('#E5E7EB') // light gray
+    .opacity(0.15) // transparent
+    .rotate(-30, { origin: [doc.page.width / 2, doc.page.height / 2] })
+    .text(text, doc.page.width / 4, doc.page.height / 2, {
+      align: 'center',
+      width: doc.page.width / 2,
+    });
+  doc.restore();
+  doc.opacity(1); // reset
+}
+
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
@@ -35,7 +50,7 @@ exports.handler = async function (event) {
       ? order.items
       : (() => { try { return JSON.parse(order.items || '[]'); } catch { return []; } })();
 
-    const doc = new PDFDocument({ margin: 0, size: 'A4' });
+    const doc = new PDFDocument({ margin: 0, size: 'A4', bufferPages: true });
     const buffers = [];
     doc.on('data', buffers.push.bind(buffers));
 
@@ -49,6 +64,9 @@ exports.handler = async function (event) {
     const contentWidth = pageWidth - pageMargin * 2;
 
     const KES = (n) => `KSh ${Number(n || 0).toLocaleString('en-KE')}`;
+
+    // Add watermark on first page
+    addWatermark(doc, 'Town Treasure Groceries');
 
     // ---- HEADER BACKGROUND ----
     doc.save()
@@ -75,9 +93,9 @@ exports.handler = async function (event) {
 
     doc.fontSize(10).fillColor(brandDark).font('Helvetica-Bold')
       .text('Receipt No:', pageWidth - pageMargin - 200, infoTop, { width: 100, align: 'left' })
-      .text('Order Date:', pageWidth - pageMargin - 200, infoTop + 15, { width: 100, align: 'left' });
+      .text('Customer ID:', pageWidth - pageMargin - 200, infoTop + 15, { width: 100, align: 'left' })
+      .text('Order Date:', pageWidth - pageMargin - 200, infoTop + 30, { width: 100, align: 'left' });
 
-    // Local time in Nairobi
     const orderDateStr = new Date(order.created_at).toLocaleString('en-KE', {
       timeZone: 'Africa/Nairobi',
       year: 'numeric',
@@ -90,7 +108,8 @@ exports.handler = async function (event) {
 
     doc.font('Helvetica').fillColor(textGray)
       .text(String(order.order_number || ''), pageWidth - pageMargin - 100, infoTop, { width: 100, align: 'right' })
-      .text(orderDateStr, pageWidth - pageMargin - 100, infoTop + 15, { width: 100, align: 'right' });
+      .text(String(order.customer_id || `CUST-${order.id}`), pageWidth - pageMargin - 100, infoTop + 15, { width: 100, align: 'right' })
+      .text(orderDateStr, pageWidth - pageMargin - 100, infoTop + 30, { width: 100, align: 'right' });
 
     // ---- BILLED TO ----
     const billToTop = infoTop + 50;
@@ -117,19 +136,22 @@ exports.handler = async function (event) {
     const col = { sl: 40, gap: 10, unit: 90, qty: 60, total: 90 };
     col.desc = contentWidth - (col.sl + col.gap * 4 + col.unit + col.qty + col.total);
 
-    doc.rect(pageMargin, tableTop, contentWidth, 28).fill(brandDark);
-    doc.fontSize(10).fillColor('#FFFFFF').font('Helvetica-Bold');
-    doc.text('SL No.', pageMargin + 8, tableTop + 9, { width: col.sl - 16, align: 'left' });
-    doc.text('Item Description', pageMargin + col.sl + col.gap, tableTop + 9, { width: col.desc, align: 'left' });
-    doc.text('Unit Price', pageMargin + col.sl + col.gap + col.desc + col.gap, tableTop + 9, { width: col.unit, align: 'right' });
-    doc.text('Quantity', pageMargin + col.sl + col.gap + col.desc + col.gap + col.unit + col.gap, tableTop + 9, { width: col.qty, align: 'center' });
-    doc.text('Total', pageMargin + col.sl + col.gap + col.desc + col.gap + col.unit + col.gap + col.qty + col.gap, tableTop + 9, { width: col.total, align: 'right' });
+    function drawTableHeader(yPos) {
+      doc.rect(pageMargin, yPos, contentWidth, 28).fill(brandDark);
+      doc.fontSize(10).fillColor('#FFFFFF').font('Helvetica-Bold');
+      doc.text('SL No.', pageMargin + 8, yPos + 9, { width: col.sl - 16, align: 'left' });
+      doc.text('Item Description', pageMargin + col.sl + col.gap, yPos + 9, { width: col.desc, align: 'left' });
+      doc.text('Unit Price', pageMargin + col.sl + col.gap + col.desc + col.gap, yPos + 9, { width: col.unit, align: 'right' });
+      doc.text('Quantity', pageMargin + col.sl + col.gap + col.desc + col.gap + col.unit + col.gap, yPos + 9, { width: col.qty, align: 'center' });
+      doc.text('Total', pageMargin + col.sl + col.gap + col.desc + col.gap + col.unit + col.gap + col.qty + col.gap, yPos + 9, { width: col.total, align: 'right' });
+    }
+
+    drawTableHeader(tableTop);
 
     // ---- TABLE ROWS ----
     let rowY = tableTop + 28;
     let zebra = false;
     let subtotal = 0;
-    doc.font('Helvetica').fillColor(brandDark);
 
     for (let i = 0; i < items.length; i++) {
       const it = items[i] || {};
@@ -142,13 +164,23 @@ exports.handler = async function (event) {
       const descH = Math.max(12, doc.heightOfString(name || '-', { width: col.desc }));
       const rowH = Math.max(24, descH + 12);
 
+      // If not enough space, add a new page
+      if (rowY + rowH > doc.page.height - 150) {
+        doc.addPage();
+        addWatermark(doc, 'Town Treasure Groceries'); // watermark on new page
+        rowY = pageMargin;
+        drawTableHeader(rowY);
+        rowY += 28;
+        zebra = false;
+      }
+
       if (zebra) {
         doc.rect(pageMargin, rowY, contentWidth, rowH).fill(lightGray);
         doc.fillColor(brandDark);
       }
       zebra = !zebra;
 
-      doc.fontSize(10);
+      doc.fontSize(10).font('Helvetica').fillColor(brandDark);
       doc.text(String(i + 1).padStart(2, '0'), pageMargin + 8, rowY + 8, { width: col.sl - 16, align: 'left' });
       doc.text(name || '-', pageMargin + col.sl + col.gap, rowY + 8, { width: col.desc });
       doc.text(KES(price), pageMargin + col.sl + col.gap + col.desc + col.gap, rowY + 8, { width: col.unit, align: 'right' });
@@ -179,61 +211,64 @@ exports.handler = async function (event) {
     doc.text('Grand Total:', boxX, gtY + 7, { width: labelW, align: 'right' });
     doc.text(KES(order.total ?? subtotal), boxX + labelW, gtY + 7, { width: valueW, align: 'right' });
 
-    // ---- PAYMENT DETAILS (left) ----
-    const payY = gtY + 50;
-    doc.font('Helvetica-Bold').fontSize(12).fillColor(brandDark)
-      .text('Payment Details:', pageMargin, payY);
-    doc.font('Helvetica').fontSize(10).fillColor(textGray)
-      .text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, pageMargin, payY + 20);
+    // ---- PAYMENT + QR + COMPANY INFO (last page only) ----
+    let blockY = gtY + 50;
+    const qrBlockHeight = 200;
+    const footerHeight = 100;
+    const safeArea = blockY + qrBlockHeight + footerHeight;
 
-    // ---- QR WITH LOGO (safe size) ----
+    if (safeArea > doc.page.height - pageMargin) {
+      doc.addPage();
+      addWatermark(doc, 'Town Treasure Groceries');
+      blockY = pageMargin;
+    }
+
+    // Payment details
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(brandDark)
+      .text('Payment Details:', pageMargin, blockY);
+    doc.font('Helvetica').fontSize(10).fillColor(textGray)
+      .text(`M-Pesa Code: ${order.mpesa_receipt_number || 'N/A'}`, pageMargin, blockY + 20);
+
+    // QR Code
     const orderUrl = `https://towntreasuregroceries.netlify.app/account?order=${order.order_number}`;
     const qrCodeData = await QRCode.toDataURL(orderUrl, { errorCorrectionLevel: 'H' });
 
     const qrSize = 120;
     const qrX = pageMargin;
-    const qrY = payY + 45;
+    const qrY = blockY + 45;
     doc.image(qrCodeData, qrX, qrY, { width: qrSize });
 
     if (fs.existsSync(logoPath)) {
-      const logoSize = qrSize * 0.22; // smaller ~22%
+      const logoSize = qrSize * 0.22;
       const centerX = qrX + qrSize / 2;
       const centerY = qrY + qrSize / 2;
-      const circleRadius = logoSize / 2 + 6; // small padding
+      const circleRadius = logoSize / 2 + 6;
 
-      // White circle
-      doc.save()
-        .circle(centerX, centerY, circleRadius)
-        .fill('#FFFFFF')
-        .restore();
+      doc.save().circle(centerX, centerY, circleRadius).fill('#FFFFFF').restore();
+      doc.save().circle(centerX, centerY, circleRadius).strokeColor(brandDark).lineWidth(3).stroke().restore();
 
-      // Dark green border
-      doc.save()
-        .circle(centerX, centerY, circleRadius)
-        .strokeColor(brandGreen)
-        .lineWidth(3)
-        .stroke()
-        .restore();
-
-      // Logo inside
-      const logoX = centerX - logoSize / 2;
-      const logoY = centerY - logoSize / 2;
-      doc.image(logoPath, logoX, logoY, { width: logoSize, height: logoSize });
+      doc.image(logoPath, centerX - logoSize / 2, centerY - logoSize / 2, {
+        width: logoSize, height: logoSize
+      });
     }
 
-    doc.fillColor(textGray).text('Scan to view your order online.', qrX, qrY + qrSize + 10);
+    // Friendly QR message (centered)
+    doc.fillColor(textGray).fontSize(9).text(
+      'Scan here anytime to view and confirm your receipt online.',
+      qrX,
+      qrY + qrSize + 10,
+      { width: qrSize, align: 'center' }
+    );
 
-    // ---- COMPANY INFO (right side, reordered) ----
-    const companyY = payY;
-    doc.font('Helvetica').fontSize(9).fillColor(textGray);
+    // Company info
     const companyX = pageWidth - pageMargin - 200;
+    doc.font('Helvetica').fontSize(9).fillColor(textGray);
+    doc.text('Town Treasure Groceries', companyX, blockY, { width: 200, align: 'right' })
+       .text('City Park Market, Limuru Road', companyX, blockY + 12, { width: 200, align: 'right' })
+       .text('Tel: 0720559925 / 0708567696', companyX, blockY + 24, { width: 200, align: 'right' })
+       .text('Nairobi, Kenya', companyX, blockY + 36, { width: 200, align: 'right' });
 
-    doc.text('Town Treasure Groceries', companyX, companyY, { width: 200, align: 'right' })
-       .text('City Park Market, Limuru Road', companyX, companyY + 12, { width: 200, align: 'right' })
-       .text('Tel: 0720559925 / 0708567696', companyX, companyY + 24, { width: 200, align: 'right' })
-       .text('Nairobi, Kenya', companyX, companyY + 36, { width: 200, align: 'right' });
-
-    // ---- FOOTER ----
+    // ---- FOOTER (last page) ----
     const footerY = doc.page.height - 100;
     doc.save()
       .moveTo(0, footerY)
@@ -242,8 +277,25 @@ exports.handler = async function (event) {
       .lineTo(0, doc.page.height)
       .fill(brandDark);
 
+    // Personalized THANK YOU (first name only)
+    const customerName = order.full_name ? order.full_name.split(' ')[0] : '';
+    const thankYouMsg = customerName
+      ? `THANK YOU, ${customerName.toUpperCase()}, FOR YOUR BUSINESS`
+      : 'THANK YOU FOR YOUR BUSINESS';
+
     doc.font('Helvetica-Bold').fillColor('#FFFFFF').fontSize(14)
-      .text('THANK YOU FOR YOUR BUSINESS', pageMargin, footerY + 40);
+      .text(thankYouMsg, 0, footerY + 30, {
+        align: 'center',
+        width: pageWidth
+      });
+
+    // Page numbering (inside footer, right side, white)
+    const range = doc.bufferedPageRange();
+    doc.font('Helvetica').fontSize(10).fillColor('#FFFFFF')
+      .text(`Page ${doc.page.number} of ${range.count}`, pageWidth - pageMargin - 80, footerY + 35, {
+        width: 80,
+        align: 'right',
+      });
 
     // ---- FINISH ----
     doc.end();
