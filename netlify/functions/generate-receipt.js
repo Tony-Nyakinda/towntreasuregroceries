@@ -10,19 +10,18 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// --- Watermark helper ---
+// --- AMENDMENT: Updated Watermark helper for clarity ---
 function addWatermark(doc, text) {
   doc.save();
-  doc.font('Helvetica-Bold').fontSize(60) // bold + large
-    .fillColor('#E5E7EB') // light gray
-    .opacity(0.15) // transparent
-    .rotate(-30, { origin: [doc.page.width / 2, doc.page.height / 2] })
-    .text(text, doc.page.width / 4, doc.page.height / 2, {
+  doc.font('Helvetica-Bold').fontSize(120) // Made font larger
+    .fillColor('red') // Changed color to red
+    .opacity(0.1) // Made it slightly more subtle
+    .rotate(-45, { origin: [doc.page.width / 2, doc.page.height / 2] })
+    .text(text, 0, doc.page.height / 2 - 60, { // Centered text
       align: 'center',
-      width: doc.page.width / 2,
+      width: doc.page.width,
     });
   doc.restore();
-  doc.opacity(1); // reset
 }
 
 exports.handler = async function (event) {
@@ -31,19 +30,30 @@ exports.handler = async function (event) {
   }
 
   try {
-    const { orderId } = JSON.parse(event.body || '{}');
-    if (!orderId) {
-      return { statusCode: 400, body: 'Order ID is required.' };
-    }
+    // --- AMENDMENT: Logic to handle both paid and unpaid orders ---
+    const { orderId, orderDetails } = JSON.parse(event.body || '{}');
+    let order;
+    let isUnpaid = false;
 
-    const { data: order, error } = await supabase
-      .from('paid_orders')
-      .select('*')
-      .eq('id', orderId)
-      .single();
-
-    if (error || !order) {
-      throw new Error('Order not found or could not be fetched.');
+    if (orderId) {
+        // If an ID is passed, fetch the paid order from the database
+        const { data: fetchedOrder, error } = await supabase
+            .from('paid_orders')
+            .select('*')
+            .eq('id', orderId)
+            .single();
+        if (error || !fetchedOrder) throw new Error('Paid order not found.');
+        order = fetchedOrder;
+    } else if (orderDetails) {
+        // If full details are passed, it's an unpaid "Pay on Delivery" order
+        order = orderDetails;
+        isUnpaid = true;
+        // Add necessary fields for consistency with the database schema
+        order.created_at = new Date().toISOString();
+        order.order_number = orderDetails.orderNumber;
+        order.full_name = orderDetails.fullName;
+    } else {
+        throw new Error('Order ID or Order Details are required.');
     }
 
     const items = Array.isArray(order.items)
@@ -65,8 +75,10 @@ exports.handler = async function (event) {
 
     const KES = (n) => `KSh ${Number(n || 0).toLocaleString('en-KE')}`;
 
-    // Add watermark on first page
-    addWatermark(doc, 'Town Treasure Groceries');
+    // --- AMENDMENT: Add "UNPAID" watermark if necessary ---
+    if (isUnpaid) {
+        addWatermark(doc, 'UNPAID');
+    }
 
     // ---- HEADER BACKGROUND ----
     doc.save()
@@ -164,7 +176,7 @@ exports.handler = async function (event) {
 
       if (rowY + rowH > doc.page.height - 200) {
         doc.addPage();
-        addWatermark(doc, 'Town Treasure Groceries');
+        if (isUnpaid) addWatermark(doc, 'UNPAID'); // Add watermark to new pages too
         rowY = pageMargin;
         drawTableHeader(rowY);
         rowY += 28;
@@ -261,7 +273,7 @@ exports.handler = async function (event) {
        .text('Nairobi, Kenya', companyX, blockY + 36, { width: 200, align: 'right' });
 
     // ---- THANK YOU NOTE ----
-    const customerName = order.full_name ? order.full_name.split(' ')[0] : '';
+    const customerName = (order.full_name || '').split(' ')[0];
     const thankYouMsg = customerName
       ? `Thank you, ${customerName}, for your business`
       : 'Thank you for your business';
@@ -274,14 +286,14 @@ exports.handler = async function (event) {
 
     // ---- PAGE NUMBER ----
     const range = doc.bufferedPageRange();
-    const currentPage = range.start + range.count; // last page index + 1
-    const totalPages = range.count;
-
-    doc.font('Helvetica').fontSize(10).fillColor('#FFFFFF')
-      .text(`Page ${currentPage} of ${totalPages}`, pageWidth - pageMargin - 80, footerY + 35, {
-        width: 80,
-        align: 'right',
-      });
+    for (let i = range.start; i < range.start + range.count; i++) {
+        doc.switchToPage(i);
+        doc.font('Helvetica').fontSize(10).fillColor('#FFFFFF')
+          .text(`Page ${i + 1} of ${range.count}`, pageWidth - pageMargin - 80, footerY + 35, {
+            width: 80,
+            align: 'right',
+          });
+    }
 
     // ---- FINISH ----
     doc.end();
