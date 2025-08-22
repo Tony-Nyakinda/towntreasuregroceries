@@ -20,6 +20,9 @@ const noResultsMessage = document.getElementById('noResults');
 const paginationContainer = document.getElementById('pagination'); // Parent container for pagination buttons
 const currentPageSpan = document.getElementById('currentPage'); // Span to display current page number
 
+// --- AMENDMENT: Add reference to the download receipt button ---
+const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
+
 // DOM Elements - Checkout/Confirmation Modals (can be present on multiple pages)
 const checkoutForm = document.getElementById('checkoutForm');
 const fullNameInput = document.getElementById('fullName');
@@ -29,9 +32,9 @@ const instructionsInput = document.getElementById('instructions');
 const paymentMethodRadios = document.querySelectorAll('input[name="paymentMethod"]');
 const mpesaPaymentDiv = document.getElementById('mpesaPayment');
 const deliveryPaymentDiv = document.getElementById('deliveryPayment');
-const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
 const orderNumberSpan = document.getElementById('orderNumber');
 const confirmationMessage = document.getElementById('confirmationMessage');
+const proceedToCheckoutBtn = document.getElementById('proceedToCheckoutBtn');
 
 // DOM Elements - Navigation and User Profile (for mobile sidebar logic)
 const loginLink = document.getElementById('loginLink');
@@ -54,48 +57,37 @@ const mobileUserNameDisplay = document.getElementById('mobileUserNameDisplay');
 const mobileUserDropdownMenu = document.getElementById('mobileUserDropdownMenu');
 const mobileDropdownUserName = document.getElementById('mobileDropdownUserName');
 const mobileDropdownUserEmail = document.getElementById('mobileDropdownUserEmail');
-const mobileLogoutButton = document.getElementById('mobileLogoutButton'); // Corrected ID from 'mobileLogoutDropdownButton'
+const mobileLogoutButton = document.getElementById('mobileLogoutButton');
 const mobileAdminLink = document.getElementById('mobileAdminLink');
 
 const mobileMenuButton = document.getElementById('mobileMenuButton');
 const mobileMenu = document.getElementById('mobileMenu');
 const closeMobileMenuButton = document.getElementById('closeMobileMenuButton');
 
-const PRODUCTS_PER_PAGE = 8; // Number of products to display per page
-let allProductsFlat = []; // Flat array of all products for search, sort, and pagination
-let currentCategory = 'all'; // Default category
-let currentPage = 1; // Current pagination page
+const PRODUCTS_PER_PAGE = 8;
+let allProductsFlat = [];
+let currentCategory = 'all';
+let currentPage = 1;
 
-// Global variable for app ID, consistent with other modules
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 /**
  * Renders products into the product grid based on the current filters and pagination.
- * This function will only run if productGrid element exists.
- * @param {Array} productsToDisplay - The array of products to render.
  */
 function renderProducts(productsToDisplay) {
-    if (!productGrid) {
-        return;
-    }
-
-    productGrid.innerHTML = ''; // Clear existing products
+    if (!productGrid) return;
+    productGrid.innerHTML = '';
 
     if (productsToDisplay.length === 0) {
-        if (noResultsMessage) {
-            noResultsMessage.classList.remove('hidden');
-        }
+        if (noResultsMessage) noResultsMessage.classList.remove('hidden');
         return;
     } else {
-        if (noResultsMessage) {
-            noResultsMessage.classList.add('hidden');
-        }
+        if (noResultsMessage) noResultsMessage.classList.add('hidden');
     }
 
     productsToDisplay.forEach(product => {
         const productCard = document.createElement('div');
-        // Use the new product card structure as discussed previously
-        productCard.classList.add('product-card'); // Added product-card class for styling
+        productCard.classList.add('product-card');
         productCard.innerHTML = `
             <div class="product-card-inner bg-white rounded-lg overflow-hidden shadow-md">
                 <div class="product-image-container">
@@ -117,7 +109,6 @@ function renderProducts(productsToDisplay) {
         productGrid.appendChild(productCard);
     });
 
-    // Add event listeners to "Add to Cart" buttons
     productGrid.querySelectorAll('.add-to-cart-btn').forEach(button => {
         button.addEventListener('click', (e) => {
             const productId = e.target.dataset.productId;
@@ -128,25 +119,19 @@ function renderProducts(productsToDisplay) {
 
 /**
  * Filters and sorts products based on the current category, search term, and sort order.
- * Applies pagination and renders the products.
  */
 async function filterAndRenderProducts() {
-    // Only attempt to fetch and render products if productGrid exists (i.e., on catalog.html)
-    if (!productGrid) {
-        return;
-    }
+    if (!productGrid) return;
 
-    const allProducts = await getProducts(); // Fetch all products from Firestore
-    allProductsFlat = allProducts.all || []; // Get the flat list of all products
+    const allProducts = await getProducts();
+    allProductsFlat = allProducts.all || [];
 
     let filteredProducts = allProductsFlat;
 
-    // Category filtering
     if (currentCategory !== 'all') {
         filteredProducts = filteredProducts.filter(product => product.category === currentCategory);
     }
 
-    // Search filtering
     const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
     if (searchTerm) {
         filteredProducts = filteredProducts.filter(product =>
@@ -155,7 +140,6 @@ async function filterAndRenderProducts() {
         );
     }
 
-    // Sorting
     const sortOrder = sortSelect ? sortSelect.value : 'default';
     if (sortOrder === 'price-asc') {
         filteredProducts.sort((a, b) => a.price - b.price);
@@ -167,13 +151,11 @@ async function filterAndRenderProducts() {
         filteredProducts.sort((a, b) => b.name.localeCompare(a.name));
     }
 
-    // Pagination
     const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
-    // Ensure currentPage doesn't exceed totalPages after filtering/sorting
     if (currentPage > totalPages && totalPages > 0) {
         currentPage = totalPages;
     } else if (totalPages === 0) {
-        currentPage = 1; // Reset to 1 if no products
+        currentPage = 1;
     }
 
     const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE;
@@ -186,24 +168,14 @@ async function filterAndRenderProducts() {
 
 /**
  * Creates a pagination button element.
- * @param {string|number} text - The text content of the button (e.g., '1', '...', 'Previous').
- * @param {number} [pageNumber] - The page number this button represents.
- * @param {string} [action] - The action for the button ('prev', 'next').
- * @param {boolean} [isActive=false] - Whether the button is currently active.
- * @param {boolean} [isDisabled=false] - Whether the button is disabled.
- * @returns {HTMLButtonElement} The created button element.
  */
 function createPaginationButton(text, pageNumber, action, isActive = false, isDisabled = false) {
     const button = document.createElement('button');
     button.textContent = text;
     button.classList.add('pagination-btn', 'px-4', 'py-2', 'rounded-md', 'transition', 'duration-200');
 
-    if (action) {
-        button.dataset.action = action;
-    }
-    if (pageNumber) {
-        button.dataset.page = pageNumber;
-    }
+    if (action) button.dataset.action = action;
+    if (pageNumber) button.dataset.page = pageNumber;
 
     if (isActive) {
         button.classList.add('bg-green-600', 'text-white', 'hover:bg-green-700');
@@ -216,7 +188,6 @@ function createPaginationButton(text, pageNumber, action, isActive = false, isDi
         button.disabled = true;
     }
 
-    // Specific styles for page number buttons to make them square
     if (typeof text === 'number' || (typeof text === 'string' && !isNaN(parseInt(text)))) {
         button.classList.add('w-10', 'h-10', 'flex', 'items-center', 'justify-center', 'mx-1');
     }
@@ -225,17 +196,12 @@ function createPaginationButton(text, pageNumber, action, isActive = false, isDi
 }
 
 /**
- * Updates the pagination controls (page number, prev/next button states).
- * This function will only run if paginationContainer element exists.
- * @param {number} totalPages - The total number of pages.
+ * Updates the pagination controls.
  */
 function updatePaginationControls(totalPages) {
-    if (!paginationContainer || !currentPageSpan) {
-        return;
-    }
+    if (!paginationContainer || !currentPageSpan) return;
 
-    paginationContainer.innerHTML = ''; // Clear existing controls
-
+    paginationContainer.innerHTML = '';
     if (totalPages <= 1) {
         paginationContainer.classList.add('hidden');
         return;
@@ -243,55 +209,26 @@ function updatePaginationControls(totalPages) {
         paginationContainer.classList.remove('hidden');
     }
 
-    // Previous button
     paginationContainer.appendChild(createPaginationButton('Previous', null, 'prev', false, currentPage === 1));
 
-    // Page numbers with ellipsis
-    const maxVisiblePages = 5; // Number of page buttons to show (excluding prev/next/ellipses)
-    const boundaryPages = 1; // Number of pages to show at the start/end
-    
+    const maxVisiblePages = 5;
+    const boundaryPages = 1;
     let pages = [];
 
     if (totalPages <= maxVisiblePages + 2 * boundaryPages) {
-        // Show all pages if total pages are few
-        for (let i = 1; i <= totalPages; i++) {
-            pages.push(i);
-        }
+        for (let i = 1; i <= totalPages; i++) pages.push(i);
     } else {
-        // Always show first page
         pages.push(1);
-
-        // Calculate start and end of the "middle" block of pages
         let startPage = Math.max(2, currentPage - Math.floor(maxVisiblePages / 2));
         let endPage = Math.min(totalPages - 1, currentPage + Math.floor(maxVisiblePages / 2));
 
-        // Adjust start/end to ensure `maxVisiblePages` are shown if near boundaries
-        if (currentPage <= boundaryPages + Math.floor(maxVisiblePages / 2)) {
-            endPage = maxVisiblePages;
-        }
-        if (currentPage >= totalPages - boundaryPages - Math.floor(maxVisiblePages / 2)) {
-            startPage = totalPages - maxVisiblePages + 1;
-        }
+        if (currentPage <= boundaryPages + Math.floor(maxVisiblePages / 2)) endPage = maxVisiblePages;
+        if (currentPage >= totalPages - boundaryPages - Math.floor(maxVisiblePages / 2)) startPage = totalPages - maxVisiblePages + 1;
 
-        // Add first ellipsis if needed
-        if (startPage > 2) {
-            pages.push('...');
-        }
-
-        // Add middle pages
-        for (let i = startPage; i <= endPage; i++) {
-            pages.push(i);
-        }
-
-        // Add second ellipsis if needed
-        if (endPage < totalPages - 1) {
-            pages.push('...');
-        }
-
-        // Always show last page
-        if (!pages.includes(totalPages)) { // Prevent duplicate if totalPages is already in middle block
-            pages.push(totalPages);
-        }
+        if (startPage > 2) pages.push('...');
+        for (let i = startPage; i <= endPage; i++) pages.push(i);
+        if (endPage < totalPages - 1) pages.push('...');
+        if (!pages.includes(totalPages)) pages.push(totalPages);
     }
 
     pages.forEach(page => {
@@ -305,25 +242,18 @@ function updatePaginationControls(totalPages) {
         }
     });
 
-    // Next button
     paginationContainer.appendChild(createPaginationButton('Next', null, 'next', false, currentPage === totalPages));
-
-    currentPageSpan.textContent = currentPage; // Update the span for current page
+    currentPageSpan.textContent = currentPage;
 }
 
 /**
  * Handles category tab clicks.
- * This function will only run if categoryTabsContainer element exists.
- * @param {string} category - The category to filter by.
  */
 function selectCategory(category) {
-    if (!categoryTabsContainer) {
-        return;
-    }
+    if (!categoryTabsContainer) return;
     currentCategory = category;
-    currentPage = 1; // Reset to first page on category change
+    currentPage = 1;
     filterAndRenderProducts();
-    // Update active tab styling
     categoryTabsContainer.querySelectorAll('.category-tab').forEach(tab => {
         if (tab.dataset.category === category) {
             tab.classList.add('bg-green-600', 'text-white', 'active');
@@ -333,13 +263,11 @@ function selectCategory(category) {
             tab.classList.add('bg-gray-200', 'text-gray-700');
         }
     });
-    // Update URL without reloading
     updateUrlParams({ category: category, page: 1 });
 }
 
 /**
  * Updates URL query parameters.
- * @param {Object} params - An object of key-value pairs to set in the URL.
  */
 function updateUrlParams(params) {
     const url = new URL(window.location);
@@ -351,7 +279,6 @@ function updateUrlParams(params) {
 
 /**
  * Reads category and page from URL and applies filters.
- * This function will only attempt to filter and render products if productGrid exists.
  */
 async function handleCategoryAndPageFromUrl() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -368,40 +295,32 @@ async function handleCategoryAndPageFromUrl() {
                 return;
             }
         }
-
         const availableCategories = new Set(allProductsFlat.map(p => p.category));
         currentCategory = categoryFromUrl && availableCategories.has(categoryFromUrl) ? categoryFromUrl : 'all';
         currentPage = pageFromUrl;
 
-        if (categoryTabsContainer) {
-            selectCategory(currentCategory);
-        }
+        if (categoryTabsContainer) selectCategory(currentCategory);
         await filterAndRenderProducts();
     }
 }
 
-// REMOVED: The generateReceipt function has been moved to receipt.js
-
 /**
- * AMENDMENT: Listens for the creation of the final order document.
- * @param {string} checkoutRequestID - The M-Pesa CheckoutRequestID to look for.
+ * Polls for M-Pesa payment confirmation.
  */
 function waitForPaymentConfirmation(checkoutRequestID) {
     const pollUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/getPaymentStatus";
-    const POLLING_INTERVAL = 3000; // Poll every 3 seconds
-    const TIMEOUT_DURATION = 90000; // 90 seconds timeout
+    const POLLING_INTERVAL = 3000;
+    const TIMEOUT_DURATION = 90000;
 
     let pollIntervalId = null;
     let timeoutId = null;
 
-    // Start a timeout to stop polling after a certain duration
     timeoutId = setTimeout(() => {
         clearInterval(pollIntervalId);
         hideWaitingModal();
         showToast("Payment timed out. Please try again or check your M-Pesa account.");
     }, TIMEOUT_DURATION);
 
-    // Start polling the serverless function
     pollIntervalId = setInterval(async () => {
         try {
             const response = await fetch(pollUrl, {
@@ -409,22 +328,15 @@ function waitForPaymentConfirmation(checkoutRequestID) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ checkoutRequestID }),
             });
-
             const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Server error during polling.');
 
-            if (!response.ok) {
-                throw new Error(result.error || 'Server error during polling.');
-            }
-
-            console.log("Polling result:", result);
-
-            // Check the status from the Netlify function response
             if (result.status === 'paid') {
                 clearInterval(pollIntervalId);
                 clearTimeout(timeoutId);
                 hideWaitingModal();
                 showToast("Payment successful!");
-                showConfirmation(result.finalOrder.orderNumber, result.finalOrder);
+                showConfirmation(result.finalOrder.order_number, result.finalOrder);
                 clearCart();
                 updateCartUI();
             } else if (result.status === 'failed' || result.status === 'cancelled') {
@@ -433,8 +345,6 @@ function waitForPaymentConfirmation(checkoutRequestID) {
                 hideWaitingModal();
                 showToast(`Payment failed: ${result.message}`);
             }
-            // If status is 'pending', the loop continues.
-
         } catch (error) {
             console.error("Error during polling for payment status:", error);
             clearInterval(pollIntervalId);
@@ -446,16 +356,12 @@ function waitForPaymentConfirmation(checkoutRequestID) {
 }
 
 // --- Event Listeners ---
-
 if (categoryTabsContainer) {
     categoryTabsContainer.addEventListener('click', (event) => {
         const targetTab = event.target.closest('.category-tab');
         if (targetTab) {
             const category = targetTab.dataset.category;
-            currentCategory = category;
-            currentPage = 1;
-            updateUrlParams({ category: currentCategory, page: currentPage });
-            selectCategory(currentCategory);
+            selectCategory(category);
         }
     });
 }
@@ -489,13 +395,9 @@ if (proceedToCheckoutBtn) {
     });
 }
 
-// ========================================================================
-// START: MIGRATED CHECKOUT FORM LISTENER
-// ========================================================================
 if (checkoutForm) {
     checkoutForm.addEventListener('submit', async function(event) {
         event.preventDefault();
-
         const placeOrderBtn = this.querySelector('button[type="submit"]');
         placeOrderBtn.disabled = true;
         placeOrderBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
@@ -512,79 +414,55 @@ if (checkoutForm) {
         const deliveryInstructions = instructionsInput ? instructionsInput.value : '';
         const customerEmail = auth.currentUser.email;
         const selectedPaymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
-
         const tempOrderNum = `TTG-${Date.now().toString().slice(-6)}`;
-
         const currentCart = getCart();
-        let subtotal = 0;
         const productsData = await getProducts();
-        const productsMap = {};
-        // Ensure productsData.all is an array before trying to flatten
         const allProds = Array.isArray(productsData.all) ? productsData.all : [];
+        const productsMap = {};
         allProds.forEach(p => { productsMap[p.id] = p; });
 
-
-        // FIX: Create a new array of cart items that includes full product details (name, price, etc.)
-        // This is necessary because the cart stored in localStorage only has id and quantity.
         const enrichedCartItems = currentCart.map(item => {
             const productDetails = productsMap[item.id];
             return {
-                ...item, // This keeps the original id and quantity
+                ...item,
                 name: productDetails ? productDetails.name : 'Unknown Product',
                 price: productDetails ? productDetails.price : 0,
                 unit: productDetails ? productDetails.unit : ''
             };
         });
 
-        // Recalculate subtotal based on the enriched data to be safe
-        subtotal = enrichedCartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-
-        const DELIVERY_FEE = 0;
-        const total = subtotal + DELIVERY_FEE;
-
+        const subtotal = enrichedCartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+        const total = subtotal; // Assuming DELIVERY_FEE is 0 or handled elsewhere
         const userId = auth.currentUser.uid;
 
         const orderDetails = {
             orderNumber: tempOrderNum,
-            userId: userId,
+            userId,
             fullName: customerName,
             phone: customerPhone,
             email: customerEmail,
             address: customerAddress,
             instructions: deliveryInstructions,
-            items: enrichedCartItems, // USE THE ENRICHED CART ARRAY HERE
-            subtotal: subtotal,
-            deliveryFee: DELIVERY_FEE,
-            total: total,
+            items: enrichedCartItems,
+            total,
             paymentMethod: selectedPaymentMethod,
             paymentStatus: 'pending',
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         };
-        
+
         if (selectedPaymentMethod === 'mpesa') {
             try {
-                // This logic remains the same as it correctly calls the Netlify function
                 const functionUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/initiateMpesaPayment";
                 const mpesaResponse = await fetch(functionUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        phone: customerPhone,
-                        amount: total,
-                        orderDetails: orderDetails
-                    }),
+                    body: JSON.stringify({ phone: customerPhone, amount: total, orderDetails }),
                 });
-
                 const mpesaResult = await mpesaResponse.json();
-
-                if (!mpesaResponse.ok) {
-                    throw new Error(mpesaResult.error || 'M-Pesa API request failed.');
-                }
-                
+                if (!mpesaResponse.ok) throw new Error(mpesaResult.error || 'M-Pesa API request failed.');
                 closeCheckout();
                 showWaitingModal();
                 waitForPaymentConfirmation(mpesaResult.checkoutRequestID);
-
             } catch (error) {
                 console.error("Error during M-Pesa checkout:", error);
                 showToast(`Checkout failed: ${error.message}. Please try again.`);
@@ -593,29 +471,23 @@ if (checkoutForm) {
                 placeOrderBtn.innerHTML = 'Place Order';
             }
         } else if (selectedPaymentMethod === 'delivery') {
-            // CHANGE 2: SAVE "PAY ON DELIVERY" TO SUPABASE INSTEAD OF FIREBASE
             try {
-                const { data, error } = await supabase
-                    .from('unpaid_orders')
-                    .insert([{
-                        order_number: orderDetails.orderNumber,
-                        user_id: orderDetails.userId,
-                        full_name: orderDetails.fullName,
-                        phone: orderDetails.phone,
-                        address: orderDetails.address,
-                        items: orderDetails.items,
-                        total: orderDetails.total,
-                        payment_status: 'unpaid'
-                    }]);
-
-                if (error) throw error; // If Supabase returns an error, stop execution
-                
+                const { error } = await supabase.from('unpaid_orders').insert([{
+                    order_number: orderDetails.orderNumber,
+                    user_id: orderDetails.userId,
+                    full_name: orderDetails.fullName,
+                    phone: orderDetails.phone,
+                    address: orderDetails.address,
+                    items: orderDetails.items,
+                    total: orderDetails.total,
+                    payment_status: 'unpaid'
+                }]);
+                if (error) throw error;
                 closeCheckout();
                 if (confirmationMessage) confirmationMessage.textContent = "Your order has been placed successfully! Please have your payment ready for our delivery rider.";
                 showConfirmation(tempOrderNum, orderDetails);
                 clearCart();
                 updateCartUI();
-
             } catch(error) {
                 console.error("Error placing 'Pay on Delivery' order in Supabase:", error);
                 showToast(`Order placement failed: ${error.message}. Please try again.`);
@@ -626,46 +498,12 @@ if (checkoutForm) {
         }
     });
 }
-// ========================================================================
-// END: MIGRATED PAYMENT LOGIC
-// ========================================================================
-
-
-if (downloadReceiptBtn) {
-    downloadReceiptBtn.addEventListener('click', function() {
-        const orderDetailsString = this.dataset.orderDetails;
-        if (orderDetailsString) {
-            try {
-                const orderDetails = JSON.parse(orderDetailsString);
-                // UPDATED: Call the new global receipt generator
-                if (window.receiptGenerator && typeof window.receiptGenerator.generate === 'function') {
-                    window.receiptGenerator.generate(orderDetails);
-                } else {
-                    console.error("Receipt generator is not available.");
-                    showToast("Error: Could not generate receipt.");
-                }
-            } catch (e) {
-                console.error("Failed to parse order details for receipt:", e);
-                showToast("Could not generate receipt due to a data error.");
-            }
-        } else {
-            console.error("No order details found for receipt generation.");
-            showToast("Could not generate receipt. Order details missing.");
-        }
-    });
-}
 
 if (paymentMethodRadios) {
     paymentMethodRadios.forEach(radio => {
         radio.addEventListener('change', (event) => {
-            mpesaPaymentDiv.classList.add('hidden');
-            deliveryPaymentDiv.classList.add('hidden');
-
-            if (event.target.value === 'mpesa') {
-                mpesaPaymentDiv.classList.remove('hidden');
-            } else if (event.target.value === 'delivery') {
-                deliveryPaymentDiv.classList.remove('hidden');
-            }
+            mpesaPaymentDiv.classList.toggle('hidden', event.target.value !== 'mpesa');
+            deliveryPaymentDiv.classList.toggle('hidden', event.target.value !== 'delivery');
         });
     });
 }
@@ -676,17 +514,67 @@ if (paginationContainer) {
         if (targetButton && !targetButton.disabled) {
             const action = targetButton.dataset.action;
             const page = parseInt(targetButton.dataset.page);
-
-            if (action === 'prev') {
-                currentPage--;
-            } else if (action === 'next') {
-                currentPage++;
-            } else if (!isNaN(page)) {
-                currentPage = page;
-            }
-
+            if (action === 'prev') currentPage--;
+            else if (action === 'next') currentPage++;
+            else if (!isNaN(page)) currentPage = page;
             filterAndRenderProducts();
             updateUrlParams({ page: currentPage, category: currentCategory, search: searchInput?.value || '', sort: sortSelect?.value || '' });
+        }
+    });
+}
+
+// --- AMENDMENT: Added event listener for the receipt download button ---
+if (downloadReceiptBtn) {
+    downloadReceiptBtn.addEventListener('click', async () => {
+        const orderId = downloadReceiptBtn.dataset.orderId;
+
+        if (!orderId) {
+            showToast("Error: Could not find Order ID for receipt.");
+            return;
+        }
+
+        const originalText = downloadReceiptBtn.innerHTML;
+        downloadReceiptBtn.disabled = true;
+        downloadReceiptBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+
+        try {
+            const response = await fetch('/.netlify/functions/generate-receipt', {
+                method: 'POST',
+                body: JSON.stringify({ orderId: orderId }),
+            });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({ error: 'Receipt generation failed.' }));
+                throw new Error(err.error);
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+
+            const disposition = response.headers.get('content-disposition');
+            let filename = 'receipt.pdf';
+            if (disposition && disposition.includes('attachment')) {
+                const filenameMatch = /filename="([^"]+)"/.exec(disposition);
+                if (filenameMatch && filenameMatch[1]) {
+                    filename = filenameMatch[1];
+                }
+            }
+            
+            a.download = filename;
+            document.body.appendChild(a);
+a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+
+        } catch (error) {
+            console.error('Download error:', error);
+            showToast(`Error: ${error.message}`);
+        } finally {
+            downloadReceiptBtn.disabled = false;
+            downloadReceiptBtn.innerHTML = originalText;
         }
     });
 }
@@ -694,24 +582,14 @@ if (paginationContainer) {
 function getInitials(name, email) {
     if (name && name.trim() !== '') {
         const parts = name.trim().split(' ');
-        if (parts.length > 1) {
-            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-        }
-        return parts[0][0].toUpperCase();
+        return parts.length > 1 ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase() : parts[0][0].toUpperCase();
     }
-    if (email && email.trim() !== '') {
-        return email.trim()[0].toUpperCase();
-    }
-    return '?';
+    return email && email.trim() !== '' ? email.trim()[0].toUpperCase() : '?';
 }
 
 function getFirstName(displayName, email) {
-    if (displayName && displayName.trim() !== '') {
-        return displayName.trim().split(' ')[0];
-    }
-    if (email && email.trim() !== '') {
-        return email.trim().split('@')[0];
-    }
+    if (displayName && displayName.trim() !== '') return displayName.trim().split(' ')[0];
+    if (email && email.trim() !== '') return email.trim().split('@')[0];
     return 'User';
 }
 
@@ -724,7 +602,6 @@ function toggleUserDropdown() {
 
 function toggleMobileMenu() {
     if (!mobileMenu) return;
-
     const isActive = mobileMenu.classList.contains('is-active');
     if (isActive) {
         mobileMenu.classList.remove('is-active');
@@ -740,9 +617,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateCartUI();
 
     const cartSidebar = document.getElementById('cartSidebar');
-    if (cartSidebar) {
-        cartSidebar.classList.add('translate-x-full');
-    }
+    if (cartSidebar) cartSidebar.classList.add('translate-x-full');
 
     const { user, role } = await getCurrentUserWithRole();
 
@@ -773,12 +648,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (userProfilePic) userProfilePic.classList.add('hidden');
         }
 
-        if (userProfileButton) {
-            userProfileButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                toggleUserDropdown();
-            });
-        }
+        if (userProfileButton) userProfileButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleUserDropdown();
+        });
 
         document.addEventListener('click', (e) => {
             if (userProfileDropdownContainer && !userProfileDropdownContainer.contains(e.target)) {
@@ -805,8 +678,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (mobileLoginLink) mobileLoginLink.classList.add('hidden');
         if (mobileLogoutButton) mobileLogoutButton.classList.remove('hidden');
 
-        const mobileDropdownUserName = document.getElementById('mobileDropdownUserName');
-        const mobileDropdownUserEmail = document.getElementById('mobileDropdownUserEmail');
         if (mobileDropdownUserName) mobileDropdownUserName.textContent = userFullName;
         if (mobileDropdownUserEmail) mobileDropdownUserEmail.textContent = userEmail;
 
@@ -849,38 +720,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (mobileMenuButton && mobileMenu && closeMobileMenuButton) {
-        mobileMenuButton.addEventListener('click', () => {
-            toggleMobileMenu();
-        });
-        closeMobileMenuButton.addEventListener('click', () => {
-            toggleMobileMenu();
-        });
+        mobileMenuButton.addEventListener('click', toggleMobileMenu);
+        closeMobileMenuButton.addEventListener('click', toggleMobileMenu);
         mobileMenu.addEventListener('click', (e) => {
-            if (e.target === mobileMenu) {
-                toggleMobileMenu();
-            }
+            if (e.target === mobileMenu) toggleMobileMenu();
         });
     } else {
-        console.warn("Mobile menu elements not found. Mobile menu toggle may not function.");
+        console.warn("Mobile menu elements not found.");
     }
     
-    // Event delegation for cart item interactions
     const cartItemsContainer = document.getElementById('cartItems');
     if (cartItemsContainer) {
         cartItemsContainer.addEventListener('click', (e) => {
             const target = e.target.closest('button');
             if (!target) return;
-
             const productId = target.dataset.id;
             if (!productId) return;
-
             if (target.classList.contains('quantity-btn')) {
                 const action = target.dataset.action;
-                if (action === 'increase') {
-                    window.updateCartItemQuantity(productId, 1);
-                } else if (action === 'decrease') {
-                    window.updateCartItemQuantity(productId, -1);
-                }
+                if (action === 'increase') window.updateCartItemQuantity(productId, 1);
+                else if (action === 'decrease') window.updateCartItemQuantity(productId, -1);
             } else if (target.classList.contains('remove-item-btn')) {
                 window.removeFromCart(productId);
             }
@@ -888,10 +747,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-window.addEventListener('popstate', () => {
-    handleCategoryAndPageFromUrl();
-});
+window.addEventListener('popstate', handleCategoryAndPageFromUrl);
 
+// Expose functions globally so they can be called from HTML (onclick attributes)
 window.toggleCart = toggleCart;
 window.checkout = checkout;
 window.closeCheckout = closeCheckout;
@@ -902,3 +760,6 @@ window.removeFromCart = removeFromCart;
 window.addToCart = addToCart;
 window.clearCart = clearCart;
 window.updateCartUI = updateCartUI;
+window.showWaitingModal = showWaitingModal;
+window.hideWaitingModal = hideWaitingModal;
+window.showToast = showToast;
