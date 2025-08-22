@@ -49,8 +49,6 @@
         .product-card {
             transition: all 0.3s ease;
             min-width: 0; /* Crucial for flex behavior */
-            /* This flex rule is now less critical as grid handles layout */
-            /* flex: 1 1 calc(50% - 0.75rem); /* Adjusted for gap-3 which is 0.75rem */
         }
         .product-card:hover {
             transform: translateY(-5px);
@@ -328,12 +326,8 @@
             }
         }
 
-      
-
         /* Order Confirmation Modal Scrollability */
         #confirmationModal .bg-white {
-            max-height: 80vh; /* Limit height to 80% of viewport height */
-            overflow-y: auto; /* Enable vertical scrolling */
             padding: 1.5rem; /* Adjusted padding for better fit */
         }
         #confirmationModal .bg-green-100 {
@@ -543,7 +537,7 @@
 
     <!-- Checkout Modal -->
     <div id="checkoutModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000] hidden">
-        <div class="bg-white rounded-lg w-11/12 sm:w-full md:max-w-md mx-auto overflow-y-auto max-h-[90vh]">
+        <div class="bg-white rounded-lg w-11/12 sm:w-full md:max-w-md mx-auto">
             <div class="p-4 sm:p-6">
                 <div class="flex justify-between items-center mb-4 sm:mb-6">
                     <h2 class="text-lg sm:text-xl font-bold">Checkout</h2>
