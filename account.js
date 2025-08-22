@@ -21,6 +21,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const paidOrdersGrid = document.getElementById('paidOrdersGrid');
     const continueShoppingButton = document.getElementById('continueShoppingButton');
     
+    // --- AMENDMENT: Add reference to the download receipt button ---
+    const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
+
     // Mobile Menu DOM Elements
     const mobileMenuButton = document.getElementById('mobileMenuButton');
     const mobileMenu = document.getElementById('mobileMenu');
@@ -208,8 +211,67 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    // --- AMENDMENT: Add event listener for the receipt download button ---
+    if (downloadReceiptBtn) {
+        downloadReceiptBtn.addEventListener('click', async () => {
+            const orderId = downloadReceiptBtn.dataset.orderId;
+
+            if (!orderId) {
+                showToast("Error: Could not find Order ID for receipt.");
+                return;
+            }
+
+            const originalText = downloadReceiptBtn.innerHTML;
+            downloadReceiptBtn.disabled = true;
+            downloadReceiptBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+
+            try {
+                const response = await fetch('/.netlify/functions/generate-receipt', {
+                    method: 'POST',
+                    body: JSON.stringify({ orderId: orderId }),
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Receipt generation failed.');
+                }
+
+                // Handle the PDF download
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+
+                const disposition = response.headers.get('content-disposition');
+                let filename = 'receipt.pdf';
+                if (disposition && disposition.includes('attachment')) {
+                    const filenameMatch = /filename="([^"]+)"/.exec(disposition);
+                    if (filenameMatch && filenameMatch[1]) {
+                        filename = filenameMatch[1];
+                    }
+                }
+                
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+
+            } catch (error) {
+                console.error('Download error:', error);
+                showToast(`Error: ${error.message}`);
+            } finally {
+                downloadReceiptBtn.disabled = false;
+                downloadReceiptBtn.innerHTML = originalText;
+            }
+        });
+    }
+
+
     // --- Event Listener for Confirmation Modal Button ---
     if(continueShoppingButton) {
+        // This button now correctly closes the modal, which is its only job here.
         continueShoppingButton.addEventListener('click', closeConfirmation);
     }
 
