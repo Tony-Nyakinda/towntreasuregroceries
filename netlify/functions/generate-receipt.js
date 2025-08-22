@@ -10,68 +10,73 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// --- Watermark helper ---
-function addWatermark(doc, text, options = {}) {
-  const {
-    color = '#E5E7EB',
-    opacity = 0.14,
-    fontSize = 60,
-    yOffset = 0,
-    stamp = false,
-    square = false // flag for square border
-  } = options;
+// --- Watermark helper for unpaid receipts ---
+function addWatermark(doc, text) {
+  doc.save();
+  doc.font('Helvetica-Bold').fontSize(60)
+    .fillColor('#E11D48') // red
+    .opacity(0.15)
+    .rotate(-30, { origin: [doc.page.width / 2, doc.page.height / 2] })
+    .text(text, doc.page.width / 4, doc.page.height / 2, {
+      align: 'center',
+      width: doc.page.width / 2,
+    });
+  doc.restore();
+  doc.opacity(1);
+}
+
+// --- Paid Stamp helper ---
+function addPaidStamp(doc, logoPath, orderDate) {
+  const centerX = doc.page.width / 2;
+  const centerY = doc.page.height - 280; // place above footer
+  const stampSize = 120;
+
+  // Outer square border with rough "inked" effect
+  const boxSize = 180;
+  const boxX = centerX - boxSize / 2;
+  const boxY = centerY - boxSize / 2;
 
   doc.save();
-  doc.font('Helvetica-Bold')
-    .fontSize(fontSize)
-    .rotate(-30, { origin: [doc.page.width / 2, doc.page.height / 2] });
-
-  const x = doc.page.width / 4;
-  const y = (doc.page.height / 2) + yOffset;
-  const w = doc.page.width / 2;
-
-  if (stamp) {
-    // Base text
-    doc.fillColor(color).opacity(opacity).text(text, x, y, { align: 'center', width: w });
-
-    // Rough ink edges
-    const offsets = [
-      { dx: -1, dy: 0 }, { dx: 1, dy: 0 },
-      { dx: 0, dy: -1 }, { dx: 0, dy: 1 },
-      { dx: -0.7, dy: 0.7 }, { dx: 0.7, dy: -0.7 }
-    ];
-    offsets.forEach(({ dx, dy }) => {
-      doc.fillColor(color)
-        .opacity(opacity * 0.5)
-        .text(text, x + dx, y + dy, { align: 'center', width: w });
-    });
-
-    // Rough square border with jitter
-    if (square) {
-      const boxWidth = w + 60;
-      const boxHeight = fontSize * 1.8;
-      const boxX = x - 30;
-      const boxY = y - 10;
-
-      // draw several jittered rectangles
-      for (let i = 0; i < 3; i++) {
-        const jitter = () => (Math.random() - 0.5) * 4; // random offset ±2px
-        doc.path([
-          [boxX + jitter(), boxY + jitter()],
-          [boxX + boxWidth + jitter(), boxY + jitter()],
-          [boxX + boxWidth + jitter(), boxY + boxHeight + jitter()],
-          [boxX + jitter(), boxY + boxHeight + jitter()],
-          [boxX + jitter(), boxY + jitter()]
-        ]).lineWidth(2)
-          .strokeColor(color)
-          .opacity(opacity * 0.7)
-          .stroke();
-      }
-    }
-  } else {
-    // Normal clean watermark
-    doc.fillColor(color).opacity(opacity).text(text, x, y, { align: 'center', width: w });
+  doc.rotate(-15, { origin: [centerX, centerY] }); // tilt whole stamp
+  for (let i = 0; i < 3; i++) {
+    doc.rect(boxX + i, boxY + i, boxSize, boxSize)
+      .lineWidth(2)
+      .strokeColor('#1F2937') // dark gray ink
+      .opacity(0.6)
+      .stroke();
   }
+
+  // Insert the logo inside the box
+  if (fs.existsSync(logoPath)) {
+    doc.image(logoPath, centerX - stampSize / 2, centerY - stampSize / 2 - 15, {
+      width: stampSize,
+      height: stampSize,
+    });
+  }
+
+  // Red ink-styled date
+  const dateStr = new Date(orderDate).toLocaleDateString('en-KE', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+
+  const textX = centerX - 60;
+  const textY = centerY + stampSize / 2 - 5;
+
+  const offsets = [
+    { dx: 0, dy: 0 }, { dx: -1, dy: 0 },
+    { dx: 1, dy: 0 }, { dx: 0, dy: -1 },
+    { dx: 0, dy: 1 }
+  ];
+
+  offsets.forEach(({ dx, dy }) => {
+    doc.font('Helvetica-Bold')
+      .fontSize(16)
+      .fillColor('#DC2626') // red ink
+      .opacity(0.7)
+      .text(dateStr, textX + dx, textY + dy, { width: 120, align: 'center' });
+  });
 
   doc.restore();
   doc.opacity(1);
@@ -83,16 +88,13 @@ exports.handler = async function (event) {
   }
 
   try {
-    const { orderId, source } = JSON.parse(event.body || '{}');
+    const { orderId } = JSON.parse(event.body || '{}');
     if (!orderId) {
       return { statusCode: 400, body: 'Order ID is required.' };
     }
 
-    // Decide which table to query
-    const table = source === 'unpaid' ? 'unpaid_orders' : 'paid_orders';
-
     const { data: order, error } = await supabase
-      .from(table)
+      .from('paid_orders')
       .select('*')
       .eq('id', orderId)
       .single();
@@ -100,9 +102,6 @@ exports.handler = async function (event) {
     if (error || !order) {
       throw new Error('Order not found or could not be fetched.');
     }
-
-    // Tag for watermark use
-    order.__source = source;
 
     const items = Array.isArray(order.items)
       ? order.items
@@ -112,7 +111,7 @@ exports.handler = async function (event) {
     const buffers = [];
     doc.on('data', buffers.push.bind(buffers));
 
-    // --- THEME ---
+    // Brand theme
     const brandGreen = '#64B93E';
     const brandDark = '#333D44';
     const lightGray = '#F2F2F2';
@@ -120,23 +119,14 @@ exports.handler = async function (event) {
     const pageMargin = 50;
     const pageWidth = doc.page.width;
     const contentWidth = pageWidth - pageMargin * 2;
-
     const KES = (n) => `KSh ${Number(n || 0).toLocaleString('en-KE')}`;
 
-    // Add watermark(s)
-    addWatermark(doc, 'Town Treasure Groceries', { color: '#E5E7EB', opacity: 0.15, fontSize: 60, yOffset: 0 });
-    if (order.__source === 'unpaid') {
-      addWatermark(doc, 'Pending Payment – Copy', {
-        color: '#DC2626',
-        opacity: 0.25,
-        fontSize: 55,
-        yOffset: 80,
-        stamp: true,
-        square: true // <<< red ink-stamp with rough square border
-      });
+    // Apply watermark for unpaid receipts only
+    if (order.payment_status !== 'paid') {
+      addWatermark(doc, 'PENDING PAYMENT – COPY');
     }
 
-    // ---- HEADER BACKGROUND ----
+    // Header background
     doc.save()
       .moveTo(0, 0).lineTo(pageWidth, 0).lineTo(pageWidth, 120)
       .quadraticCurveTo(pageWidth / 2, 180, 0, 120)
@@ -148,13 +138,13 @@ exports.handler = async function (event) {
       .lineTo(pageWidth - 400, 0)
       .fill(brandDark);
 
-    // ---- LOGO ----
+    // Logo
     const logoPath = path.resolve(__dirname, 'Preloader.png');
     if (fs.existsSync(logoPath)) {
       doc.image(logoPath, pageMargin, 40, { width: 90 });
     }
 
-    // ---- RECEIPT INFO ----
+    // Receipt Info
     const infoTop = 180;
     doc.font('Helvetica-Bold').fontSize(20).fillColor(brandGreen).text('RECEIPT', pageMargin, infoTop);
     doc.moveTo(pageMargin, infoTop + 25).lineTo(pageMargin + 150, infoTop + 25).stroke(brandGreen);
@@ -169,7 +159,7 @@ exports.handler = async function (event) {
       month: '2-digit',
       day: '2-digit',
       hour: 'numeric',
-      minute: 'numeric',
+      minute: '2-digit',
       hour12: true,
     });
 
@@ -177,31 +167,27 @@ exports.handler = async function (event) {
       .text(String(order.order_number || ''), pageWidth - pageMargin - 100, infoTop, { width: 100, align: 'right' })
       .text(orderDateStr, pageWidth - pageMargin - 100, infoTop + 15, { width: 100, align: 'right' });
 
-    // ---- BILLED TO ----
+    // Billed To
     const billToTop = infoTop + 50;
     doc.font('Helvetica-Bold').fontSize(12).fillColor(brandDark).text('BILLED TO:', pageMargin, billToTop);
 
     let y = billToTop + 16;
     doc.font('Helvetica').fontSize(10).fillColor(textGray);
-
     const addLine = (line) => {
       if (!line) return;
       const h = doc.heightOfString(String(line), { width: 260 });
       doc.text(String(line), pageMargin, y, { width: 260 });
       y += h + 6;
     };
-
     addLine(order.full_name);
     addLine(order.address);
     addLine(order.phone);
-
     y += 12;
 
-    // ---- TABLE HEADER ----
+    // Table Header
     const tableTop = Math.max(y, 300);
     const col = { sl: 40, gap: 10, unit: 90, qty: 60, total: 90 };
     col.desc = contentWidth - (col.sl + col.gap * 4 + col.unit + col.qty + col.total);
-
     function drawTableHeader(yPos) {
       doc.rect(pageMargin, yPos, contentWidth, 28).fill(brandDark);
       doc.fontSize(10).fillColor('#FFFFFF').font('Helvetica-Bold');
@@ -211,14 +197,12 @@ exports.handler = async function (event) {
       doc.text('Quantity', pageMargin + col.sl + col.gap + col.desc + col.gap + col.unit + col.gap, yPos + 9, { width: col.qty, align: 'center' });
       doc.text('Total', pageMargin + col.sl + col.gap + col.desc + col.gap + col.unit + col.gap + col.qty + col.gap, yPos + 9, { width: col.total, align: 'right' });
     }
-
     drawTableHeader(tableTop);
 
-    // ---- TABLE ROWS ----
+    // Table Rows
     let rowY = tableTop + 28;
     let zebra = false;
     let subtotal = 0;
-
     for (let i = 0; i < items.length; i++) {
       const it = items[i] || {};
       const name = String(it.name ?? it.item ?? '');
@@ -229,29 +213,16 @@ exports.handler = async function (event) {
 
       const descH = Math.max(12, doc.heightOfString(name || '-', { width: col.desc }));
       const rowH = Math.max(24, descH + 12);
-
       if (rowY + rowH > doc.page.height - 200) {
         doc.addPage();
-
-        // Re-apply watermarks
-        addWatermark(doc, 'Town Treasure Groceries', { color: '#E5E7EB', opacity: 0.15, fontSize: 60 });
-        if (order.__source === 'unpaid') {
-          addWatermark(doc, 'Pending Payment – Copy', {
-            color: '#DC2626',
-            opacity: 0.25,
-            fontSize: 55,
-            yOffset: 80,
-            stamp: true,
-            square: true
-          });
+        if (order.payment_status !== 'paid') {
+          addWatermark(doc, 'PENDING PAYMENT – COPY');
         }
-
         rowY = pageMargin;
         drawTableHeader(rowY);
         rowY += 28;
         zebra = false;
       }
-
       if (zebra) {
         doc.rect(pageMargin, rowY, contentWidth, rowH).fill(lightGray);
         doc.fillColor(brandDark);
@@ -268,27 +239,24 @@ exports.handler = async function (event) {
       rowY += rowH;
     }
 
-    // ---- TOTALS ----
+    // Totals
     const sepY = rowY + 6;
     doc.moveTo(pageMargin, sepY).lineTo(pageWidth - pageMargin, sepY).lineWidth(1).strokeColor('#CCCCCC').stroke();
-
     const totalsY = sepY + 16;
     const labelW = 110;
     const valueW = 110;
     const boxW = labelW + valueW + 20;
     const boxX = pageMargin + contentWidth - boxW;
-
     doc.font('Helvetica').fontSize(10).fillColor(brandDark);
     doc.text('Sub Total:', boxX, totalsY, { width: labelW, align: 'right' });
     doc.text(KES(subtotal), boxX + labelW, totalsY, { width: valueW, align: 'right' });
-
     const gtY = totalsY + 28;
     doc.rect(boxX, gtY, boxW, 28).fill(brandGreen);
     doc.font('Helvetica-Bold').fillColor('#FFFFFF');
     doc.text('Grand Total:', boxX, gtY + 7, { width: labelW, align: 'right' });
     doc.text(KES(order.total ?? subtotal), boxX + labelW, gtY + 7, { width: valueW, align: 'right' });
 
-    // ---- FOOTER DECOR ----
+    // Footer decoration
     const footerY = doc.page.height - 100;
     doc.save()
       .moveTo(0, footerY)
@@ -297,9 +265,8 @@ exports.handler = async function (event) {
       .lineTo(0, doc.page.height)
       .fill(brandDark);
 
-    // ---- PAYMENT + QR + COMPANY INFO (pinned above footer) ----
+    // QR + company info
     let blockY = footerY - 220;
-
     doc.font('Helvetica-Bold').fontSize(12).fillColor(brandDark)
       .text('Payment Details:', pageMargin, blockY);
     doc.font('Helvetica').fontSize(10).fillColor(textGray)
@@ -307,26 +274,21 @@ exports.handler = async function (event) {
 
     const orderUrl = `https://towntreasuregroceries.netlify.app/account?order=${order.order_number}`;
     const qrCodeData = await QRCode.toDataURL(orderUrl, { errorCorrectionLevel: 'H' });
-
     const qrSize = 120;
     const qrX = pageMargin;
     const qrY = blockY + 45;
     doc.image(qrCodeData, qrX, qrY, { width: qrSize });
-
     if (fs.existsSync(logoPath)) {
       const logoSize = qrSize * 0.22;
       const centerX = qrX + qrSize / 2;
       const centerY = qrY + qrSize / 2;
       const circleRadius = logoSize / 2 + 6;
-
       doc.save().circle(centerX, centerY, circleRadius).fill('#FFFFFF').restore();
-      doc.save().circle(centerX, centerY, circleRadius).strokeColor(brandGreen).lineWidth(3).stroke().restore();
-
+      doc.save().circle(centerX, centerY, circleRadius).strokeColor(brandDark).lineWidth(3).stroke().restore();
       doc.image(logoPath, centerX - logoSize / 2, centerY - logoSize / 2, {
         width: logoSize, height: logoSize
       });
     }
-
     doc.fillColor(textGray).fontSize(9).text(
       'Scan here anytime to view and confirm your receipt online.',
       qrX,
@@ -341,32 +303,34 @@ exports.handler = async function (event) {
        .text('Tel: 0720559925 / 0708567696', companyX, blockY + 24, { width: 200, align: 'right' })
        .text('Nairobi, Kenya', companyX, blockY + 36, { width: 200, align: 'right' });
 
-    // ---- THANK YOU NOTE ----
+    // Thank you note
     const customerName = order.full_name ? order.full_name.split(' ')[0] : '';
     const thankYouMsg = customerName
       ? `Thank you, ${customerName}, for your business`
       : 'Thank you for your business';
-
-    doc.font('Helvetica-Oblique').fillColor('#FFFFFF').fontSize(14) // italic
+    doc.font('Helvetica-Oblique').fillColor('#FFFFFF').fontSize(14)
       .text(thankYouMsg, 0, footerY + 30, {
         align: 'center',
         width: pageWidth
       });
 
-    // ---- PAGE NUMBER ----
+    // Page number
     const range = doc.bufferedPageRange();
     const currentPage = range.start + range.count;
     const totalPages = range.count;
-
     doc.font('Helvetica').fontSize(10).fillColor('#FFFFFF')
       .text(`Page ${currentPage} of ${totalPages}`, pageWidth - pageMargin - 80, footerY + 35, {
         width: 80,
         align: 'right',
       });
 
-    // ---- FINISH ----
-    doc.end();
+    // Add PAID stamp if applicable
+    if (order.payment_status === 'paid') {
+      const stampPath = path.resolve(__dirname, 'preloader_stamp.png');
+      addPaidStamp(doc, stampPath, order.created_at);
+    }
 
+    doc.end();
     return new Promise((resolve) => {
       doc.on('end', () => {
         const pdfData = Buffer.concat(buffers);
