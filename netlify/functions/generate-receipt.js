@@ -10,18 +10,29 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// --- AMENDMENT: Updated Watermark helper for clarity ---
-function addWatermark(doc, text) {
+// --- Watermark helper ---
+function addWatermark(doc, text, options = {}) {
+  const {
+    color = '#E5E7EB',
+    opacity = 0.15,
+    fontSize = 60,
+    yOffset = 0
+  } = options;
+
   doc.save();
-  doc.font('Helvetica-Bold').fontSize(120) // Made font larger
-    .fillColor('red') // Changed color to red
-    .opacity(0.1) // Made it slightly more subtle
-    .rotate(-45, { origin: [doc.page.width / 2, doc.page.height / 2] })
-    .text(text, 0, doc.page.height / 2 - 60, { // Centered text
-      align: 'center',
-      width: doc.page.width,
-    });
+  doc.font('Helvetica-Bold')
+    .fontSize(fontSize)
+    .fillColor(color)
+    .opacity(opacity)
+    .rotate(-30, { origin: [doc.page.width / 2, doc.page.height / 2] })
+    .text(
+      text,
+      doc.page.width / 4,
+      (doc.page.height / 2) + yOffset,
+      { align: 'center', width: doc.page.width / 2 }
+    );
   doc.restore();
+  doc.opacity(1);
 }
 
 exports.handler = async function (event) {
@@ -30,31 +41,26 @@ exports.handler = async function (event) {
   }
 
   try {
-    // --- AMENDMENT: Logic to handle both paid and unpaid orders ---
-    const { orderId, orderDetails } = JSON.parse(event.body || '{}');
-    let order;
-    let isUnpaid = false;
-
-    if (orderId) {
-        // If an ID is passed, fetch the paid order from the database
-        const { data: fetchedOrder, error } = await supabase
-            .from('paid_orders')
-            .select('*')
-            .eq('id', orderId)
-            .single();
-        if (error || !fetchedOrder) throw new Error('Paid order not found.');
-        order = fetchedOrder;
-    } else if (orderDetails) {
-        // If full details are passed, it's an unpaid "Pay on Delivery" order
-        order = orderDetails;
-        isUnpaid = true;
-        // Add necessary fields for consistency with the database schema
-        order.created_at = new Date().toISOString();
-        order.order_number = orderDetails.orderNumber;
-        order.full_name = orderDetails.fullName;
-    } else {
-        throw new Error('Order ID or Order Details are required.');
+    const { orderId, source } = JSON.parse(event.body || '{}');
+    if (!orderId) {
+      return { statusCode: 400, body: 'Order ID is required.' };
     }
+
+    // Decide which table to query
+    const table = source === 'unpaid' ? 'unpaid_orders' : 'paid_orders';
+
+    const { data: order, error } = await supabase
+      .from(table)
+      .select('*')
+      .eq('id', orderId)
+      .single();
+
+    if (error || !order) {
+      throw new Error('Order not found or could not be fetched.');
+    }
+
+    // Tag for watermark use
+    order.__source = source;
 
     const items = Array.isArray(order.items)
       ? order.items
@@ -75,9 +81,15 @@ exports.handler = async function (event) {
 
     const KES = (n) => `KSh ${Number(n || 0).toLocaleString('en-KE')}`;
 
-    // --- AMENDMENT: Add "UNPAID" watermark if necessary ---
-    if (isUnpaid) {
-        addWatermark(doc, 'UNPAID');
+    // Add watermark(s)
+    addWatermark(doc, 'Town Treasure Groceries', { color: '#E5E7EB', opacity: 0.15, fontSize: 60, yOffset: 0 });
+    if (order.__source === 'unpaid') {
+      addWatermark(doc, 'Pending Payment – Copy', {
+        color: '#DC2626',
+        opacity: 0.25,
+        fontSize: 50,
+        yOffset: 80
+      });
     }
 
     // ---- HEADER BACKGROUND ----
@@ -176,7 +188,18 @@ exports.handler = async function (event) {
 
       if (rowY + rowH > doc.page.height - 200) {
         doc.addPage();
-        if (isUnpaid) addWatermark(doc, 'UNPAID'); // Add watermark to new pages too
+
+        // Re-apply watermarks
+        addWatermark(doc, 'Town Treasure Groceries', { color: '#E5E7EB', opacity: 0.15, fontSize: 60 });
+        if (order.__source === 'unpaid') {
+          addWatermark(doc, 'Pending Payment – Copy', {
+            color: '#DC2626',
+            opacity: 0.25,
+            fontSize: 50,
+            yOffset: 80
+          });
+        }
+
         rowY = pageMargin;
         drawTableHeader(rowY);
         rowY += 28;
@@ -228,7 +251,7 @@ exports.handler = async function (event) {
       .lineTo(0, doc.page.height)
       .fill(brandDark);
 
-    // ---- PAYMENT + QR + COMPANY INFO (always pinned above footer) ----
+    // ---- PAYMENT + QR + COMPANY INFO (pinned above footer) ----
     let blockY = footerY - 220;
 
     doc.font('Helvetica-Bold').fontSize(12).fillColor(brandDark)
@@ -251,7 +274,7 @@ exports.handler = async function (event) {
       const circleRadius = logoSize / 2 + 6;
 
       doc.save().circle(centerX, centerY, circleRadius).fill('#FFFFFF').restore();
-      doc.save().circle(centerX, centerY, circleRadius).strokeColor(brandGreen).lineWidth(3).stroke().restore();
+      doc.save().circle(centerX, centerY, circleRadius).strokeColor(brandDark).lineWidth(3).stroke().restore();
 
       doc.image(logoPath, centerX - logoSize / 2, centerY - logoSize / 2, {
         width: logoSize, height: logoSize
@@ -273,12 +296,12 @@ exports.handler = async function (event) {
        .text('Nairobi, Kenya', companyX, blockY + 36, { width: 200, align: 'right' });
 
     // ---- THANK YOU NOTE ----
-    const customerName = (order.full_name || '').split(' ')[0];
+    const customerName = order.full_name ? order.full_name.split(' ')[0] : '';
     const thankYouMsg = customerName
       ? `Thank you, ${customerName}, for your business`
       : 'Thank you for your business';
 
-    doc.font('Helvetica-Oblique').fillColor('#FFFFFF').fontSize(14) // italic, not bold
+    doc.font('Helvetica-Oblique').fillColor('#FFFFFF').fontSize(14) // italic
       .text(thankYouMsg, 0, footerY + 30, {
         align: 'center',
         width: pageWidth
@@ -286,14 +309,14 @@ exports.handler = async function (event) {
 
     // ---- PAGE NUMBER ----
     const range = doc.bufferedPageRange();
-    for (let i = range.start; i < range.start + range.count; i++) {
-        doc.switchToPage(i);
-        doc.font('Helvetica').fontSize(10).fillColor('#FFFFFF')
-          .text(`Page ${i + 1} of ${range.count}`, pageWidth - pageMargin - 80, footerY + 35, {
-            width: 80,
-            align: 'right',
-          });
-    }
+    const currentPage = range.start + range.count;
+    const totalPages = range.count;
+
+    doc.font('Helvetica').fontSize(10).fillColor('#FFFFFF')
+      .text(`Page ${currentPage} of ${totalPages}`, pageWidth - pageMargin - 80, footerY + 35, {
+        width: 80,
+        align: 'right',
+      });
 
     // ---- FINISH ----
     doc.end();
