@@ -187,9 +187,8 @@ function closeCheckout() {
 
 /**
  * --- AMENDMENT ---
- * Shows the order confirmation modal and prepares the receipt button for server-side generation.
- * @param {string} orderNum - The human-readable order number (e.g., "TTG-12345").
- * @param {object} fullOrderData - The final order object from the database, which must include the unique `id`.
+ * Shows the order confirmation modal and prepares the receipt button.
+ * It now handles both paid and unpaid orders differently.
  */
 function showConfirmation(orderNum, fullOrderData = {}) {
     if (!confirmationModal || !overlay) return;
@@ -197,13 +196,25 @@ function showConfirmation(orderNum, fullOrderData = {}) {
         orderNumberSpan.textContent = orderNum;
     }
 
-    // This is the key change. Instead of storing the whole order, we now only
-    // store the unique ID. This ID will be sent to our serverless function.
-    if (downloadReceiptBtn && fullOrderData.id) {
-        downloadReceiptBtn.dataset.orderId = fullOrderData.id;
-    } else if (downloadReceiptBtn) {
-        // Clear any previous ID if the new data doesn't have one, to prevent errors.
-        delete downloadReceiptBtn.dataset.orderId;
+    if (downloadReceiptBtn) {
+        // For PAID orders (from M-Pesa Now or Account Page), we get a database ID.
+        if (fullOrderData.id && fullOrderData.payment_status === 'paid') {
+            downloadReceiptBtn.dataset.orderId = fullOrderData.id;
+            // Clear any temporary data from a previous unpaid order
+            delete downloadReceiptBtn.dataset.orderDetails;
+            downloadReceiptBtn.classList.remove('hidden');
+        } 
+        // For UNPAID "Pay on Delivery" orders, we pass the full temporary details.
+        else if (fullOrderData.paymentMethod === 'delivery') {
+            downloadReceiptBtn.dataset.orderDetails = JSON.stringify(fullOrderData);
+            // Clear any previous ID from a paid order
+            delete downloadReceiptBtn.dataset.orderId;
+            downloadReceiptBtn.classList.remove('hidden');
+        }
+        // Hide the button if it's neither of the above for safety.
+        else {
+            downloadReceiptBtn.classList.add('hidden');
+        }
     }
 
     confirmationModal.classList.remove('hidden');
@@ -237,7 +248,6 @@ function showWaitingModal() {
 function hideWaitingModal() {
     if (!waitingModal || !overlay) return;
     waitingModal.classList.add('hidden');
-    // Don't hide overlay if another modal (like confirmation) will appear
     const isConfirmationVisible = confirmationModal && !confirmationModal.classList.contains('hidden');
     if (!isConfirmationVisible) {
         overlay.classList.add('hidden');
