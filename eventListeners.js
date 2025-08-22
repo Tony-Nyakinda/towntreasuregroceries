@@ -30,6 +30,8 @@ function waitForPaymentConfirmation(checkoutRequestID) {
     let pollIntervalId = null;
     let timeoutId = null;
 
+    showWaitingModal();
+
     timeoutId = setTimeout(() => {
         clearInterval(pollIntervalId);
         hideWaitingModal();
@@ -51,10 +53,7 @@ function waitForPaymentConfirmation(checkoutRequestID) {
                 clearTimeout(timeoutId);
                 hideWaitingModal();
                 showToast("Payment successful!");
-
-                // This now passes the full order object with the database ID to the UI updater
                 showConfirmation(result.finalOrder.order_number, result.finalOrder);
-
                 clearCart();
                 updateCartUI();
             } else if (result.status === 'failed' || result.status === 'cancelled') {
@@ -80,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const overlay = document.getElementById('overlay');
     const loginLink = document.getElementById('loginLink');
     const mobileLoginLink = document.getElementById('mobileLoginLink');
-
+    
     // --- Cart & Modal Buttons ---
     const mainCartButton = document.getElementById('mainCartButton');
     const fabCartButton = document.getElementById('fabCartButton');
@@ -115,15 +114,41 @@ document.addEventListener('DOMContentLoaded', () => {
     if (closeCheckoutButton) closeCheckoutButton.addEventListener('click', closeCheckout);
     if (continueShoppingButton) continueShoppingButton.addEventListener('click', closeConfirmation);
 
-    // --- AMENDMENT: Receipt Download Button Listener ---
-    // This entire block is replaced to call your new Netlify Function.
+    // --- *** FIX #1: REPLACED DOWNLOAD BUTTON LISTENER *** ---
+    // This listener now correctly handles both paid and unpaid orders
+    // by checking for 'data-order-details' (for unpaid) and 'data-order-id' (for paid).
     if (downloadReceiptBtn) {
         downloadReceiptBtn.addEventListener('click', async () => {
-            // The orderId is now retrieved from the data attribute set by uiUpdater.js
-            const orderId = downloadReceiptBtn.dataset.orderId;
+            const paidOrderId = downloadReceiptBtn.dataset.orderId;
+            const unpaidOrderDetailsString = downloadReceiptBtn.dataset.orderDetails;
+            
+            let payload = {};
 
-            if (!orderId) {
-                showToast("Error: Could not find Order ID for receipt.");
+            // Case 1: Handle unpaid orders from 'data-order-details'
+            if (unpaidOrderDetailsString) {
+                try {
+                    const orderDetails = JSON.parse(unpaidOrderDetailsString);
+                    payload = {
+                        orderId: orderDetails.id, // Extract the database ID from the JSON object
+                        source: 'unpaid'
+                    };
+                } catch (e) {
+                    console.error("Failed to parse order details:", e);
+                    showToast("Error preparing receipt data.");
+                    return;
+                }
+            } 
+            // Case 2: Handle paid orders from 'data-order-id'
+            else if (paidOrderId) {
+                payload = {
+                    orderId: paidOrderId,
+                    source: 'paid'
+                };
+            } 
+            // Case 3: No ID found
+            else {
+                console.error("No order ID or details found on the button.");
+                showToast("Could not find order to generate receipt.");
                 return;
             }
 
@@ -132,33 +157,32 @@ document.addEventListener('DOMContentLoaded', () => {
             downloadReceiptBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
 
             try {
-                // Call the new server-side function
                 const response = await fetch('/.netlify/functions/generate-receipt', {
                     method: 'POST',
-                    body: JSON.stringify({ orderId: orderId }),
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
 
                 if (!response.ok) {
-                    const err = await response.json();
-                    throw new Error(err.error || 'Receipt generation failed.');
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to generate receipt.');
                 }
 
-                // Handle the PDF file returned from the function to trigger a download
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.style.display = 'none';
                 a.href = url;
-
+                
                 const disposition = response.headers.get('content-disposition');
                 let filename = 'receipt.pdf';
                 if (disposition && disposition.includes('attachment')) {
-                    const filenameMatch = /filename="([^"]+)"/.exec(disposition);
-                    if (filenameMatch && filenameMatch[1]) {
-                        filename = filenameMatch[1];
+                    const filenameRegex = /filename="([^"]+)"/;
+                    const matches = filenameRegex.exec(disposition);
+                    if (matches != null && matches[1]) {
+                        filename = matches[1];
                     }
                 }
-
                 a.download = filename;
                 document.body.appendChild(a);
                 a.click();
@@ -228,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Main Checkout Form Submission Listener (No changes here) ---
+    // --- Main Checkout Form Submission Listener ---
     if (checkoutForm) {
         checkoutForm.addEventListener('submit', async function(event) {
             event.preventDefault();
@@ -305,11 +329,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!mpesaResponse.ok) throw new Error(mpesaResult.error || 'M-Pesa API request failed.');
 
                     closeCheckout();
-                    showWaitingModal();
                     waitForPaymentConfirmation(mpesaResult.checkoutRequestID);
 
                 } else if (selectedPaymentMethod === 'delivery') {
-                    const { error } = await supabase.from('unpaid_orders').insert([{
+                    // --- *** FIX #2: MODIFIED PAY-ON-DELIVERY LOGIC *** ---
+                    // Added .select().single() to get the created order object back from Supabase.
+                    // This ensures we have the correct database ID (`unpaidOrder.id`) to pass to the confirmation modal.
+                    const { data: unpaidOrder, error } = await supabase.from('unpaid_orders').insert([{
                         order_number: orderDetails.orderNumber,
                         user_id: orderDetails.userId,
                         full_name: orderDetails.fullName,
@@ -320,12 +346,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         total: orderDetails.total,
                         payment_status: 'unpaid',
                         payment_method: 'delivery'
-                    }]);
+                    }]).select().single();
+
                     if (error) throw error;
 
                     closeCheckout();
                     if (confirmationMessage) confirmationMessage.textContent = "Your order has been placed successfully! Please have your payment ready for our delivery rider.";
-                    showConfirmation(tempOrderNum, orderDetails);
+                    
+                    // Now we pass the full order object from the database to the confirmation UI.
+                    showConfirmation(unpaidOrder.order_number, unpaidOrder);
                     clearCart();
                     updateCartUI();
                 }
