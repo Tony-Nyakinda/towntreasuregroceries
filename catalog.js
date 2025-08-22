@@ -421,6 +421,7 @@ function toggleUserDropdown() {
     }
 }
 
+// AMENDMENT: Restored the toggleMobileMenu function
 function toggleMobileMenu() {
     if (!mobileMenu) return;
     const isActive = mobileMenu.classList.contains('is-active');
@@ -637,106 +638,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const cartSidebar = document.getElementById('cartSidebar');
     if (cartSidebar) cartSidebar.classList.add('translate-x-full');
     
-    const { user, role } = await getCurrentUserWithRole();
-
-    if (user) {
-        if (loginLink) loginLink.classList.add('hidden');
-        if (userProfileButton) userProfileButton.classList.remove('hidden');
-
-        const firstName = getFirstName(user.displayName, user.email);
-        const userFullName = user.displayName || user.email;
-        const userEmail = user.email;
-        const photoURL = user.photoURL;
-
-        if (userNameDisplay) userNameDisplay.textContent = firstName;
-        if (dropdownUserName) dropdownUserName.textContent = userFullName;
-        if (dropdownUserEmail) dropdownUserEmail.textContent = userEmail;
-
-        if (photoURL) {
-            if (userProfilePic) {
-                userProfilePic.src = photoURL;
-                userProfilePic.classList.remove('hidden');
-            }
-            if (userInitials) userInitials.classList.add('hidden');
-        } else {
-            if (userInitials) {
-                userInitials.textContent = getInitials(user.displayName, user.email);
-                userInitials.classList.remove('hidden');
-            }
-            if (userProfilePic) userProfilePic.classList.add('hidden');
-        }
-
-        if (userProfileButton) userProfileButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleUserDropdown();
-        });
-
-        document.addEventListener('click', (e) => {
-            if (userProfileDropdownContainer && !userProfileDropdownContainer.contains(e.target)) {
-                if (userDropdownMenu && userDropdownMenu.classList.contains('active')) {
-                    toggleUserDropdown();
-                }
-            }
-        });
-
-        if (logoutDropdownButton) {
-            logoutDropdownButton.addEventListener('click', async (e) => {
-                e.preventDefault();
-                await logout();
-                window.location.reload();
-            });
-        }
-
-        if (role === 'admin') {
-            if (adminLink) adminLink.classList.remove('hidden');
-        } else {
-            if (adminLink) adminLink.classList.add('hidden');
-        }
-
-        if (mobileLoginLink) mobileLoginLink.classList.add('hidden');
-        if (mobileLogoutButton) mobileLogoutButton.classList.remove('hidden');
-
-        if (mobileDropdownUserName) mobileDropdownUserName.textContent = userFullName;
-        if (mobileDropdownUserEmail) mobileDropdownUserEmail.textContent = userEmail;
-
-        if (photoURL) {
-            if (mobileUserProfilePic) {
-                mobileUserProfilePic.src = photoURL;
-                mobileUserProfilePic.classList.remove('hidden');
-            }
-            if (mobileUserInitials) mobileUserInitials.classList.add('hidden');
-        } else {
-            if (mobileUserInitials) {
-                mobileUserInitials.textContent = getInitials(user.displayName, user.email);
-                mobileUserInitials.classList.remove('hidden');
-            }
-            if (mobileUserProfilePic) mobileUserProfilePic.classList.add('hidden');
-        }
-
-        if (mobileLogoutButton) {
-            mobileLogoutButton.addEventListener('click', async (e) => {
-                e.preventDefault();
-                await logout();
-                window.location.reload();
-            });
-        }
-
-        if (role === 'admin') {
-            if (mobileAdminLink) mobileAdminLink.classList.remove('hidden');
-        } else {
-            if (mobileAdminLink) mobileAdminLink.classList.add('hidden');
-        }
-
-    } else {
-        if (loginLink) loginLink.classList.remove('hidden');
-        if (userProfileButton) userProfileButton.classList.add('hidden');
-        if (userDropdownMenu) userDropdownMenu.classList.add('hidden');
-        if (mobileLoginLink) mobileLoginLink.classList.remove('hidden');
-        if (mobileLogoutButton) mobileLogoutButton.classList.add('hidden');
-        if (adminLink) adminLink.classList.remove('hidden');
-        if (mobileAdminLink) mobileAdminLink.classList.remove('hidden');
-    }
-
+    // AMENDMENT: Restored mobile menu event listeners
     if (mobileMenuButton && mobileMenu && closeMobileMenuButton) {
         mobileMenuButton.addEventListener('click', toggleMobileMenu);
         closeMobileMenuButton.addEventListener('click', toggleMobileMenu);
@@ -746,7 +648,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
         console.warn("Mobile menu elements not found.");
     }
-    
+
     const cartItemsContainer = document.getElementById('cartItems');
     if (cartItemsContainer) {
         cartItemsContainer.addEventListener('click', (e) => {
@@ -781,3 +683,6 @@ window.updateCartUI = updateCartUI;
 window.showWaitingModal = showWaitingModal;
 window.hideWaitingModal = hideWaitingModal;
 window.showToast = showToast;
+window.getInitials = getInitials;
+window.getFirstName = getFirstName;
+window.toggleUserDropdown = toggleUserDropdown;
