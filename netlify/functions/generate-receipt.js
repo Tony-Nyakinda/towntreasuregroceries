@@ -16,21 +16,63 @@ function addWatermark(doc, text, options = {}) {
     color = '#E5E7EB',
     opacity = 0.15,
     fontSize = 60,
-    yOffset = 0
+    yOffset = 0,
+    stamp = false,
+    square = false // flag for square border
   } = options;
 
   doc.save();
   doc.font('Helvetica-Bold')
     .fontSize(fontSize)
-    .fillColor(color)
-    .opacity(opacity)
-    .rotate(-30, { origin: [doc.page.width / 2, doc.page.height / 2] })
-    .text(
-      text,
-      doc.page.width / 4,
-      (doc.page.height / 2) + yOffset,
-      { align: 'center', width: doc.page.width / 2 }
-    );
+    .rotate(-30, { origin: [doc.page.width / 2, doc.page.height / 2] });
+
+  const x = doc.page.width / 4;
+  const y = (doc.page.height / 2) + yOffset;
+  const w = doc.page.width / 2;
+
+  if (stamp) {
+    // Base text
+    doc.fillColor(color).opacity(opacity).text(text, x, y, { align: 'center', width: w });
+
+    // Rough ink edges
+    const offsets = [
+      { dx: -1, dy: 0 }, { dx: 1, dy: 0 },
+      { dx: 0, dy: -1 }, { dx: 0, dy: 1 },
+      { dx: -0.7, dy: 0.7 }, { dx: 0.7, dy: -0.7 }
+    ];
+    offsets.forEach(({ dx, dy }) => {
+      doc.fillColor(color)
+        .opacity(opacity * 0.5)
+        .text(text, x + dx, y + dy, { align: 'center', width: w });
+    });
+
+    // Rough square border with jitter
+    if (square) {
+      const boxWidth = w + 60;
+      const boxHeight = fontSize * 1.8;
+      const boxX = x - 30;
+      const boxY = y - 10;
+
+      // draw several jittered rectangles
+      for (let i = 0; i < 3; i++) {
+        const jitter = () => (Math.random() - 0.5) * 4; // random offset ±2px
+        doc.path([
+          [boxX + jitter(), boxY + jitter()],
+          [boxX + boxWidth + jitter(), boxY + jitter()],
+          [boxX + boxWidth + jitter(), boxY + boxHeight + jitter()],
+          [boxX + jitter(), boxY + boxHeight + jitter()],
+          [boxX + jitter(), boxY + jitter()]
+        ]).lineWidth(2)
+          .strokeColor(color)
+          .opacity(opacity * 0.7)
+          .stroke();
+      }
+    }
+  } else {
+    // Normal clean watermark
+    doc.fillColor(color).opacity(opacity).text(text, x, y, { align: 'center', width: w });
+  }
+
   doc.restore();
   doc.opacity(1);
 }
@@ -87,8 +129,10 @@ exports.handler = async function (event) {
       addWatermark(doc, 'Pending Payment – Copy', {
         color: '#DC2626',
         opacity: 0.25,
-        fontSize: 50,
-        yOffset: 80
+        fontSize: 55,
+        yOffset: 80,
+        stamp: true,
+        square: true // <<< red ink-stamp with rough square border
       });
     }
 
@@ -125,7 +169,7 @@ exports.handler = async function (event) {
       month: '2-digit',
       day: '2-digit',
       hour: 'numeric',
-      minute: '2-digit',
+      minute: 'numeric',
       hour12: true,
     });
 
@@ -195,8 +239,10 @@ exports.handler = async function (event) {
           addWatermark(doc, 'Pending Payment – Copy', {
             color: '#DC2626',
             opacity: 0.25,
-            fontSize: 50,
-            yOffset: 80
+            fontSize: 55,
+            yOffset: 80,
+            stamp: true,
+            square: true
           });
         }
 
