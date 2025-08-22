@@ -3,9 +3,5 @@
 [build]
   functions = "netlify/functions"
 
-# --- ADD THIS SECTION ---
-# This tells Netlify to explicitly include the Preloader.png file
-# with your deployed functions, which will solve the logo issue.
 [functions]
-  included_files = ["netlify/functions/Preloader.png"]
-  included_files = ["netlify/functions/Preloader_stamp.png"]
+  included_files = ["netlify/functions/Preloader.png", "netlify/functions/preloader_stamp.png"]
