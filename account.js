@@ -9,7 +9,6 @@ import { getCurrentUserWithRole, logout } from './auth.js';
 import { showToast, showWaitingModal, hideWaitingModal, showConfirmation, closeConfirmation } from './uiUpdater.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // --- AMENDMENT: Keep a local copy of all fetched orders ---
     let allUserOrders = []; 
 
     // DOM Elements
@@ -24,12 +23,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const paidOrdersGrid = document.getElementById('paidOrdersGrid');
     const continueShoppingButton = document.getElementById('continueShoppingButton');
     const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
-
-    // --- AMENDMENT: Get references for the new Order Details Modal ---
     const orderDetailsModal = document.getElementById('orderDetailsModal');
     const closeOrderDetailsModal = document.getElementById('closeOrderDetailsModal');
-    
-    // Mobile Menu DOM Elements
     const mobileMenuButton = document.getElementById('mobileMenuButton');
     const mobileMenu = document.getElementById('mobileMenu');
     const closeMobileMenuButton = document.getElementById('closeMobileMenuButton');
@@ -48,11 +43,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Display User Profile ---
     if (userProfileSection) {
         userProfileSection.classList.remove('hidden');
-        const displayName = user.displayName || 'No Name';
+        const displayName = user.displayName || user.email || 'User';
         const email = user.email;
         
         if (profileInitials) {
-            const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase();
+            const nameParts = displayName.split(' ');
+            const initials = nameParts.length > 1 
+                ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
+                : displayName[0].toUpperCase();
             profileInitials.textContent = initials;
         }
         if (profileName) profileName.textContent = displayName;
@@ -63,10 +61,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // --- AMENDMENT: Simplified Fetch Functions ---
+    // --- Fetch Functions ---
     async function fetchUnpaidOrders() {
         if (!unpaidOrdersGrid) return [];
-        const { data: orders, error } = await supabase.from('unpaid_orders').select('*').eq('user_id', user.uid);
+        const { data: orders, error } = await supabase.from('unpaid_orders').select('*').eq('user_id', user.uid).order('created_at', { ascending: false });
         if (error) {
             console.error("Error fetching unpaid orders:", error);
             unpaidOrdersGrid.innerHTML = '<p class="text-center text-red-500">Could not load your orders.</p>';
@@ -103,39 +101,49 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Create HTML Cards for Orders ---
     function createUnpaidOrderCard(order) {
         const card = document.createElement('div');
-        card.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col md:flex-row justify-between items-start md:items-center order-card-clickable';
+        // AMENDMENT: Removed 'order-card-clickable' class
+        card.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col md:flex-row justify-between items-start md:items-center';
         card.dataset.orderId = order.id;
-        card.dataset.orderType = 'unpaid';
 
         const orderDate = order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A';
+        // AMENDMENT: Added a "View Details" button and grouped actions
         card.innerHTML = `
-            <div class="pointer-events-none">
-                <p class="font-bold text-lg text-green-600">Order #${order.order_number}</p>
+            <div class="flex-grow">
+                <p class="font-bold text-lg text-yellow-600">Order #${order.order_number}</p>
                 <p class="text-sm text-gray-500">Date: ${orderDate}</p>
                 <p class="font-semibold mt-2">Total: KSh ${order.total.toLocaleString()}</p>
             </div>
-            <button class="pay-now-btn mt-4 md:mt-0 bg-green-500 text-white py-2 px-6 rounded-md hover:bg-green-600" data-order-id="${order.id}">Pay Now</button>`;
+            <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 mt-4 md:mt-0">
+                 <button class="view-details-btn bg-gray-200 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-300" data-order-id="${order.id}">View Details</button>
+                <button class="pay-now-btn bg-green-500 text-white py-2 px-6 rounded-md hover:bg-green-600" data-order-id="${order.id}">Pay Now</button>
+            </div>`;
         return card;
     }
 
     function createPaidOrderCard(order) {
         const card = document.createElement('div');
-        card.className = 'bg-white p-4 rounded-lg shadow-md order-card-clickable';
+        // AMENDMENT: Removed 'order-card-clickable' class and adjusted layout for the new button
+        card.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col md:flex-row justify-between items-start md:items-center';
         card.dataset.orderId = order.id;
-        card.dataset.orderType = 'paid';
 
         const orderDate = order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A';
+        // AMENDMENT: Added a "View Details" button and adjusted layout
         card.innerHTML = `
-            <div class="pointer-events-none flex flex-col md:flex-row justify-between items-start md:items-center w-full">
-                <div>
-                    <p class="font-bold text-lg text-gray-800">Order #${order.order_number}</p>
-                    <p class="text-sm text-gray-500">Date: ${orderDate}</p>
-                    <p class="font-semibold mt-2">Total Paid: KSh ${order.total.toLocaleString()}</p>
+            <div class="flex-grow">
+                <p class="font-bold text-lg text-gray-800">Order #${order.order_number}</p>
+                <p class="text-sm text-gray-500">Date: ${orderDate}</p>
+                <p class="font-semibold mt-2">Total Paid: KSh ${order.total.toLocaleString()}</p>
+                <div class="mt-2 md:hidden">
+                     <p class="text-sm font-medium text-gray-600">Status: <span class="text-green-600 font-bold capitalize">${order.payment_status}</span></p>
+                     <p class="text-sm text-gray-500">M-Pesa Receipt: <span class="font-mono">${order.mpesa_receipt_number || 'N/A'}</span></p>
                 </div>
-                <div class="mt-4 md:mt-0 md:text-right">
-                    <p class="text-sm font-medium text-gray-600">Status: <span class="text-green-600 font-bold capitalize">${order.payment_status}</span></p>
-                    <p class="text-sm text-gray-500">M-Pesa Receipt: <span class="font-mono">${order.mpesa_receipt_number || 'N/A'}</span></p>
-                </div>
+            </div>
+            <div class="hidden md:block text-right flex-shrink-0 mx-4">
+                <p class="text-sm font-medium text-gray-600">Status: <span class="text-green-600 font-bold capitalize">${order.payment_status}</span></p>
+                <p class="text-sm text-gray-500">M-Pesa Receipt: <span class="font-mono">${order.mpesa_receipt_number || 'N/A'}</span></p>
+            </div>
+            <div class="mt-4 md:mt-0">
+                <button class="view-details-btn bg-gray-200 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-300" data-order-id="${order.id}">View Details</button>
             </div>`;
         return card;
     }
@@ -153,7 +161,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             clearInterval(pollIntervalId);
             hideWaitingModal();
             showToast("Payment timed out. Please try again.");
-            fetchUnpaidOrders();
+            fetchAndRenderAllOrders();
         }, TIMEOUT_DURATION);
 
         pollIntervalId = setInterval(async () => {
@@ -170,32 +178,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                     hideWaitingModal();
                     showToast("Payment successful!");
                     showConfirmation(result.finalOrder.order_number, result.finalOrder);
-                    // Refetch all orders to update the UI and local data store
-                    const unpaid = await fetchUnpaidOrders();
-                    const paid = await fetchPaidOrders();
-                    allUserOrders = [...unpaid, ...paid];
+                    fetchAndRenderAllOrders();
                 } else if (result.status === 'failed' || result.status === 'cancelled') {
                     clearInterval(pollIntervalId);
                     clearTimeout(timeoutId);
                     hideWaitingModal();
                     showToast(`Payment failed: ${result.message}`);
-                    fetchUnpaidOrders();
+                    fetchAndRenderAllOrders();
                 }
             } catch (error) {
                 clearInterval(pollIntervalId);
                 clearTimeout(timeoutId);
                 hideWaitingModal();
                 showToast("Error checking payment status.");
-                fetchUnpaidOrders();
+                fetchAndRenderAllOrders();
             }
         }, POLLING_INTERVAL);
     }
 
-    // --- Handle "Pay Now" Button Click ---
-    unpaidOrdersGrid.addEventListener('click', async (event) => {
-        if (event.target.classList.contains('pay-now-btn')) {
-            event.stopPropagation(); // Prevent the card click from firing
-            const button = event.target;
+    // --- Handle Button Clicks using Event Delegation ---
+    mainContent.addEventListener('click', async (event) => {
+        const target = event.target;
+
+        // --- Handle "Pay Now" Button Click ---
+        if (target.classList.contains('pay-now-btn')) {
+            const button = target;
             const orderId = button.dataset.orderId;
             button.disabled = true;
             button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
@@ -220,10 +227,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                 waitForPaymentConfirmation(mpesaResult.checkoutRequestID);
             } catch (error) {
                 showToast(`Payment failed: ${error.message}`);
-                fetchUnpaidOrders();
+                button.disabled = false;
+                button.innerHTML = 'Pay Now';
+            }
+        }
+
+        // --- Handle "View Details" Button Click ---
+        if (target.classList.contains('view-details-btn')) {
+            const orderId = target.dataset.orderId;
+            const clickedOrder = allUserOrders.find(o => o.id === orderId);
+            if (clickedOrder) {
+                populateAndShowModal(clickedOrder);
+            } else {
+                console.warn('Could not find order with ID:', orderId);
+                showToast('Could not load order details.');
             }
         }
     });
+
 
     if (downloadReceiptBtn) {
         downloadReceiptBtn.addEventListener('click', async () => {
@@ -238,7 +259,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             try {
                 const response = await fetch('/.netlify/functions/generate-receipt', {
                     method: 'POST',
-                    body: JSON.stringify({ orderId: orderId }),
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId: orderId, source: 'paid' }),
                 });
                 if (!response.ok) {
                     const err = await response.json();
@@ -284,17 +306,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('modalOrderTotal').textContent = `KSh ${order.total.toLocaleString()}`;
         
         const statusEl = document.getElementById('modalOrderStatus');
-        statusEl.textContent = (order.payment_status || 'unpaid').charAt(0).toUpperCase() + (order.payment_status || 'unpaid').slice(1);
-        statusEl.className = order.payment_status === 'paid' ? 'font-bold text-green-600' : 'font-bold text-yellow-600';
+        const statusText = order.payment_status || 'unpaid';
+        statusEl.textContent = statusText.charAt(0).toUpperCase() + statusText.slice(1);
+        statusEl.className = statusText === 'paid' ? 'font-bold text-green-600' : 'font-bold text-yellow-600';
 
         const itemsContainer = document.getElementById('modalOrderItems');
         itemsContainer.innerHTML = '';
-        order.items.forEach(item => {
+        
+        const orderItems = Array.isArray(order.items) ? order.items : [];
+        
+        orderItems.forEach(item => {
             const itemDiv = document.createElement('div');
-            itemDiv.className = 'flex justify-between items-center text-sm py-1';
+            itemDiv.className = 'flex justify-between items-center text-sm py-1 border-b';
             itemDiv.innerHTML = `
-                <span>${item.name} (x${item.quantity})</span>
-                <span class="text-gray-600">KSh ${(item.price * item.quantity).toLocaleString()}</span>
+                <span class="pr-4">${item.name} (x${item.quantity})</span>
+                <span class="text-gray-600 font-mono">KSh ${(item.price * item.quantity).toLocaleString()}</span>
             `;
             itemsContainer.appendChild(itemDiv);
         });
@@ -303,21 +329,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         overlay.classList.remove('hidden');
         document.body.classList.add('overflow-hidden');
     }
-
-    function handleOrderCardClick(event) {
-        const card = event.target.closest('.order-card-clickable');
-        if (!card) return;
-
-        const orderId = parseInt(card.dataset.orderId);
-        const clickedOrder = allUserOrders.find(o => o.id === orderId);
-        
-        if (clickedOrder) {
-            populateAndShowModal(clickedOrder);
-        }
-    }
-
-    paidOrdersGrid.addEventListener('click', handleOrderCardClick);
-    unpaidOrdersGrid.addEventListener('click', handleOrderCardClick);
 
     if (closeOrderDetailsModal) {
         closeOrderDetailsModal.addEventListener('click', () => {
@@ -332,8 +343,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const isActive = mobileMenu.classList.contains('is-active');
         if (isActive) {
             mobileMenu.classList.remove('is-active');
-            overlay.classList.add('hidden');
-            document.body.style.overflow = '';
+            if (orderDetailsModal.classList.contains('hidden')) {
+               overlay.classList.add('hidden');
+               document.body.style.overflow = '';
+            }
         } else {
             mobileMenu.classList.add('is-active');
             overlay.classList.remove('hidden');
@@ -344,12 +357,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (mobileMenuButton && mobileMenu && closeMobileMenuButton && overlay) {
         mobileMenuButton.addEventListener('click', toggleMobileMenu);
         closeMobileMenuButton.addEventListener('click', toggleMobileMenu);
-        overlay.addEventListener('click', () => { if (mobileMenu.classList.contains('is-active')) toggleMobileMenu(); });
+        overlay.addEventListener('click', () => { 
+            if (mobileMenu.classList.contains('is-active')) toggleMobileMenu();
+            if (!orderDetailsModal.classList.contains('hidden')) {
+                orderDetailsModal.classList.add('hidden');
+                overlay.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }
+        });
     }
 
-    // --- AMENDMENT: Corrected Initial Data Fetch ---
-    // Fetch both sets of orders first, then combine them into the master list.
-    const unpaidOrders = await fetchUnpaidOrders();
-    const paidOrders = await fetchPaidOrders();
-    allUserOrders = [...unpaidOrders, ...paidOrders];
+    // --- Combined function to fetch and render all orders ---
+    async function fetchAndRenderAllOrders() {
+        const unpaidOrders = await fetchUnpaidOrders();
+        const paidOrders = await fetchPaidOrders();
+        allUserOrders = [...unpaidOrders, ...paidOrders];
+    }
+    
+    // --- Initial Data Fetch ---
+    fetchAndRenderAllOrders();
 });
