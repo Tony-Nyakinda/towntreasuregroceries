@@ -1996,6 +1996,15 @@
                         window.location.reload();
                     });
                 }
+                
+                // FIX: Added event listener for mobile logout button
+                if (mobileLogoutButton) {
+                    mobileLogoutButton.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        await logout();
+                        window.location.reload();
+                    });
+                }
 
                 if (currentUserRole === 'admin') {
                     if (adminLink) adminLink.classList.remove('hidden');
