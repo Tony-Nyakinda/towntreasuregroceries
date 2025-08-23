@@ -935,6 +935,14 @@
                     });
                 }
 
+                if (mobileLogoutButton) {
+                    mobileLogoutButton.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        await logout();
+                        window.location.reload();
+                    });
+                }
+
                 if (role === 'admin') {
                     if (adminLink) adminLink.classList.remove('hidden'); // Show admin link in dropdown
                 } else {
