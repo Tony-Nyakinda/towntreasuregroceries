@@ -763,10 +763,15 @@
     <script type="module" src="catalog.js"></script>
     <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
     <script type="module">
-        import { getCurrentUserWithRole, logout } from './auth.js'; // Import logout
-        // No need to import toggleCart here, as it's now exposed globally by catalog.js after uiUpdater.js loads.
-
+        import { getCurrentUserWithRole, logout } from './auth.js';
+        import { closeCheckout } from './uiUpdater.js';
+    
         document.addEventListener('DOMContentLoaded', async () => {
+            const closeCheckoutButton = document.getElementById('closeCheckoutButton');
+            if (closeCheckoutButton) {
+                closeCheckoutButton.addEventListener('click', closeCheckout);
+            }
+    
             const loginLink = document.getElementById('loginLink');
             const userProfileButton = document.getElementById('userProfileButton');
 
@@ -1010,11 +1015,6 @@
                     mobileAccountButton.href = "login.html"; // Link to login page
                 }
             }
-
-            // --- DELETED: Redundant Mobile Menu Toggle Logic ---
-            // The logic was removed from here because it's already correctly
-            // implemented in catalog.js, and having it here caused the
-            // "toggleMobileMenu is not defined" error.
         });
     </script>
 </body>
