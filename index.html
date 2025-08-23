@@ -995,6 +995,7 @@
                         </div>
                         <a href="login.html" id="mobileLoginLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Login</a>
                         <a href="account.html" id="mobileMyProfileLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300 hidden">My Profile</a>
+                        <a href="admin.html" id="mobileAdminLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300 hidden">Admin Dashboard</a>
                         <button id="mobileLogoutButton" class="block w-full text-left py-2 px-3 text-red-600 hover:bg-red-50 rounded transition duration-300 hidden">Logout</button>
                     </div>
                 </nav>
@@ -1680,16 +1681,17 @@
     <div class="mobile-nav md:hidden">
         <a href="index.html" class="nav-item active">
             <i class="fas fa-home text-xl"></i>
-            <span class="text-xs mt-1">Home</span>
+            <span class="text-xs mt-1"></span>
         </a>
         <a href="catalog.html" class="nav-item">
             <i class="fas fa-shopping-basket text-xl"></i>
-            <span class="text-xs mt-1">Catalog</span>
+            <span class="text-xs mt-1"></span>
         </a>
         <a href="account.html" class="nav-item relative" id="mobileAccountButton">
+            <i id="mobileAccountIcon" class="fas fa-user text-xl"></i>
             <img id="mobileBottomProfilePic" src="" alt="Profile" class="w-6 h-6 rounded-full object-cover mx-auto hidden">
             <div id="mobileBottomUserInitials" class="w-6 h-6 rounded-full profile-pic-placeholder text-xs mx-auto hidden"></div>
-            <span id="mobileBottomUserName" class="text-xs mt-1">Account</span>
+            <span id="mobileBottomUserName" class="text-xs mt-1"></span>
         </a>
         <a href="#" class="nav-item relative" id="mobileBottomCartButton">
             <i class="fas fa-shopping-cart text-xl"></i>
@@ -1849,10 +1851,11 @@
             const mobileUserNameDisplay = document.getElementById('mobileUserNameDisplay'); // New
             const mobileUserEmailDisplay = document.getElementById('mobileUserEmailDisplay'); // New
 
-            const mobileAccountButton = document.getElementById('mobileAccountButton'); // New
-            const mobileBottomProfilePic = document.getElementById('mobileBottomProfilePic'); // New
-            const mobileBottomUserInitials = document.getElementById('mobileBottomUserInitials'); // New
-            const mobileBottomUserName = document.getElementById('mobileBottomUserName'); // New
+            const mobileAccountButton = document.getElementById('mobileAccountButton');
+            const mobileAccountIcon = document.getElementById('mobileAccountIcon');
+            const mobileBottomProfilePic = document.getElementById('mobileBottomProfilePic');
+            const mobileBottomUserInitials = document.getElementById('mobileBottomUserInitials');
+            const mobileBottomUserName = document.getElementById('mobileBottomUserName');
 
 
             const cartItemsContainer = document.getElementById('cartItems');
@@ -2043,6 +2046,9 @@
 
                 // Mobile Bottom Navigation "Account" button
                 if (mobileAccountButton) {
+                    if (mobileAccountIcon) mobileAccountIcon.classList.add('hidden');
+                    if (mobileBottomUserName) mobileBottomUserName.classList.add('hidden');
+
                     if (photoURL) {
                         if (mobileBottomProfilePic) {
                             mobileBottomProfilePic.src = photoURL;
@@ -2056,7 +2062,6 @@
                         }
                         if (mobileBottomProfilePic) mobileBottomProfilePic.classList.add('hidden');
                     }
-                    if (mobileBottomUserName) mobileBottomUserName.textContent = firstName;
                     mobileAccountButton.href = "account.html"; 
                 }
 
@@ -2081,7 +2086,11 @@
                 if (mobileAccountButton) {
                     if (mobileBottomProfilePic) mobileBottomProfilePic.classList.add('hidden');
                     if (mobileBottomUserInitials) mobileBottomUserInitials.classList.add('hidden');
-                    if (mobileBottomUserName) mobileBottomUserName.textContent = "Account";
+                    if (mobileAccountIcon) mobileAccountIcon.classList.remove('hidden');
+                    if (mobileBottomUserName) {
+                        mobileBottomUserName.textContent = "";
+                        mobileBottomUserName.classList.remove('hidden');
+                    }
                     mobileAccountButton.href = "login.html"; // Link to login page
                 }
             }
