@@ -172,12 +172,17 @@
         }
 
         .nav-item {
-            flex: 1;
-            text-align: center;
-            padding: 0.75rem 0;
-            color: #666;
-            transition: all 0.2s ease;
-            position: relative; /* For cart count badge */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-grow: 1;
+            padding: 0.5rem 0;
+            color: #4A5568; /* gray-700 */
+            transition: color 0.2s ease;
+            position: relative;
+            min-width: 0; /* Allow items to shrink */
+            flex-basis: 0; /* Allow items to shrink equally */
         }
 
         .nav-item.active {
@@ -222,7 +227,7 @@
 
             .mobile-nav {
                 display: flex; /* Ensure it's always flex on mobile */
-                height: 50px; /* Specific height from sdsdsd.txt */
+                height: 60px; /* Specific height from sdsdsd.txt */
                 padding: 0.25rem 0; /* Reduced padding from sdsdsd.txt */
             }
 
@@ -945,6 +950,7 @@
                             </div>
                         </div>
                         <a href="account.html" id="myProfileLink" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hidden">My Profile</a>
+                        <a href="admin.html" id="adminLink" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hidden">Admin Dashboard</a>
                         <button id="logoutDropdownButton" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Logout</button>
                     </div>
                 </div>
@@ -994,6 +1000,7 @@
                         </div>
                         <a href="login.html" id="mobileLoginLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300">Login</a>
                         <a href="account.html" id="mobileMyProfileLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300 hidden">My Profile</a>
+                        <a href="admin.html" id="mobileAdminLink" class="block py-2 px-3 text-gray-700 hover:bg-gray-100 rounded transition duration-300 hidden">Admin Dashboard</a>
                         <button id="mobileLogoutButton" class="block w-full text-left py-2 px-3 text-red-600 hover:bg-red-50 rounded transition duration-300 hidden">Logout</button>
                     </div>
                 </nav>
@@ -1679,20 +1686,21 @@
     <div class="mobile-nav md:hidden">
         <a href="index.html" class="nav-item active">
             <i class="fas fa-home text-xl"></i>
-            <span class="text-xs mt-1"></span>
+            <span class="text-xs mt-1">Home</span>
         </a>
         <a href="catalog.html" class="nav-item">
             <i class="fas fa-shopping-basket text-xl"></i>
-            <span class="text-xs mt-1"></span>
+            <span class="text-xs mt-1">Catalog</span>
         </a>
         <a href="account.html" class="nav-item relative" id="mobileAccountButton">
             <i id="mobileAccountIcon" class="fas fa-user text-xl"></i>
             <img id="mobileBottomProfilePic" src="" alt="Profile" class="w-6 h-6 rounded-full object-cover mx-auto hidden">
             <div id="mobileBottomUserInitials" class="w-6 h-6 rounded-full profile-pic-placeholder text-xs mx-auto hidden"></div>
-            <span id="mobileBottomUserName" class="text-xs mt-1"></span>
+            <span id="mobileBottomUserName" class="text-xs mt-1">Account</span>
         </a>
         <a href="#" class="nav-item relative" id="mobileBottomCartButton">
             <i class="fas fa-shopping-cart text-xl"></i>
+            <span class="text-xs mt-1">Cart</span>
             <span id="mobileBottomCartCount" class="cart-badge">0</span>
         </a>
     </div>
@@ -1907,7 +1915,7 @@
 
             function getFirstName(displayName, email) {
                 if (displayName && displayName.trim() !== '') {
-                    return displayName.trim().split('@')[0];
+                    return displayName.trim().split(' ')[0];
                 }
                 if (email && email.trim() !== '') {
                     return email.trim().split('@')[0];
@@ -2045,7 +2053,6 @@
                 // Mobile Bottom Navigation "Account" button
                 if (mobileAccountButton) {
                     if (mobileAccountIcon) mobileAccountIcon.classList.add('hidden');
-                    if (mobileBottomUserName) mobileBottomUserName.classList.add('hidden');
 
                     if (photoURL) {
                         if (mobileBottomProfilePic) {
@@ -2060,6 +2067,7 @@
                         }
                         if (mobileBottomProfilePic) mobileBottomProfilePic.classList.add('hidden');
                     }
+                    if (mobileBottomUserName) mobileBottomUserName.textContent = firstName;
                     mobileAccountButton.href = "account.html"; 
                 }
 
@@ -2086,7 +2094,7 @@
                     if (mobileBottomUserInitials) mobileBottomUserInitials.classList.add('hidden');
                     if (mobileAccountIcon) mobileAccountIcon.classList.remove('hidden');
                     if (mobileBottomUserName) {
-                        mobileBottomUserName.textContent = "";
+                        mobileBottomUserName.textContent = "Account";
                         mobileBottomUserName.classList.remove('hidden');
                     }
                     mobileAccountButton.href = "login.html"; // Link to login page
