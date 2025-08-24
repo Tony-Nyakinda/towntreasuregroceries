@@ -29,6 +29,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const mobileMenu = document.getElementById('mobileMenu');
     const closeMobileMenuButton = document.getElementById('closeMobileMenuButton');
     const overlay = document.getElementById('overlay');
+    const cancelOrderBtn = document.getElementById('cancelOrderBtn');
+    const customConfirmModal = document.getElementById('customConfirmModal');
+    const confirmModalOkBtn = document.getElementById('confirmModalOkBtn');
+    const confirmModalCancelBtn = document.getElementById('confirmModalCancelBtn');
 
     const { user } = await getCurrentUserWithRole();
 
@@ -245,6 +249,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    if (cancelOrderBtn) {
+        cancelOrderBtn.addEventListener('click', async () => {
+            const orderId = cancelOrderBtn.dataset.orderId;
+            if (!orderId) {
+                showToast("Error: Could not find Order ID to cancel.");
+                return;
+            }
+            showCustomConfirm("Are you sure you want to cancel this order? This action cannot be undone.", orderId);
+        });
+    }
+
 
     if (downloadReceiptBtn) {
         downloadReceiptBtn.addEventListener('click', async () => {
@@ -310,6 +325,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         statusEl.textContent = statusText.charAt(0).toUpperCase() + statusText.slice(1);
         statusEl.className = statusText === 'paid' ? 'font-bold text-green-600' : 'font-bold text-yellow-600';
 
+        if (statusText === 'unpaid') {
+            cancelOrderBtn.classList.remove('hidden');
+            cancelOrderBtn.dataset.orderId = order.id;
+        } else {
+            cancelOrderBtn.classList.add('hidden');
+        }
+
         const itemsContainer = document.getElementById('modalOrderItems');
         itemsContainer.innerHTML = '';
         
@@ -365,6 +387,54 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.body.classList.remove('overflow-hidden');
             }
         });
+    }
+
+    function showCustomConfirm(message, orderId) {
+        const confirmModalMessage = document.getElementById('confirmModalMessage');
+        if (confirmModalMessage) {
+            confirmModalMessage.textContent = message;
+        }
+        customConfirmModal.classList.remove('hidden');
+        overlay.classList.remove('hidden');
+
+        confirmModalOkBtn.onclick = async () => {
+            try {
+                const idToken = await auth.currentUser.getIdToken();
+                const response = await fetch('/.netlify/functions/cancel-order', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`
+                    },
+                    body: JSON.stringify({ orderId: orderId })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Failed to cancel order.');
+                }
+
+                showToast("Order cancelled successfully.");
+                closeOrderDetailsModal.click(); // Close the modal
+                fetchAndRenderAllOrders(); // Refresh the lists
+            } catch (error) {
+                console.error("Error cancelling order:", error);
+                showToast(`Error: ${error.message}`);
+            } finally {
+                hideCustomConfirm();
+            }
+        };
+
+        confirmModalCancelBtn.onclick = () => {
+            hideCustomConfirm();
+        };
+    }
+
+    function hideCustomConfirm() {
+        customConfirmModal.classList.add('hidden');
+        if (orderDetailsModal.classList.contains('hidden')) {
+            overlay.classList.add('hidden');
+        }
     }
 
     // --- Combined function to fetch and render all orders ---
