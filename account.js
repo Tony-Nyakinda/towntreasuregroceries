@@ -6,7 +6,7 @@
 import { supabase } from './supabase-config.js';
 import { auth } from './firebase-config.js';
 import { getCurrentUserWithRole, logout } from './auth.js';
-import { showToast, showWaitingModal, hideWaitingModal, showConfirmation, closeConfirmation } from './uiUpdater.js';
+import { showToast, showWaitingModal, hideWaitingModal, showConfirmation, closeConfirmation, showAlertModal } from './uiUpdater.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     let allUserOrders = []; 
@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         timeoutId = setTimeout(() => {
             clearInterval(pollIntervalId);
             hideWaitingModal();
-            showToast("Payment timed out. Please try again.");
+            showAlertModal("Payment timed out. Please try again or check your M-Pesa account.", "Payment Timeout", "error");
             fetchAndRenderAllOrders();
         }, TIMEOUT_DURATION);
 
@@ -187,14 +187,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                     clearInterval(pollIntervalId);
                     clearTimeout(timeoutId);
                     hideWaitingModal();
-                    showToast(`Payment failed: ${result.message}`);
+                    showAlertModal(`Your payment was not completed: ${result.message}. Please try again.`, "Payment Unsuccessful", "error");
                     fetchAndRenderAllOrders();
                 }
             } catch (error) {
                 clearInterval(pollIntervalId);
                 clearTimeout(timeoutId);
                 hideWaitingModal();
-                showToast("Error checking payment status.");
+                showAlertModal("An error occurred while checking payment status. Please check your M-Pesa account.", "Error", "error");
                 fetchAndRenderAllOrders();
             }
         }, POLLING_INTERVAL);
@@ -230,7 +230,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
                 waitForPaymentConfirmation(mpesaResult.checkoutRequestID);
             } catch (error) {
-                showToast(`Payment failed: ${error.message}`);
+                showAlertModal(`Payment failed: ${error.message}`, "Payment Error", "error");
                 button.disabled = false;
                 button.innerHTML = 'Pay Now';
             }
