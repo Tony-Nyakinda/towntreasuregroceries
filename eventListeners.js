@@ -14,7 +14,7 @@ import {
     hideWaitingModal,
     showAlertModal
 } from './uiUpdater.js';
-import { auth } from './firebase-config.js';
+import { auth, db } from './firebase-config.js'; // AMENDMENT: Imported db
 import { supabase } from './supabase-config.js';
 import { getProducts } from './productsData.js';
 import { getCart, clearCart } from './cartManager.js';
@@ -115,9 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (closeCheckoutButton) closeCheckoutButton.addEventListener('click', closeCheckout);
     if (continueShoppingButton) continueShoppingButton.addEventListener('click', closeConfirmation);
 
-    // --- *** FIX #1: REPLACED DOWNLOAD BUTTON LISTENER *** ---
-    // This listener now correctly handles both paid and unpaid orders
-    // by checking for 'data-order-details' (for unpaid) and 'data-order-id' (for paid).
+    // --- Download Receipt Button Listener ---
     if (downloadReceiptBtn) {
         downloadReceiptBtn.addEventListener('click', async () => {
             const paidOrderId = downloadReceiptBtn.dataset.orderId;
@@ -125,28 +123,19 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let payload = {};
 
-            // Case 1: Handle unpaid orders from 'data-order-details'
             if (unpaidOrderDetailsString) {
                 try {
                     const orderDetails = JSON.parse(unpaidOrderDetailsString);
-                    payload = {
-                        orderId: orderDetails.id, // Extract the database ID from the JSON object
-                        source: 'unpaid'
-                    };
+                    payload = { orderId: orderDetails.id, source: 'unpaid' };
                 } catch (e) {
                     console.error("Failed to parse order details:", e);
                     showToast("Error preparing receipt data.");
                     return;
                 }
             } 
-            // Case 2: Handle paid orders from 'data-order-id'
             else if (paidOrderId) {
-                payload = {
-                    orderId: paidOrderId,
-                    source: 'paid'
-                };
+                payload = { orderId: paidOrderId, source: 'paid' };
             } 
-            // Case 3: No ID found
             else {
                 console.error("No order ID or details found on the button.");
                 showToast("Could not find order to generate receipt.");
@@ -213,16 +202,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Contact Form Submission ---
+    // --- AMENDMENT: Correct Contact Form Submission Logic ---
     if (contactForm) {
-        contactForm.addEventListener('submit', function(event) {
+        contactForm.addEventListener('submit', async function(event) {
             event.preventDefault();
-            showToast('Message sent successfully!');
-            contactForm.reset();
+            
+            const submitButton = contactForm.querySelector('button[type="submit"]');
+            const originalButtonText = submitButton.innerHTML;
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+            try {
+                const name = document.getElementById('name').value;
+                const email = document.getElementById('email').value;
+                const subject = document.getElementById('subject').value;
+                const message = document.getElementById('message').value;
+                const userId = auth.currentUser ? auth.currentUser.uid : null;
+
+                // Save message to Firestore
+                await db.collection('messages').add({
+                    name,
+                    email,
+                    subject,
+                    message,
+                    userId, // Store userId (or null if not logged in)
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                showToast('Message sent successfully!');
+                contactForm.reset();
+
+            } catch (error) {
+                console.error("Error sending message:", error);
+                showAlertModal('Failed to send message. Please try again.', 'Error', 'error');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonText;
+            }
         });
     }
 
-    // --- Login/Logout Link Logic (No changes here) ---
+    // --- Login/Logout Link Logic ---
     if (loginLink) {
         loginLink.addEventListener('click', async (e) => {
             if (loginLink.textContent === 'Logout') {
@@ -333,9 +353,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     waitForPaymentConfirmation(mpesaResult.checkoutRequestID);
 
                 } else if (selectedPaymentMethod === 'delivery') {
-                    // --- *** FIX #2: MODIFIED PAY-ON-DELIVERY LOGIC *** ---
-                    // Added .select().single() to get the created order object back from Supabase.
-                    // This ensures we have the correct database ID (`unpaidOrder.id`) to pass to the confirmation modal.
                     const { data: unpaidOrder, error } = await supabase.from('unpaid_orders').insert([{
                         order_number: orderDetails.orderNumber,
                         user_id: orderDetails.userId,
@@ -354,7 +371,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     closeCheckout();
                     if (confirmationMessage) confirmationMessage.textContent = "Your order has been placed successfully! Please have your payment ready for our delivery rider.";
                     
-                    // Now we pass the full order object from the database to the confirmation UI.
                     showConfirmation(unpaidOrder.order_number, unpaidOrder);
                     clearCart();
                     updateCartUI();
