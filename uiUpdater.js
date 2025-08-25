@@ -28,6 +28,11 @@ const orderNumberSpan = document.getElementById('orderNumber');
 const toastElement = document.getElementById('toast');
 const waitingModal = document.getElementById('waitingModal');
 const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
+const customAlertModal = document.getElementById('customAlertModal');
+const alertModalTitle = document.getElementById('alertModalTitle');
+const alertModalMessage = document.getElementById('alertModalMessage');
+const alertModalCloseButton = document.getElementById('alertModalCloseButton');
+const alertModalIcon = document.getElementById('alertModalIcon');
 
 const DELIVERY_FEE = 0;
 
@@ -245,8 +250,58 @@ function hideWaitingModal() {
     }
 }
 
+// --- Custom Alert Modal ---
+function showAlertModal(message, title = 'Alert', type = 'info') {
+    if (!customAlertModal || !alertModalTitle || !alertModalMessage || !alertModalCloseButton || !alertModalIcon || !overlay) {
+        console.warn(`ALERT [${type}]: ${title} - ${message}`);
+        alert(`${title}: ${message}`); // Fallback
+        return;
+    }
+
+    alertModalTitle.textContent = title;
+    alertModalMessage.textContent = message;
+
+    // Reset classes for icon and button
+    alertModalIcon.className = 'text-4xl mb-4';
+    alertModalCloseButton.className = 'text-white font-bold py-2 px-4 rounded-lg transition duration-300';
+
+    if (type === 'error') {
+        alertModalIcon.classList.add('fas', 'fa-exclamation-triangle', 'text-red-500');
+        alertModalCloseButton.classList.add('bg-red-500', 'hover:bg-red-600');
+    } else if (type === 'success') {
+        alertModalIcon.classList.add('fas', 'fa-check-circle', 'text-green-600');
+        alertModalCloseButton.classList.add('bg-green-600', 'hover:bg-green-700');
+    } else { // 'info'
+        alertModalIcon.classList.add('fas', 'fa-info-circle', 'text-blue-500');
+        alertModalCloseButton.classList.add('bg-blue-500', 'hover:bg-blue-600');
+    }
+
+    customAlertModal.classList.remove('hidden');
+    overlay.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+}
+
+function closeAlertModal() {
+    if (customAlertModal) customAlertModal.classList.add('hidden');
+    
+    const otherModals = [checkoutModal, confirmationModal, waitingModal];
+    const isAnotherModalActive = otherModals.some(modal => modal && !modal.classList.contains('hidden'));
+
+    if (!isAnotherModalActive) {
+        if (overlay) overlay.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
+}
+
+// Self-contained event listener for the alert modal's close button
+if (alertModalCloseButton) {
+    alertModalCloseButton.addEventListener('click', closeAlertModal);
+}
+
+
 // --- Exports ---
 export { 
     updateCartUI, showToast, toggleCart, checkout, closeCheckout, 
-    showConfirmation, closeConfirmation, showWaitingModal, hideWaitingModal 
+    showConfirmation, closeConfirmation, showWaitingModal, hideWaitingModal,
+    showAlertModal, closeAlertModal
 };
