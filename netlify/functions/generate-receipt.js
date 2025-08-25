@@ -29,19 +29,19 @@ function addStoreWatermark(doc, text) {
 }
 
 // Unpaid stamp: square border + red ink text with rough “rubber stamp” effect
-function addUnpaidStamp(doc, message = 'PENDING PAYMENT – COPY') {
+function addUnpaidStamp(doc, yPos) {
+  const message = 'PENDING PAYMENT – COPY';
   const centerX = doc.page.width / 2;
-  const centerY = doc.page.height - 290; // sits above the footer area
   const boxSize = 200;
 
   doc.save();
-  doc.rotate(-14, { origin: [centerX, centerY] }); // tilt for realism
+  doc.rotate(-14, { origin: [centerX, yPos] }); // tilt for realism
 
   // Rough red square border (multi-pass jitter)
   for (let i = 0; i < 4; i++) {
     const jx = (Math.random() * 2 - 1);
     const jy = (Math.random() * 2 - 1);
-    doc.rect(centerX - boxSize / 2 + jx, centerY - boxSize / 2 + jy, boxSize, boxSize)
+    doc.rect(centerX - boxSize / 2 + jx, yPos - boxSize / 2 + jy, boxSize, boxSize)
       .lineWidth(2)
       .strokeColor('#DC2626') // red ink
       .opacity(0.55 + Math.random() * 0.15)
@@ -51,7 +51,7 @@ function addUnpaidStamp(doc, message = 'PENDING PAYMENT – COPY') {
   // Text layers (ink spread)
   const w = 0.8 * boxSize;
   const x = centerX - w / 2;
-  const y = centerY - 14; // slightly above center
+  const y = yPos - 14; // slightly above center
   const offsets = [
     { dx: 0, dy: 0, op: 0.7 },
     { dx: -1, dy: 0, op: 0.45 },
@@ -71,20 +71,19 @@ function addUnpaidStamp(doc, message = 'PENDING PAYMENT – COPY') {
 }
 
 // Paid stamp: tilted square + center logo + red date with layered ink effect
-function addPaidStamp(doc, logoPath, orderDate) {
+function addPaidStamp(doc, logoPath, orderDate, yPos) {
   const centerX = doc.page.width / 2;
-  const centerY = doc.page.height - 285; // above footer
   const boxSize = 180;
   const logoSize = 120;
 
   doc.save();
-  doc.rotate(-12, { origin: [centerX, centerY] }); // tilt whole stamp
+  doc.rotate(-12, { origin: [centerX, yPos] }); // tilt whole stamp
 
   // Dark rough square border
   for (let i = 0; i < 4; i++) {
     const jx = (Math.random() * 2 - 1);
     const jy = (Math.random() * 2 - 1);
-    doc.rect(centerX - boxSize / 2 + jx, centerY - boxSize / 2 + jy, boxSize, boxSize)
+    doc.rect(centerX - boxSize / 2 + jx, yPos - boxSize / 2 + jy, boxSize, boxSize)
       .lineWidth(2)
       .strokeColor('#1F2937') // dark “ink”
       .opacity(0.55 + Math.random() * 0.2)
@@ -93,7 +92,7 @@ function addPaidStamp(doc, logoPath, orderDate) {
 
   // Center logo
   if (fs.existsSync(logoPath)) {
-    doc.image(logoPath, centerX - logoSize / 2, centerY - logoSize / 2 - 12, {
+    doc.image(logoPath, centerX - logoSize / 2, yPos - logoSize / 2 - 12, {
       width: logoSize, height: logoSize
     });
   }
@@ -105,7 +104,7 @@ function addPaidStamp(doc, logoPath, orderDate) {
 
   const textW = 120;
   const textX = centerX - textW / 2;
-  const textY = centerY + logoSize / 2 - 2;
+  const textY = yPos + logoSize / 2 - 2;
 
   const dateOffsets = [
     { dx: 0, dy: 0, op: 0.75 },
@@ -251,14 +250,22 @@ exports.handler = async function (event) {
     const col = { sl: 40, gap: 10, unit: 90, qty: 60, total: 90 };
     col.desc = contentWidth - (col.sl + col.gap * 4 + col.unit + col.qty + col.total);
 
+    const colX = {
+        sl: pageMargin,
+        desc: pageMargin + col.sl + col.gap,
+        unit: pageMargin + col.sl + col.gap + col.desc + col.gap,
+        qty: pageMargin + col.sl + col.gap + col.desc + col.gap + col.unit + col.gap,
+        total: pageMargin + col.sl + col.gap + col.desc + col.gap + col.unit + col.gap + col.qty + col.gap
+    };
+
     function drawTableHeader(yPos) {
       doc.rect(pageMargin, yPos, contentWidth, 28).fill(brandDark);
       doc.fontSize(10).fillColor('#FFFFFF').font('Helvetica-Bold');
-      doc.text('SL No.', pageMargin + 8, yPos + 9, { width: col.sl - 16, align: 'left' });
-      doc.text('Item Description', pageMargin + col.sl + col.gap, yPos + 9, { width: col.desc, align: 'left' });
-      doc.text('Unit Price', pageMargin + col.sl + col.gap + col.desc + col.gap, yPos + 9, { width: col.unit, align: 'right' });
-      doc.text('Quantity', pageMargin + col.sl + col.gap + col.desc + col.gap + col.unit + col.gap, yPos + 9, { width: col.qty, align: 'center' });
-      doc.text('Total', pageMargin + col.sl + col.gap + col.desc + col.gap + col.unit + col.gap + col.qty + col.gap, yPos + 9, { width: col.total, align: 'right' });
+      doc.text('SL No.', colX.sl + 8, yPos + 9, { width: col.sl - 16, align: 'left' });
+      doc.text('Item Description', colX.desc, yPos + 9, { width: col.desc, align: 'left' });
+      doc.text('Unit Price', colX.unit, yPos + 9, { width: col.unit, align: 'right' });
+      doc.text('Quantity', colX.qty, yPos + 9, { width: col.qty, align: 'center' });
+      doc.text('Total', colX.total, yPos + 9, { width: col.total, align: 'right' });
     }
     drawTableHeader(tableTop);
 
@@ -279,7 +286,7 @@ exports.handler = async function (event) {
       const rowH = Math.max(24, descH + 12);
 
       // Add new page if needed
-      if (rowY + rowH > doc.page.height - 200) {
+      if (rowY + rowH > doc.page.height - 150) { // Adjusted page break threshold
         doc.addPage();
         addStoreWatermark(doc, 'Town Treasure Groceries');
         rowY = pageMargin;
@@ -290,19 +297,31 @@ exports.handler = async function (event) {
 
       if (zebra) {
         doc.rect(pageMargin, rowY, contentWidth, rowH).fill(lightGray);
-        doc.fillColor(brandDark);
       }
       zebra = !zebra;
 
       doc.fontSize(10).font('Helvetica').fillColor(brandDark);
-      doc.text(String(i + 1).padStart(2, '0'), pageMargin + 8, rowY + 8, { width: col.sl - 16, align: 'left' });
-      doc.text(name || '-', pageMargin + col.sl + col.gap, rowY + 8, { width: col.desc });
-      doc.text(KES(price), pageMargin + col.sl + col.gap + col.desc + col.gap, rowY + 8, { width: col.unit, align: 'right' });
-      doc.text(String(qty), pageMargin + col.sl + col.gap + col.desc + col.gap + col.unit + col.gap, rowY + 8, { width: col.qty, align: 'center' });
-      doc.text(KES(total), pageMargin + col.sl + col.gap + col.desc + col.gap + col.unit + col.gap + col.qty + col.gap, rowY + 8, { width: col.total, align: 'right' });
+      doc.text(String(i + 1).padStart(2, '0'), colX.sl + 8, rowY + 8, { width: col.sl - 16, align: 'left' });
+      doc.text(name || '-', colX.desc, rowY + 8, { width: col.desc });
+      doc.text(KES(price), colX.unit, rowY + 8, { width: col.unit, align: 'right' });
+      doc.text(String(qty), colX.qty, rowY + 8, { width: col.qty, align: 'center' });
+      doc.text(KES(total), colX.total, rowY + 8, { width: col.total, align: 'right' });
 
       rowY += rowH;
     }
+    
+    // --- Final Content Calculation ---
+    // Check if totals and payment block will fit on the current page
+    const totalsHeight = 80;
+    const paymentBlockHeight = 200;
+    const requiredSpace = totalsHeight + paymentBlockHeight;
+
+    if (rowY + requiredSpace > doc.page.height - 120) {
+        doc.addPage();
+        addStoreWatermark(doc, 'Town Treasure Groceries');
+        rowY = pageMargin;
+    }
+
 
     /** Totals **/
     const sepY = rowY + 6;
@@ -319,10 +338,12 @@ exports.handler = async function (event) {
     doc.text(KES(subtotal), boxX + labelW, totalsY, { width: valueW, align: 'right' });
 
     const gtY = totalsY + 28;
-    doc.rect(boxX, gtY, boxW, 28).fill('#64B93E');
+    doc.rect(boxX, gtY, boxW, 28).fill(brandGreen);
     doc.font('Helvetica-Bold').fillColor('#FFFFFF');
     doc.text('Grand Total:', boxX, gtY + 7, { width: labelW, align: 'right' });
     doc.text(KES(order.total ?? subtotal), boxX + labelW, gtY + 7, { width: valueW, align: 'right' });
+    
+    const finalContentY = gtY + 40;
 
     // --- FOOTER ON EVERY PAGE ---
     const range = doc.bufferedPageRange();
@@ -337,6 +358,14 @@ exports.handler = async function (event) {
         .lineTo(0, doc.page.height)
         .fill(brandDark);
 
+      // Add thank you note ONLY on the last page's footer
+      if (i === range.count - 1) {
+          const customerName = order.full_name ? order.full_name.split(' ')[0] : '';
+          doc.font('Helvetica-Oblique').fillColor('#FFFFFF').fontSize(14)
+            .text(customerName ? `Thank you, ${customerName}, for Shopping with us` : 'Thank you for shopping with us',
+              0, footerY + 30, { width: pageWidth, align: 'center' });
+      }
+
       // Page numbers on every page
       doc.font('Helvetica').fontSize(10).fillColor('#FFFFFF')
         .text(`Page ${i + 1} of ${range.count}`, pageWidth - pageMargin - 80, footerY + 35, {
@@ -344,10 +373,10 @@ exports.handler = async function (event) {
         });
     }
 
-    // Add payment block only on last page
+    // --- LAST PAGE CONTENT ---
     doc.switchToPage(range.start + range.count - 1);
-    const footerY = doc.page.height - 100;
-    const blockY = footerY - 220;
+    
+    const blockY = finalContentY;
 
     doc.font('Helvetica-Bold').fontSize(12).fillColor(brandDark).text('Payment Details:', pageMargin, blockY);
     doc.font('Helvetica').fontSize(10).fillColor(textGray)
@@ -386,19 +415,13 @@ exports.handler = async function (event) {
       .text('City Park Market, Limuru Road', companyX, blockY + 24, { width: 220, align: 'right' })
       .text('Nairobi, Kenya', companyX, blockY + 36, { width: 220, align: 'right' });
 
-    /** Thank you note (italic, not bold) **/
-    const customerName = order.full_name ? order.full_name.split(' ')[0] : '';
-    doc.font('Helvetica-Oblique').fillColor('#FFFFFF').fontSize(14)
-      .text(customerName ? `Thank you, ${customerName}, for shopping with us` : 'Thank you for shopping with us',
-        0, footerY + 30, { width: pageWidth, align: 'center' });
-
     /** Stamps (after layout so they don't get overlapped) **/
+    const stampY = blockY + 110; // Position stamp relative to the content above it
     if (orderSource === 'paid' || order.payment_status === 'paid') {
-      const paidLogoPath = path.resolve(__dirname, 'preloader_stamp.png'); // your personalized stamp image
-      addPaidStamp(doc, paidLogoPath, order.created_at);
+      const paidLogoPath = path.resolve(__dirname, 'preloader_stamp.png');
+      addPaidStamp(doc, paidLogoPath, order.created_at, stampY);
     } else {
-      // Unpaid/Pay on Delivery
-      addUnpaidStamp(doc, 'PENDING PAYMENT – COPY');
+      addUnpaidStamp(doc, stampY);
     }
 
     /** Finish **/
