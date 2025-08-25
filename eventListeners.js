@@ -11,7 +11,8 @@ import {
     showConfirmation,
     closeConfirmation,
     showWaitingModal,
-    hideWaitingModal
+    hideWaitingModal,
+    showAlertModal
 } from './uiUpdater.js';
 import { auth } from './firebase-config.js';
 import { supabase } from './supabase-config.js';
@@ -35,7 +36,7 @@ function waitForPaymentConfirmation(checkoutRequestID) {
     timeoutId = setTimeout(() => {
         clearInterval(pollIntervalId);
         hideWaitingModal();
-        showToast("Payment timed out. Please try again or check your M-Pesa account.");
+        showAlertModal("Payment timed out. Please try again or check your M-Pesa account.", "Payment Timeout", "error");
     }, TIMEOUT_DURATION);
 
     pollIntervalId = setInterval(async () => {
@@ -60,14 +61,14 @@ function waitForPaymentConfirmation(checkoutRequestID) {
                 clearInterval(pollIntervalId);
                 clearTimeout(timeoutId);
                 hideWaitingModal();
-                showToast(`Payment failed: ${result.message}`);
+                showAlertModal(`Your payment was not completed: ${result.message}. Please try again.`, "Payment Unsuccessful", "error");
             }
         } catch (error) {
             console.error("Error during polling for payment status:", error);
             clearInterval(pollIntervalId);
             clearTimeout(timeoutId);
             hideWaitingModal();
-            showToast("Error checking payment status. Please check your M-Pesa account.");
+            showAlertModal("An error occurred while checking the payment status. Please check your M-Pesa account for confirmation.", "Error", "error");
         }
     }, POLLING_INTERVAL);
 }
@@ -360,7 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (error) {
                 console.error("Error during checkout:", error);
-                showToast(`Checkout failed: ${error.message}. Please try again.`);
+                showAlertModal(`Checkout failed: ${error.message}. Please try again.`, "Checkout Error", "error");
             } finally {
                 placeOrderBtn.disabled = false;
                 placeOrderBtn.innerHTML = 'Place Order';
