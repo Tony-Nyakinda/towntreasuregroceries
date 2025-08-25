@@ -4,7 +4,7 @@
 // UPDATED to handle M-Pesa payment status by polling a Netlify Function instead of Firestore.
 import { supabase } from './supabase-config.js'; // Import Supabase instance
 import { getProducts } from './productsData.js'; // Correctly import getProducts function
-import { showToast, toggleCart, checkout, closeCheckout, showConfirmation, closeConfirmation, updateCartUI, showWaitingModal, hideWaitingModal } from './uiUpdater.js'; // AMENDMENT: Import waiting modal functions
+import { showToast, toggleCart, checkout, closeCheckout, showConfirmation, closeConfirmation, updateCartUI, showWaitingModal, hideWaitingModal, showAlertModal } from './uiUpdater.js'; // AMENDMENT: Import showAlertModal
 import { addToCart, updateCartItemQuantity, removeFromCart, getCart, clearCart } from './cartManager.js'; // Import cart management functions
 import { getCurrentUserWithRole, logout } from './auth.js'; // Import auth functions for user login/logout logic
 
@@ -74,7 +74,7 @@ function waitForPaymentConfirmation(checkoutRequestID) {
     timeoutId = setTimeout(() => {
         clearInterval(pollIntervalId);
         hideWaitingModal();
-        showToast("Payment timed out. Please try again or check your M-Pesa account.");
+        showAlertModal("Payment timed out. Please try again or check your M-Pesa account.", "Payment Timeout", "error");
     }, TIMEOUT_DURATION);
 
     pollIntervalId = setInterval(async () => {
@@ -99,14 +99,14 @@ function waitForPaymentConfirmation(checkoutRequestID) {
                 clearInterval(pollIntervalId);
                 clearTimeout(timeoutId);
                 hideWaitingModal();
-                showToast(`Payment failed: ${result.message}`);
+                showAlertModal(`Your payment was not completed: ${result.message}. Please try again.`, "Payment Unsuccessful", "error");
             }
         } catch (error) {
             console.error("Error during polling for payment status:", error);
             clearInterval(pollIntervalId);
             clearTimeout(timeoutId);
             hideWaitingModal();
-            showToast("Error checking payment status. Please check your M-Pesa account.");
+            showAlertModal("An error occurred while checking payment status. Please check your M-Pesa account.", "Error", "error");
         }
     }, POLLING_INTERVAL);
 }
@@ -540,7 +540,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             } catch (error) {
                 console.error("Error during checkout:", error);
-                showToast(`Checkout failed: ${error.message}. Please try again.`);
+                showAlertModal(`Checkout failed: ${error.message}. Please try again.`, "Checkout Error", "error");
             } finally {
                 placeOrderBtn.disabled = false;
                 placeOrderBtn.innerHTML = 'Place Order';
