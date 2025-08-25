@@ -324,16 +324,29 @@ exports.handler = async function (event) {
     doc.text('Grand Total:', boxX, gtY + 7, { width: labelW, align: 'right' });
     doc.text(KES(order.total ?? subtotal), boxX + labelW, gtY + 7, { width: valueW, align: 'right' });
 
-    /** Footer decoration **/
-    const footerY = doc.page.height - 100;
-    doc.save()
-      .moveTo(0, footerY)
-      .quadraticCurveTo(pageWidth / 2, footerY - 50, pageWidth, footerY)
-      .lineTo(pageWidth, doc.page.height)
-      .lineTo(0, doc.page.height)
-      .fill(brandDark);
+    // --- FOOTER ON EVERY PAGE ---
+    const range = doc.bufferedPageRange();
+    for (let i = 0; i < range.count; i++) {
+      doc.switchToPage(range.start + i);
 
-    /** Payment + QR + Company info (always on last page above footer) **/
+      const footerY = doc.page.height - 100;
+      doc.save()
+        .moveTo(0, footerY)
+        .quadraticCurveTo(pageWidth / 2, footerY - 50, pageWidth, footerY)
+        .lineTo(pageWidth, doc.page.height)
+        .lineTo(0, doc.page.height)
+        .fill(brandDark);
+
+      // Page numbers on every page
+      doc.font('Helvetica').fontSize(10).fillColor('#FFFFFF')
+        .text(`Page ${i + 1} of ${range.count}`, pageWidth - pageMargin - 80, footerY + 35, {
+          width: 80, align: 'right'
+        });
+    }
+
+    // Add payment block only on last page
+    doc.switchToPage(range.start + range.count - 1);
+    const footerY = doc.page.height - 100;
     const blockY = footerY - 220;
 
     doc.font('Helvetica-Bold').fontSize(12).fillColor(brandDark).text('Payment Details:', pageMargin, blockY);
@@ -378,15 +391,6 @@ exports.handler = async function (event) {
     doc.font('Helvetica-Oblique').fillColor('#FFFFFF').fontSize(14)
       .text(customerName ? `Thank you, ${customerName}, for your business` : 'Thank you for your business',
         0, footerY + 30, { width: pageWidth, align: 'center' });
-
-    /** Page indicator (on last page) **/
-    const range = doc.bufferedPageRange();
-    const currentPage = range.start + range.count; // last page number
-    const totalPages = range.count;
-    doc.font('Helvetica').fontSize(10).fillColor('#FFFFFF')
-      .text(`Page ${currentPage} of ${totalPages}`, pageWidth - pageMargin - 80, footerY + 35, {
-        width: 80, align: 'right'
-      });
 
     /** Stamps (after layout so they don't get overlapped) **/
     if (orderSource === 'paid' || order.payment_status === 'paid') {
