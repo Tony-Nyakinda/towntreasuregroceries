@@ -389,7 +389,7 @@ exports.handler = async function (event) {
     /** Thank you note (italic, not bold) **/
     const customerName = order.full_name ? order.full_name.split(' ')[0] : '';
     doc.font('Helvetica-Oblique').fillColor('#FFFFFF').fontSize(14)
-      .text(customerName ? `Thank you, ${customerName}, for your business` : 'Thank you for your business',
+      .text(customerName ? `Thank you, ${customerName}, for shopping with us` : 'Thank you for shopping with us',
         0, footerY + 30, { width: pageWidth, align: 'center' });
 
     /** Stamps (after layout so they don't get overlapped) **/
