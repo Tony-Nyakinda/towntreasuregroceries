@@ -14,10 +14,11 @@ import {
     hideWaitingModal,
     showAlertModal
 } from './uiUpdater.js';
-import { auth, db } from './firebase-config.js'; // AMENDMENT: Imported db
+import { auth, db } from './firebase-config.js';
 import { supabase } from './supabase-config.js';
 import { getProducts } from './productsData.js';
 import { getCart, clearCart } from './cartManager.js';
+import { getDeliveryFee } from './delivery-zones.js';
 
 /**
  * Polls a serverless function to check the status of an M-Pesa payment.
@@ -202,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- AMENDMENT: Correct Contact Form Submission Logic ---
+    // --- Contact Form Submission Logic ---
     if (contactForm) {
         contactForm.addEventListener('submit', async function(event) {
             event.preventDefault();
@@ -219,13 +220,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const message = document.getElementById('message').value;
                 const userId = auth.currentUser ? auth.currentUser.uid : null;
 
-                // Save message to Firestore
                 await db.collection('messages').add({
                     name,
                     email,
                     subject,
                     message,
-                    userId, // Store userId (or null if not logged in)
+                    userId,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
@@ -322,9 +322,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         unit: productDetails.unit
                     };
                 });
-
+                
                 const subtotal = enrichedCartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-                const total = subtotal;
+                const deliveryFee = getDeliveryFee(customerAddress);
+                const total = subtotal + deliveryFee;
                 const userId = auth.currentUser.uid;
 
                 const orderDetails = {
@@ -337,6 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     items: enrichedCartItems,
                     total: total,
                     paymentMethod: selectedPaymentMethod,
+                    deliveryFee: deliveryFee 
                 };
 
                 if (selectedPaymentMethod === 'mpesa') {
@@ -363,10 +365,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         items: orderDetails.items,
                         total: orderDetails.total,
                         payment_status: 'unpaid',
-                        payment_method: 'delivery'
+                        payment_method: 'delivery',
+                        delivery_fee: orderDetails.deliveryFee
                     }]).select().single();
 
-                    if (error) throw error;
+                    if (error) {
+                        // This will now provide a more detailed error in the console
+                        console.error("Supabase insert error:", error);
+                        throw error;
+                    }
 
                     closeCheckout();
                     if (confirmationMessage) confirmationMessage.textContent = "Your order has been placed successfully! Please have your payment ready for our delivery rider.";
@@ -376,9 +383,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateCartUI();
                 }
             } catch (error) {
-                console.error("Error during checkout:", error);
-                showAlertModal(`Checkout failed: ${error.message}. Please try again.`, "Checkout Error", "error");
+                // AMENDED: More detailed error logging
+                console.error("Full checkout error object:", error);
+                const errorMessage = error.message || 'An unknown error occurred.';
+                showAlertModal(`Checkout failed: ${errorMessage}. Please check the console for more details.`, "Checkout Error", "error");
             } finally {
+                // This 'finally' block ensures the button is always reset,
+                // whether the process succeeds or fails.
                 placeOrderBtn.disabled = false;
                 placeOrderBtn.innerHTML = 'Place Order';
             }
