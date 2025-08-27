@@ -1,7 +1,7 @@
 // account.js
 // This script handles the logic for the "My Account" page.
 // It fetches and displays unpaid orders and paid order history from Supabase.
-// It also handles the M-Pesa payment flow for unpaid orders.
+// It now redirects unpaid orders to the dedicated checkout page for payment.
 
 import { supabase } from './supabase-config.js';
 import { auth } from './firebase-config.js';
@@ -105,12 +105,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Create HTML Cards for Orders ---
     function createUnpaidOrderCard(order) {
         const card = document.createElement('div');
-        // AMENDMENT: Removed 'order-card-clickable' class
         card.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col md:flex-row justify-between items-start md:items-center';
         card.dataset.orderId = order.id;
 
         const orderDate = order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A';
-        // AMENDMENT: Added a "View Details" button and grouped actions
         card.innerHTML = `
             <div class="flex-grow">
                 <p class="font-bold text-lg text-yellow-600">Order #${order.order_number}</p>
@@ -126,12 +124,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function createPaidOrderCard(order) {
         const card = document.createElement('div');
-        // AMENDMENT: Removed 'order-card-clickable' class and adjusted layout for the new button
         card.className = 'bg-white p-4 rounded-lg shadow-md flex flex-col md:flex-row justify-between items-start md:items-center';
         card.dataset.orderId = order.id;
 
         const orderDate = order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A';
-        // AMENDMENT: Added a "View Details" button and adjusted layout
         card.innerHTML = `
             <div class="flex-grow">
                 <p class="font-bold text-lg text-gray-800">Order #${order.order_number}</p>
@@ -152,87 +148,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         return card;
     }
     
-    // --- Payment Status Polling Function ---
-    function waitForPaymentConfirmation(checkoutRequestID) {
-        const pollUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/getPaymentStatus";
-        const POLLING_INTERVAL = 3000;
-        const TIMEOUT_DURATION = 90000;
-        let pollIntervalId = null, timeoutId = null;
-
-        showWaitingModal();
-
-        timeoutId = setTimeout(() => {
-            clearInterval(pollIntervalId);
-            hideWaitingModal();
-            showAlertModal("Payment timed out. Please try again or check your M-Pesa account.", "Payment Timeout", "error");
-            fetchAndRenderAllOrders();
-        }, TIMEOUT_DURATION);
-
-        pollIntervalId = setInterval(async () => {
-            try {
-                const response = await fetch(pollUrl, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ checkoutRequestID }),
-                });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.error || 'Server error.');
-
-                if (result.status === 'paid') {
-                    clearInterval(pollIntervalId);
-                    clearTimeout(timeoutId);
-                    hideWaitingModal();
-                    showToast("Payment successful!");
-                    showConfirmation(result.finalOrder.order_number, result.finalOrder);
-                    fetchAndRenderAllOrders();
-                } else if (result.status === 'failed' || result.status === 'cancelled') {
-                    clearInterval(pollIntervalId);
-                    clearTimeout(timeoutId);
-                    hideWaitingModal();
-                    showAlertModal(`Your payment was not completed: ${result.message}. Please try again.`, "Payment Unsuccessful", "error");
-                    fetchAndRenderAllOrders();
-                }
-            } catch (error) {
-                clearInterval(pollIntervalId);
-                clearTimeout(timeoutId);
-                hideWaitingModal();
-                showAlertModal("An error occurred while checking payment status. Please check your M-Pesa account.", "Error", "error");
-                fetchAndRenderAllOrders();
-            }
-        }, POLLING_INTERVAL);
-    }
-
     // --- Handle Button Clicks using Event Delegation ---
     mainContent.addEventListener('click', async (event) => {
         const target = event.target;
 
         // --- Handle "Pay Now" Button Click ---
         if (target.classList.contains('pay-now-btn')) {
-            const button = target;
-            const orderId = button.dataset.orderId;
-            button.disabled = true;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-            try {
-                const { data: orderDetails, error: fetchError } = await supabase.from('unpaid_orders').select('*').eq('id', orderId).single();
-                if (fetchError || !orderDetails) throw new Error("Order not found.");
+            const orderId = target.dataset.orderId;
+            const orderToPay = allUserOrders.find(o => o.id === orderId && o.payment_status === 'unpaid');
 
-                const formattedOrderDetails = {
-                    orderNumber: orderDetails.order_number, userId: orderDetails.user_id, fullName: orderDetails.full_name,
-                    phone: orderDetails.phone, address: orderDetails.address, instructions: orderDetails.instructions,
-                    items: orderDetails.items, total: orderDetails.total, paymentMethod: orderDetails.payment_method
-                };
-
-                const functionUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/initiateMpesaPayment";
-                const mpesaResponse = await fetch(functionUrl, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone: formattedOrderDetails.phone, amount: formattedOrderDetails.total, orderDetails: formattedOrderDetails, unpaidOrderId: orderId }),
-                });
-                const mpesaResult = await mpesaResponse.json();
-                if (!mpesaResponse.ok) throw new Error(mpesaResult.error || 'M-Pesa API failed.');
-                
-                waitForPaymentConfirmation(mpesaResult.checkoutRequestID);
-            } catch (error) {
-                showAlertModal(`Payment failed: ${error.message}`, "Payment Error", "error");
-                button.disabled = false;
-                button.innerHTML = 'Pay Now';
+            if (orderToPay) {
+                // Store order details in session storage to be retrieved on the checkout page
+                sessionStorage.setItem('checkoutOrder', JSON.stringify(orderToPay));
+                // Redirect to the dedicated checkout page
+                window.location.href = 'checkout.html';
+            } else {
+                showAlertModal("Could not find the order to pay.", "Error", "error");
             }
         }
 
