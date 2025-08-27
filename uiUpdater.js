@@ -4,6 +4,7 @@
 import { getCart } from './cartManager.js';
 import { getProducts } from './productsData.js';
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+import { getDeliveryFee } from './delivery-zones.js';
 
 // --- Supabase Setup ---
 const supabaseUrl = 'https://toviekzgoxwumanyxkvv.supabase.co';
@@ -33,8 +34,7 @@ const alertModalTitle = document.getElementById('alertModalTitle');
 const alertModalMessage = document.getElementById('alertModalMessage');
 const alertModalCloseButton = document.getElementById('alertModalCloseButton');
 const alertModalIcon = document.getElementById('alertModalIcon');
-
-const DELIVERY_FEE = 0;
+const addressInput = document.getElementById('address'); // Main checkout address field
 
 // --- Cart Counts ---
 function updateCartCounts() {
@@ -113,22 +113,26 @@ async function renderCartItems() {
         cartItemsContainer.appendChild(cartItemDiv);
     });
 
-    updateCartSummary(subtotal);
+    updateCartSummary(subtotal, 0); // Initially set delivery fee to 0
     if (cartSummary) cartSummary.classList.remove('hidden');
 }
 
 // --- Update Cart Summary ---
-function updateCartSummary(subtotal) {
-    const total = subtotal + DELIVERY_FEE;
+function updateCartSummary(subtotal, deliveryFee) {
+    const total = subtotal + deliveryFee;
+
     if (cartSubtotalSpan) cartSubtotalSpan.textContent = `KSh ${subtotal.toLocaleString()}`;
-    if (deliveryFeeSpan) deliveryFeeSpan.textContent = `KSh ${DELIVERY_FEE.toLocaleString()}`;
+    if (deliveryFeeSpan) deliveryFeeSpan.textContent = `KSh ${deliveryFee.toLocaleString()}`;
     if (cartTotalSpan) cartTotalSpan.textContent = `KSh ${total.toLocaleString()}`;
 }
 
 // --- Update Cart UI ---
-async function updateCartUI() {
+async function updateCartUI(deliveryFee = 0) {
     updateCartCounts();
-    await renderCartItems();
+    await renderCartItems(); // This will call updateCartSummary
+    const cart = getCart();
+    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    updateCartSummary(subtotal, deliveryFee);
 }
 
 // --- Toast Notifications ---
@@ -160,17 +164,29 @@ function toggleCart() {
     }
 }
 
-// --- Checkout Modal ---
+// --- Checkout Flow Modals ---
 function checkout() {
-    if (!checkoutModal || !overlay) return;
-    checkoutModal.classList.remove('hidden');
+    const locationPromptModal = document.getElementById('locationPromptModal');
+    if (!locationPromptModal || !overlay) return;
+    
+    // Start the checkout process by asking for the location first.
+    locationPromptModal.classList.remove('hidden');
     overlay.classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
     if (cartSidebar) cartSidebar.classList.add('translate-x-full');
 }
+
 function closeCheckout() {
     if (!checkoutModal || !overlay) return;
     checkoutModal.classList.add('hidden');
+    overlay.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+}
+
+function closeLocationPrompt() {
+    const locationPromptModal = document.getElementById('locationPromptModal');
+    if (!locationPromptModal || !overlay) return;
+    locationPromptModal.classList.add('hidden');
     overlay.classList.add('hidden');
     document.body.classList.remove('overflow-hidden');
 }
@@ -183,13 +199,11 @@ async function showConfirmation(orderNum, fullOrderData = {}) {
     }
 
     if (downloadReceiptBtn) {
-        // --- Case 1: Paid orders (already in Supabase paid_orders) ---
         if (fullOrderData.id && fullOrderData.payment_status === 'paid') {
             downloadReceiptBtn.dataset.orderId = fullOrderData.id;
             delete downloadReceiptBtn.dataset.orderDetails;
             downloadReceiptBtn.classList.remove('hidden');
         } 
-        // --- Case 2: Unpaid "Pay on Delivery" orders (fetch from Supabase unpaid_orders) ---
         else {
             let unpaidOrder = null;
 
@@ -261,7 +275,6 @@ function showAlertModal(message, title = 'Alert', type = 'info') {
     alertModalTitle.textContent = title;
     alertModalMessage.textContent = message;
 
-    // Reset classes for icon and button
     alertModalIcon.className = 'text-4xl mb-4';
     alertModalCloseButton.className = 'text-white font-bold py-2 px-4 rounded-lg transition duration-300';
 
@@ -293,15 +306,13 @@ function closeAlertModal() {
     }
 }
 
-// Self-contained event listener for the alert modal's close button
 if (alertModalCloseButton) {
     alertModalCloseButton.addEventListener('click', closeAlertModal);
 }
-
 
 // --- Exports ---
 export { 
     updateCartUI, showToast, toggleCart, checkout, closeCheckout, 
     showConfirmation, closeConfirmation, showWaitingModal, hideWaitingModal,
-    showAlertModal, closeAlertModal
+    showAlertModal, closeAlertModal, closeLocationPrompt, updateCartSummary
 };
