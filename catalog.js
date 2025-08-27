@@ -372,6 +372,7 @@ if (sortSelect) {
     });
 }
 
+// AMENDED: This button now redirects to the dedicated checkout page.
 if (proceedToCheckoutBtn) {
     proceedToCheckoutBtn.addEventListener('click', () => {
         if (!auth.currentUser) {
@@ -381,7 +382,7 @@ if (proceedToCheckoutBtn) {
             }, 1500);
             return;
         }
-        checkout();
+        window.location.href = 'checkout.html';
     });
 }
 
@@ -421,7 +422,6 @@ function toggleUserDropdown() {
     }
 }
 
-// AMENDMENT: Restored the toggleMobileMenu function
 function toggleMobileMenu() {
     if (!mobileMenu) return;
     const isActive = mobileMenu.classList.contains('is-active');
@@ -436,201 +436,8 @@ function toggleMobileMenu() {
 
 document.addEventListener('DOMContentLoaded', async () => {
     
-    // --- *** FIX: MOVED CHECKOUT & DOWNLOAD LOGIC TO THE TOP *** ---
-    const checkoutForm = document.getElementById('checkoutForm');
-    const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
-
-    if (checkoutForm) {
-        const fullNameInput = document.getElementById('fullName');
-        const phoneInput = document.getElementById('phone');
-        const addressInput = document.getElementById('address');
-        const instructionsInput = document.getElementById('instructions');
-        const paymentMethodRadios = document.querySelectorAll('input[name="paymentMethod"]');
-        const mpesaPaymentDiv = document.getElementById('mpesaPayment');
-        const deliveryPaymentDiv = document.getElementById('deliveryPayment');
-        const confirmationMessage = document.getElementById('confirmationMessage');
-
-        checkoutForm.addEventListener('submit', async function(event) {
-            event.preventDefault(); 
-            const placeOrderBtn = this.querySelector('button[type="submit"]');
-            placeOrderBtn.disabled = true;
-            placeOrderBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-
-            if (!auth.currentUser) {
-                showToast("You must be logged in to place an order. Redirecting to login...");
-                setTimeout(() => { window.location.href = 'login.html'; }, 2000);
-                placeOrderBtn.disabled = false;
-                placeOrderBtn.innerHTML = 'Place Order';
-                return;
-            }
-
-            try {
-                const customerName = fullNameInput ? fullNameInput.value : '';
-                const customerPhone = phoneInput ? phoneInput.value : '';
-                const customerAddress = addressInput ? addressInput.value : '';
-                const deliveryInstructions = instructionsInput ? instructionsInput.value : '';
-                const customerEmail = auth.currentUser.email;
-                const selectedPaymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
-                const tempOrderNum = `TTG-${Date.now().toString().slice(-6)}`;
-                const currentCart = getCart();
-                const productsData = await getProducts();
-                const allProds = Array.isArray(productsData.all) ? productsData.all : [];
-                const productsMap = {};
-                allProds.forEach(p => { productsMap[p.id] = p; });
-
-                const enrichedCartItems = currentCart.map(item => {
-                    const productDetails = productsMap[item.id];
-                    return {
-                        ...item,
-                        name: productDetails ? productDetails.name : 'Unknown Product',
-                        price: productDetails ? productDetails.price : 0,
-                        unit: productDetails ? productDetails.unit : ''
-                    };
-                });
-
-                const subtotal = enrichedCartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-                const total = subtotal;
-                const userId = auth.currentUser.uid;
-
-                const orderDetails = {
-                    orderNumber: tempOrderNum,
-                    userId,
-                    fullName: customerName,
-                    phone: customerPhone,
-                    email: customerEmail,
-                    address: customerAddress,
-                    instructions: deliveryInstructions,
-                    items: enrichedCartItems,
-                    total,
-                    paymentMethod: selectedPaymentMethod,
-                };
-
-                if (selectedPaymentMethod === 'mpesa') {
-                    const functionUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/initiateMpesaPayment";
-                    const mpesaResponse = await fetch(functionUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ phone: customerPhone, amount: total, orderDetails }),
-                    });
-                    const mpesaResult = await mpesaResponse.json();
-                    if (!mpesaResponse.ok) throw new Error(mpesaResult.error || 'M-Pesa API request failed.');
-                    closeCheckout();
-                    waitForPaymentConfirmation(mpesaResult.checkoutRequestID);
-
-                } else if (selectedPaymentMethod === 'delivery') {
-                    const { data: unpaidOrder, error } = await supabase.from('unpaid_orders').insert([{
-                        order_number: orderDetails.orderNumber,
-                        user_id: orderDetails.userId,
-                        full_name: orderDetails.fullName,
-                        phone: orderDetails.phone,
-                        address: orderDetails.address,
-                        items: orderDetails.items,
-                        total: orderDetails.total,
-                        payment_status: 'unpaid',
-                        payment_method: 'delivery'
-                    }]).select().single();
-
-                    if (error) throw error;
-                    
-                    closeCheckout();
-                    if (confirmationMessage) confirmationMessage.textContent = "Your order has been placed successfully! Please have your payment ready for our delivery rider.";
-                    showConfirmation(unpaidOrder.order_number, unpaidOrder);
-                    clearCart();
-                    updateCartUI();
-                }
-            } catch (error) {
-                console.error("Error during checkout:", error);
-                showAlertModal(`Checkout failed: ${error.message}. Please try again.`, "Checkout Error", "error");
-            } finally {
-                placeOrderBtn.disabled = false;
-                placeOrderBtn.innerHTML = 'Place Order';
-            }
-        });
-
-        if (paymentMethodRadios) {
-            paymentMethodRadios.forEach(radio => {
-                radio.addEventListener('change', (event) => {
-                    if(mpesaPaymentDiv && deliveryPaymentDiv){
-                        mpesaPaymentDiv.classList.toggle('hidden', event.target.value !== 'mpesa');
-                        deliveryPaymentDiv.classList.toggle('hidden', event.target.value !== 'delivery');
-                    }
-                });
-            });
-        }
-    }
-
-    if (downloadReceiptBtn) {
-        downloadReceiptBtn.addEventListener('click', async () => {
-            const paidOrderId = downloadReceiptBtn.dataset.orderId;
-            const unpaidOrderDetailsString = downloadReceiptBtn.dataset.orderDetails;
-            
-            let payload = {};
-
-            if (unpaidOrderDetailsString) {
-                try {
-                    const orderDetails = JSON.parse(unpaidOrderDetailsString);
-                    payload = { orderId: orderDetails.id, source: 'unpaid' };
-                } catch (e) {
-                    console.error("Failed to parse order details:", e);
-                    showToast("Error preparing receipt data.");
-                    return;
-                }
-            } 
-            else if (paidOrderId) {
-                payload = { orderId: paidOrderId, source: 'paid' };
-            } 
-            else {
-                console.error("No order ID or details found on the button.");
-                showToast("Could not find order to generate receipt.");
-                return;
-            }
-
-            const originalText = downloadReceiptBtn.innerHTML;
-            downloadReceiptBtn.disabled = true;
-            downloadReceiptBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
-
-            try {
-                const response = await fetch('/.netlify/functions/generate-receipt', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Failed to generate receipt.');
-                }
-
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
-                
-                const disposition = response.headers.get('content-disposition');
-                let filename = 'receipt.pdf';
-                if (disposition && disposition.includes('attachment')) {
-                    const filenameRegex = /filename="([^"]+)"/;
-                    const matches = filenameRegex.exec(disposition);
-                    if (matches != null && matches[1]) {
-                        filename = matches[1];
-                    }
-                }
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                a.remove();
-
-            } catch (error) {
-                console.error('Download error:', error);
-                showToast(`Error: ${error.message}`);
-            } finally {
-                downloadReceiptBtn.disabled = false;
-                downloadReceiptBtn.innerHTML = originalText;
-            }
-        });
-    }
+    // This logic is now handled by the dedicated checkout.js file
+    // The checkout form and related elements are not on this page.
     
     await handleCategoryAndPageFromUrl();
     updateCartUI();
@@ -638,7 +445,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const cartSidebar = document.getElementById('cartSidebar');
     if (cartSidebar) cartSidebar.classList.add('translate-x-full');
     
-    // AMENDMENT: Restored mobile menu event listeners
     if (mobileMenuButton && mobileMenu && closeMobileMenuButton) {
         mobileMenuButton.addEventListener('click', toggleMobileMenu);
         closeMobileMenuButton.addEventListener('click', toggleMobileMenu);
@@ -671,10 +477,7 @@ window.addEventListener('popstate', handleCategoryAndPageFromUrl);
 
 // Expose functions globally so they can be called from HTML (onclick attributes)
 window.toggleCart = toggleCart;
-window.checkout = checkout;
-window.closeCheckout = closeCheckout;
-window.showConfirmation = showConfirmation;
-window.closeConfirmation = closeConfirmation;
+// REMOVED checkout, closeCheckout, showConfirmation, closeConfirmation as they are not needed here
 window.updateCartItemQuantity = updateCartItemQuantity;
 window.removeFromCart = removeFromCart;
 window.addToCart = addToCart;
