@@ -753,9 +753,6 @@
 
         /* Testimonials Container */
         .testimonials-container {
-            /* Swiper itself manages overflow for its carousel.
-               No specific overflow-x needed here unless you want a native scrollbar
-               in addition to Swiper's functionality, which is usually not desired. */
             position: relative;
         }
 
@@ -1492,7 +1489,31 @@
                     Proceed to Checkout
                 </button>
 
-                <p class="text-xs text-gray-500 text-center">Free delivery for orders over KSh 2,000 in City Park & Westlands</p>
+                <p class="text-xs text-gray-500 text-center">Enter your location at checkout to see the final delivery fee.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Location Prompt Modal -->
+    <div id="locationPromptModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000] hidden">
+        <div class="bg-white rounded-lg w-11/12 sm:w-full md:max-w-md mx-auto">
+            <div class="p-4 sm:p-6">
+                <div class="flex justify-between items-center mb-4 sm:mb-6">
+                    <h2 class="text-lg sm:text-xl font-bold">Where are we delivering to?</h2>
+                    <button id="closeLocationPromptButton" class="text-gray-500 hover:text-gray-700 transition duration-300">
+                        <i class="fas fa-times text-lg sm:text-xl"></i>
+                    </button>
+                </div>
+                <form id="locationPromptForm" class="space-y-4">
+                    <p class="text-sm text-gray-600">Please enter your estate, neighborhood, or a major landmark to calculate the delivery fee.</p>
+                    <div class="floating-label-group">
+                        <input type="text" id="location" class="floating-input w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm sm:text-base" placeholder=" " required>
+                        <label for="location" class="floating-label text-sm sm:text-base">e.g., Westlands, Ruaka, or Sarit Centre</label>
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg transition duration-300 text-sm sm:text-base">
+                        Calculate Fee & Proceed
+                    </button>
+                </form>
             </div>
         </div>
     </div>
@@ -1872,8 +1893,6 @@
             const contactSubjectInput = document.getElementById('subject');
             const contactMessageInput = document.getElementById('message');
 
-            // REMOVED: The event listener for proceedToCheckoutBtn has been moved to homePage.js
-
             // Event delegation for cart item interactions
             if (cartItemsContainer) {
                 cartItemsContainer.addEventListener('click', (e) => {
@@ -2003,7 +2022,6 @@
                     });
                 }
                 
-                // FIX: Added event listener for mobile logout button
                 if (mobileLogoutButton) {
                     mobileLogoutButton.addEventListener('click', async (e) => {
                         e.preventDefault();
@@ -2017,7 +2035,7 @@
                 } else {
                     if (adminLink) adminLink.classList.add('hidden');
                 }
-                if (myOrdersLink) myOrdersLink.classList.remove('hidden'); // AMENDMENT: Show My Orders link
+                if (myOrdersLink) myOrdersLink.classList.remove('hidden'); 
 
                 // Mobile Sidebar View
                 if (mobileLoginLink) mobileLoginLink.classList.add('hidden');
@@ -2124,52 +2142,7 @@
                 console.warn("Mobile menu elements not found. Mobile menu toggle may not function.");
             }
 
-
-            // Simplified add to cart event listener, now directly calling addToCart from cartManager.js
-            // Using event delegation on document.body to catch clicks on dynamically added '.add-to-cart-btn'
-
-            // Handle contact form submission
-            if (contactForm) {
-                contactForm.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-
-                    const name = contactNameInput.value.trim();
-                    const email = contactEmailInput.value.trim();
-                    const subject = contactSubjectInput.value.trim();
-                    const message = contactMessageInput.value.trim();
-
-                    if (!name || !email || !message) {
-                        showToast('Please fill in all required fields (Name, Email, Message).');
-                        return;
-                    }
-
-                    // Check if user is authenticated
-                    if (!auth.currentUser) {
-                        showAlertModal('Please log in or create an account to send a message. You can do so via the "Login" button in the navigation bar.');
-                        return; // Stop form submission
-                    }
-
-                    try {
-                        // The debugging line is still useful to confirm authentication state
-                        console.log("Attempting to send message. Current user:", auth.currentUser);
-
-                        await db.collection('messages').add({
-                            name: name,
-                            email: email,
-                            subject: subject,
-                            message: message,
-                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                        showToast('Your message has been sent successfully!');
-                        contactForm.reset(); // Clear the form
-                    } catch (error) {
-                        console.error("Error sending message:", error);
-                        showToast(`Failed to send message: ${error.message}`);
-                    }
-                });
-            }
-
-            // AMENDMENT: Handle payment method display in checkout modal
+            // Handle payment method display in checkout modal
             const paymentMethodRadios = document.querySelectorAll('input[name="paymentMethod"]');
             const mpesaPaymentDiv = document.getElementById('mpesaPayment');
             const deliveryPaymentDiv = document.getElementById('deliveryPayment');
