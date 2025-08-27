@@ -1095,22 +1095,46 @@
                 </div>
                 <div class="flex justify-between mb-2 text-sm sm:text-base"> <!-- Responsive text size -->
                     <span class="text-gray-600">Delivery Fee:</span>
-                    <span id="deliveryFee" class="font-bold">KSh 200</span>
+                    <span id="deliveryFee" class="font-bold">KSh 0</span>
                 </div>
                 <div class="flex justify-between mb-4 text-base sm:text-lg"> <!-- Responsive text size -->
                     <span class="text-gray-600">Total:</span>
-                    <span id="cartTotal" class="font-bold text-lg sm:text-xl text-green-600">KSh 200</span>
+                    <span id="cartTotal" class="font-bold text-lg sm:text-xl text-green-600">KSh 0</span>
                 </div>
                 
                 <button id="proceedToCheckoutBtn" class="w-full bg-green-600 text-white font-bold py-2 sm:py-3 px-5 sm:px-6 rounded-lg hover:bg-green-700 transition duration-300 mb-4 text-sm sm:text-base"> <!-- Responsive padding and text size -->
                     Proceed to Checkout
                 </button>
                 
-                <p class="text-xs text-gray-500 text-center">Free delivery for orders over KSh 2,000 in City Park & Westlands</p>
+                <p class="text-xs text-gray-500 text-center">Enter your location at checkout to see the final delivery fee.</p>
             </div>
         </div>
     </div>
     
+    <!-- Location Prompt Modal -->
+    <div id="locationPromptModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000] hidden">
+        <div class="bg-white rounded-lg w-11/12 sm:w-full md:max-w-md mx-auto">
+            <div class="p-4 sm:p-6">
+                <div class="flex justify-between items-center mb-4 sm:mb-6">
+                    <h2 class="text-lg sm:text-xl font-bold">Where are we delivering to?</h2>
+                    <button id="closeLocationPromptButton" class="text-gray-500 hover:text-gray-700 transition duration-300">
+                        <i class="fas fa-times text-lg sm:text-xl"></i>
+                    </button>
+                </div>
+                <form id="locationPromptForm" class="space-y-4">
+                    <p class="text-sm text-gray-600">Please enter your estate, neighborhood, or a major landmark to calculate the delivery fee.</p>
+                    <div class="floating-label-group">
+                        <input type="text" id="location" class="floating-input w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm sm:text-base" placeholder=" " required>
+                        <label for="location" class="floating-label text-sm sm:text-base">e.g., Westlands, Ruaka, or Sarit Centre</label>
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg transition duration-300 text-sm sm:text-base">
+                        Calculate Fee & Proceed
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Checkout Modal -->
     <div id="checkoutModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000] hidden">
         <div class="bg-white rounded-lg w-11/12 max-w-md mx-auto overflow-y-auto max-h-[90vh]"> <!-- Responsive width -->
@@ -1134,13 +1158,8 @@
                     </div>
                     
                     <div class="floating-label-group">
-                        <textarea id="address" rows="3" class="floating-input w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm sm:text-base" placeholder=" " required></textarea>
+                        <textarea id="address" rows="3" class="floating-input w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-2 focus:ring-green-500 text-sm sm:text-base" placeholder=" " required></textarea>
                         <label for="address" class="floating-label text-sm sm:text-base">Delivery Address</label>
-                    </div>
-                    
-                    <div class="floating-label-group">
-                        <textarea id="instructions" rows="2" class="floating-input w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-2 focus:ring-green-500 text-sm sm:text-base" placeholder=" "></textarea>
-                        <label for="instructions" class="floating-label text-sm sm:text-base">Delivery Instructions (Optional)</label>
                     </div>
                     
                     <div>
@@ -1149,55 +1168,12 @@
                             <label class="flex items-center space-x-3 p-3 border rounded-lg hover:border-green-500 transition duration-300 text-sm sm:text-base">
                                 <input type="radio" name="paymentMethod" value="mpesa" class="form-radio text-green-600" checked>
                                 <span>MPESA</span>
-                                <img src="https://upload.wikimedia.org/wikipedia/commons/1/15/M-PESA_LOGO-01.svg" alt="M-Pesa" class="h-5 sm:h-6 ml-auto"> <!-- Responsive image height -->
                             </label>
                             <label class="flex items-center space-x-3 p-3 border rounded-lg hover:border-green-500 transition duration-300 text-sm sm:text-base">
-                                <input type="radio" name="paymentMethod" value="card" class="form-radio text-green-600">
-                                <span>Credit/Debit Card</span>
-                                <i class="fab fa-cc-visa text-blue-500 text-xl sm:text-2xl"></i>
-                                <i class="fab fa-cc-mastercard text-red-500 text-xl sm:text-2xl"></i>
-                            </label>
-                            <label class="flex items-center space-x-3 p-3 border rounded-lg hover:border-green-500 transition duration-300 text-sm sm:text-base">
-                                <input type="radio" name="paymentMethod" value="bank" class="form-radio text-green-600">
-                                <span>Bank Transfer</span>
-                                <i class="fas fa-university text-gray-600 text-xl sm:text-2xl"></i>
+                                <input type="radio" name="paymentMethod" value="delivery" class="form-radio text-green-600">
+                                <span>Pay on Delivery</span>
                             </label>
                         </div>
-                    </div>
-                    
-                    <div id="mpesaPayment" class="p-3 sm:p-4 bg-gray-50 rounded-lg text-sm"> <!-- Responsive padding and text size -->
-                        <p class="text-gray-600 mb-2 sm:mb-3">You will receive an MPESA push notification to complete payment after placing your order.</p>
-                        <div class="flex items-center">
-                            <i class="fas fa-info-circle text-yellow-500 mr-2"></i>
-                            <p class="text-gray-600">Ensure your phone is nearby and unlocked</p>
-                        </div>
-                    </div>
-                    
-                    <div id="cardPayment" class="p-3 sm:p-4 bg-gray-50 rounded-lg hidden text-sm"> <!-- Responsive padding and text size -->
-                        <div class="mb-2 sm:mb-3">
-                            <label for="cardNumber" class="block text-gray-700 mb-1">Card Number</label>
-                            <input type="text" id="cardNumber" name="cardNumber" placeholder="1234 5678 9012 3456" class="w-full px-3 sm:px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-                        </div>
-                        <div class="grid grid-cols-2 gap-3 sm:gap-4">
-                            <div>
-                                <label for="expiry" class="block text-gray-700 mb-1">Expiry Date</label>
-                                <input type="text" id="expiry" name="expiry" placeholder="MM/YY" class="w-full px-3 sm:px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-                            </div>
-                            <div>
-                                <label for="cvv" class="block text-gray-700 mb-1">CVV</label>
-                                <input type="text" id="cvv" name="cvv" placeholder="123" class="w-full px-3 sm:px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div id="bankPayment" class="p-3 sm:p-4 bg-gray-50 rounded-lg hidden text-sm"> <!-- Responsive padding and text size -->
-                        <p class="text-gray-600 mb-2 sm:mb-3">Please transfer the total amount to:</p>
-                        <div class="mb-2">
-                            <p class="font-medium">Bank: Equity Bank</p>
-                            <p class="font-medium">Account Name: Town Treasure Groceries</p>
-                            <p class="font-medium">Account Number: 1234567890</p>
-                        </div>
-                        <p class="text-gray-600">Your order will be processed once payment is confirmed.</p>
                     </div>
                     
                     <button type="submit" class="w-full bg-green-600 text-white font-bold py-2 sm:py-3 px-5 sm:px-6 rounded-lg hover:bg-green-700 transition duration-300 text-sm sm:text-base">
