@@ -4,10 +4,10 @@
 // It now fetches product data from Firebase via productsData.js.
 // Also fetches and displays testimonials from Firebase.
 
-import { getProducts } from './productsData.js'; // Import the new getProducts function (getImagePath no longer needed here)
+import { getProducts } from './productsData.js'; // Import the new getProducts function
 import { addToCart } from './cartManager.js'; // Import addToCart directly
 import { db, auth } from './firebase-config.js'; // Import db and auth for Firestore and Auth operations
-import { checkout, showToast } from './uiUpdater.js'; // ADDED: Import functions for checkout
+import { showToast } from './uiUpdater.js'; // Import showToast for notifications
 
 let allProducts = []; // Will store all products fetched from Firestore (unique list)
 
@@ -15,11 +15,10 @@ let allProducts = []; // Will store all products fetched from Firestore (unique 
 const featuredProductsGrid = document.getElementById('featuredProductsGrid');
 const featuredCategoryFilter = document.getElementById('featuredCategoryFilter');
 const wholesaleProductsGrid = document.getElementById('wholesaleProductsGrid'); // New: Wholesale products grid
+const proceedToCheckoutBtn = document.getElementById('proceedToCheckoutBtn');
 
 /**
  * Renders product cards into a specified grid.
- * This function is a generalized version that can be used for both featured and wholesale products.
- * It uses `product.image` directly, assuming the Firestore `image` field contains the full relative path.
  * @param {Array<Object>} productsToRender - The array of product objects to display.
  * @param {HTMLElement} targetGrid - The DOM element (grid container) where products should be rendered.
  */
@@ -76,7 +75,6 @@ async function filterFeaturedProducts(category) {
         </div>
     `; // Show loading spinner
 
-    // Ensure allProducts is populated from the 'all' category of getProducts
     if (allProducts.length === 0) {
         const fetchedProducts = await getProducts();
         allProducts = fetchedProducts.all;
@@ -84,15 +82,13 @@ async function filterFeaturedProducts(category) {
 
     let productsToDisplay = [];
     if (category === 'all') {
-        // Display a random selection of 8 products from all available products
         productsToDisplay = allProducts.sort(() => 0.5 - Math.random()).slice(0, 8);
     } else {
-        // Filter by the selected category and display a random selection of up to 8
         const categoryProducts = allProducts.filter(p => p.category === category);
         productsToDisplay = categoryProducts.sort(() => 0.5 - Math.random()).slice(0, 8);
     }
 
-    renderProductCards(productsToDisplay, featuredProductsGrid); // Use the generalized render function
+    renderProductCards(productsToDisplay, featuredProductsGrid);
 }
 
 /**
@@ -110,16 +106,13 @@ async function displayWholesaleProducts() {
         </div>
     `; // Show loading spinner
 
-    // Ensure allProducts is populated
     if (allProducts.length === 0) {
         const fetchedProducts = await getProducts();
         allProducts = fetchedProducts.all;
     }
 
     const wholesaleProducts = allProducts.filter(product => product.category === 'wholesale');
-
-    // Display only a limited number of wholesale products (e.g., 8)
-    renderProductCards(wholesaleProducts.slice(0, 8), wholesaleProductsGrid); // Use the generalized render function
+    renderProductCards(wholesaleProducts.slice(0, 8), wholesaleProductsGrid);
 
     if (wholesaleProducts.length === 0) {
         wholesaleProductsGrid.innerHTML = '<p class="col-span-full text-center text-gray-500 py-10">No wholesale products available at the moment.</p>';
@@ -144,12 +137,11 @@ async function loadTestimonials() {
             <i class="fas fa-spinner fa-spin text-4xl text-green-600 mb-4"></i>
             <p class="text-gray-500">Loading testimonials...</p>
         </div>
-    `; // Show loading spinner within a swiper-slide
+    `;
 
     try {
-        // Access collection and getDocs via firebase.firestore() from the global compat SDK
         const testimonialsCollectionRef = firebase.firestore().collection('testimonials');
-        const testimonialSnapshot = await testimonialsCollectionRef.get(); // Use .get() on the collection reference
+        const testimonialSnapshot = await testimonialsCollectionRef.get();
         const testimonials = [];
         testimonialSnapshot.forEach(doc => {
             testimonials.push({ id: doc.id, ...doc.data() });
@@ -192,7 +184,7 @@ function renderTestimonials(testimonials) {
                          Array(5 - stars).fill('<i class="far fa-star text-yellow-400 text-xs"></i>').join('');
 
         const testimonialSlide = document.createElement('div');
-        testimonialSlide.classList.add('swiper-slide'); // Add swiper-slide class
+        testimonialSlide.classList.add('swiper-slide');
         testimonialSlide.innerHTML = `
             <div class="testimonial-card bg-white p-8 rounded-xl shadow-sm h-full">
                 <div class="flex items-center mb-4">
@@ -219,18 +211,12 @@ function renderTestimonials(testimonials) {
 
 
 // --- Event Listeners ---
-
-// Event listener for featured category filter
 if (featuredCategoryFilter) {
     featuredCategoryFilter.addEventListener('change', (event) => {
         filterFeaturedProducts(event.target.value);
     });
 }
 
-/**
- * Sets up event delegation for 'Add to Cart' buttons within a specific grid.
- * @param {HTMLElement} gridElement - The grid container element.
- */
 function setupAddToCartListener(gridElement) {
     if (gridElement) {
         gridElement.addEventListener('click', (event) => {
@@ -245,45 +231,32 @@ function setupAddToCartListener(gridElement) {
     }
 }
 
-
 // --- Initial Load ---
 document.addEventListener('DOMContentLoaded', async () => {
-    // Fetch all products once on DOMContentLoaded
     const fetchedProducts = await getProducts();
-    // Ensure allProducts is populated from the 'all' category of getProducts
     allProducts = fetchedProducts.all;
-    // FIX: Store the complete product list on the window object so other scripts can access it.
-    window.allProducts = allProducts;
+    window.allProducts = allProducts; // Make available globally if needed
 
-
-    // Load initial wholesale products
     await displayWholesaleProducts();
-
-    // Load initial featured products (e.g., 'all' category)
     await filterFeaturedProducts('all');
-
-    // Load testimonials
     await loadTestimonials();
 
-    // Setup event listeners after grids are populated
     setupAddToCartListener(featuredProductsGrid);
     setupAddToCartListener(wholesaleProductsGrid);
 
-    // --- ADDED: Event Listener for Checkout Button ---
-    const proceedToCheckoutBtn = document.getElementById('proceedToCheckoutBtn');
+    // --- UPDATED: Event Listener for Checkout Button ---
+    // This now redirects to the dedicated checkout page.
     if (proceedToCheckoutBtn) {
         proceedToCheckoutBtn.addEventListener('click', () => {
-            // Check if user is logged in before proceeding
             if (!auth.currentUser) {
                 showToast("Please log in to proceed to checkout.");
-                // Optional: Redirect to login after a short delay
                 setTimeout(() => {
                     window.location.href = 'login.html';
                 }, 1500);
                 return;
             }
-            // If logged in, call the checkout function
-            checkout();
+            // Redirect to the new checkout page
+            window.location.href = 'checkout.html';
         });
     }
 });
