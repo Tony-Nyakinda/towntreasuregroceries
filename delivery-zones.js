@@ -51,7 +51,7 @@ const zoneFees = {
     "Zone 4": 450,
     "Zone 5": 600,
     "Zone 6": 800,
-    "Zone 7": 1,
+    "Zone 7": 0,
     "Slums": 200, 
 };
 
