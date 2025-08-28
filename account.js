@@ -467,7 +467,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // --- ADDED: Download Receipt Logic ---
+    // --- Download Receipt Logic ---
     if (downloadReceiptBtn) {
         downloadReceiptBtn.addEventListener('click', async () => {
             const orderId = downloadReceiptBtn.dataset.orderId;
@@ -508,6 +508,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // --- Confirmation Modal Logic ---
+    if(continueShoppingButton) {
+        continueShoppingButton.addEventListener('click', closeConfirmation);
+    }
+
     function showCustomConfirm(message, orderId) {
         const confirmModalMessage = document.getElementById('confirmModalMessage');
         if (confirmModalMessage) {
