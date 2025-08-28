@@ -340,10 +340,13 @@ exports.handler = async function (event) {
     doc.text(KES(subtotal), boxX + labelW, currentY, { width: valueW, align: 'right' });
     currentY += lineHeight;
 
-    // --- CORRECTED: Draw Delivery Fee if it exists ---
-    if (order.delivery_fee && Number(order.delivery_fee) > 0) {
+    // --- ROBUST FIX: Calculate and draw Delivery Fee ---
+    // This calculates the fee by finding the difference between the saved total and the calculated subtotal.
+    // This makes the receipt accurate even if the 'delivery_fee' field was not saved in the database.
+    const calculatedDeliveryFee = (order.total || 0) - subtotal;
+    if (calculatedDeliveryFee > 0.01) { // Use a small threshold to avoid floating point errors
         doc.text('Delivery Fee:', boxX, currentY, { width: labelW, align: 'right' });
-        doc.text(KES(order.delivery_fee), boxX + labelW, currentY, { width: valueW, align: 'right' });
+        doc.text(KES(calculatedDeliveryFee), boxX + labelW, currentY, { width: valueW, align: 'right' });
         currentY += lineHeight;
     }
 
