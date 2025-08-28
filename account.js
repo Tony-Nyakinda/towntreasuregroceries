@@ -416,58 +416,53 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // --- Item Deletion Logic ---
+    // --- Item Deletion & Order Cancellation Logic ---
     orderDetailsModal.addEventListener('click', async (event) => {
-        const target = event.target.closest('.delete-item-btn');
-        if (!target) return;
-
-        const itemId = target.dataset.itemId;
-        const orderId = target.dataset.orderId;
-
-        const orderToUpdate = allUserOrders.find(o => o.id === orderId);
-        if (!orderToUpdate) {
-            showAlertModal("Could not find the order to update.", "Error", "error");
-            return;
-        }
-
-        const newItems = orderToUpdate.items.filter(item => item.id.toString() !== itemId.toString());
-
-        if (newItems.length === 0) {
-            showCustomConfirm("Deleting the last item will cancel the entire order. Are you sure?", orderId);
-            return;
-        }
-
-        const newSubtotal = newItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const deliveryFee = getDeliveryFee(orderToUpdate.address);
-        const newTotal = newSubtotal + deliveryFee;
-
-        const { error } = await supabase
-            .from('unpaid_orders')
-            .update({ items: newItems, total: newTotal, delivery_fee: deliveryFee })
-            .eq('id', orderId);
-
-        if (error) {
-            showAlertModal(`Failed to update order: ${error.message}`, "Error", "error");
-            return;
-        }
+        const deleteBtn = event.target.closest('.delete-item-btn');
         
-        showToast("Item removed successfully.");
+        if (deleteBtn) {
+            const itemId = deleteBtn.dataset.itemId;
+            const orderId = deleteBtn.dataset.orderId;
 
-        // Re-fetch all data from the database to ensure UI consistency
-        await fetchAndRenderAllOrders();
+            try {
+                const idToken = await auth.currentUser.getIdToken();
+                const response = await fetch('/.netlify/functions/update-order-items', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`
+                    },
+                    body: JSON.stringify({ orderId, itemIdToRemove: itemId })
+                });
 
-        // Find the freshly updated order from the new data
-        const freshlyUpdatedOrder = allUserOrders.find(o => o.id === orderId);
+                const result = await response.json();
 
-        // If the order still exists, refresh the modal. Otherwise, it was cancelled, so do nothing.
-        if (freshlyUpdatedOrder) {
-            populateAndShowModal(freshlyUpdatedOrder);
-        } else {
-            closeOrderDetailsModal.click();
+                if (!response.ok) {
+                    // If the server tells us to cancel the order, trigger the confirmation modal
+                    if (result.action === 'cancel') {
+                        showCustomConfirm("Deleting the last item will cancel the entire order. Are you sure?", orderId);
+                    } else {
+                        throw new Error(result.error || 'Failed to update order.');
+                    }
+                    return;
+                }
+                
+                showToast("Item removed successfully.");
+                await fetchAndRenderAllOrders();
+                const freshlyUpdatedOrder = allUserOrders.find(o => o.id === orderId);
+                if (freshlyUpdatedOrder) {
+                    populateAndShowModal(freshlyUpdatedOrder);
+                } else {
+                    closeOrderDetailsModal.click();
+                }
+
+            } catch (error) {
+                showAlertModal(`Error: ${error.message}`, "Error", "error");
+            }
         }
     });
-
-    // --- CORRECTED: Dedicated Event Listener for Cancel Order Button ---
+    
+    // --- Dedicated Event Listener for Cancel Order Button ---
     if (cancelOrderBtn) {
         cancelOrderBtn.addEventListener('click', () => {
             const orderId = cancelOrderBtn.dataset.orderId;
