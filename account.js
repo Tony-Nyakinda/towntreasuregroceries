@@ -467,6 +467,46 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    // --- ADDED: Download Receipt Logic ---
+    if (downloadReceiptBtn) {
+        downloadReceiptBtn.addEventListener('click', async () => {
+            const orderId = downloadReceiptBtn.dataset.orderId;
+            const orderNumber = downloadReceiptBtn.dataset.orderNumber;
+            const originalText = downloadReceiptBtn.innerHTML;
+            downloadReceiptBtn.disabled = true;
+            downloadReceiptBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+
+            try {
+                const response = await fetch('/.netlify/functions/generate-receipt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId: orderId })
+                });
+
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    throw new Error(errorBody.error || 'Failed to generate receipt.');
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `receipt-${orderNumber || orderId}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+            } catch (error) {
+                showToast(`Error: ${error.message}`);
+            } finally {
+                downloadReceiptBtn.disabled = false;
+                downloadReceiptBtn.innerHTML = originalText;
+            }
+        });
+    }
+
     // --- Confirmation Modal Logic ---
     function showCustomConfirm(message, orderId) {
         const confirmModalMessage = document.getElementById('confirmModalMessage');
