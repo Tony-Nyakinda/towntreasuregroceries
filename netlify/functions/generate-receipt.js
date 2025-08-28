@@ -133,7 +133,7 @@ exports.handler = async function (event) {
   try {
     const { orderId } = JSON.parse(event.body || '{}');
     if (!orderId) {
-      return { statusCode: 400, body: 'Order ID is required.' };
+      return { statusCode: 400, body: JSON.stringify({ error: 'Order ID is required.' }) };
     }
 
     // 1) Try paid_orders
@@ -286,7 +286,7 @@ exports.handler = async function (event) {
       const rowH = Math.max(24, descH + 12);
 
       // Add new page if needed
-      if (rowY + rowH > doc.page.height - 150) { // Adjusted page break threshold
+      if (rowY + rowH > doc.page.height - 200) { // Increased page break threshold
         doc.addPage();
         addStoreWatermark(doc, 'Town Treasure Groceries');
         rowY = pageMargin;
@@ -311,8 +311,7 @@ exports.handler = async function (event) {
     }
     
     // --- Final Content Calculation ---
-    // Check if totals and payment block will fit on the current page
-    const totalsHeight = 80;
+    const totalsHeight = 100; // Increased height for delivery fee
     const paymentBlockHeight = 200;
     const requiredSpace = totalsHeight + paymentBlockHeight;
 
@@ -321,7 +320,6 @@ exports.handler = async function (event) {
         addStoreWatermark(doc, 'Town Treasure Groceries');
         rowY = pageMargin;
     }
-
 
     /** Totals **/
     const sepY = rowY + 6;
@@ -332,16 +330,26 @@ exports.handler = async function (event) {
     const valueW = 110;
     const boxW = labelW + valueW + 20;
     const boxX = pageMargin + contentWidth - boxW;
+    let currentY = totalsY;
 
     doc.font('Helvetica').fontSize(10).fillColor(brandDark);
-    doc.text('Sub Total:', boxX, totalsY, { width: labelW, align: 'right' });
-    doc.text(KES(subtotal), boxX + labelW, totalsY, { width: valueW, align: 'right' });
+    doc.text('Sub Total:', boxX, currentY, { width: labelW, align: 'right' });
+    doc.text(KES(subtotal), boxX + labelW, currentY, { width: valueW, align: 'right' });
+    currentY += 18;
 
-    const gtY = totalsY + 28;
+    // --- ADDED DELIVERY FEE ---
+    if (order.delivery_fee && Number(order.delivery_fee) > 0) {
+        doc.text('Delivery Fee:', boxX, currentY, { width: labelW, align: 'right' });
+        doc.text(KES(order.delivery_fee), boxX + labelW, currentY, { width: valueW, align: 'right' });
+        currentY += 10;
+    }
+    // --- END OF ADDITION ---
+
+    const gtY = currentY + 8;
     doc.rect(boxX, gtY, boxW, 28).fill(brandGreen);
     doc.font('Helvetica-Bold').fillColor('#FFFFFF');
     doc.text('Grand Total:', boxX, gtY + 7, { width: labelW, align: 'right' });
-    doc.text(KES(order.total ?? subtotal), boxX + labelW, gtY + 7, { width: valueW, align: 'right' });
+    doc.text(KES(order.total), boxX + labelW, gtY + 7, { width: valueW, align: 'right' });
     
     const finalContentY = gtY + 40;
 
