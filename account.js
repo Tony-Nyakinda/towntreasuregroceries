@@ -451,21 +451,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         
-        const updatedOrder = {
-            ...orderToUpdate,
-            items: newItems,
-            total: newTotal,
-            delivery_fee: deliveryFee
-        };
-
         showToast("Item removed successfully.");
-        const orderIndex = allUserOrders.findIndex(o => o.id === orderId);
-        if (orderIndex !== -1) {
-            allUserOrders[orderIndex] = updatedOrder;
-        }
-        
-        populateAndShowModal(updatedOrder);
+
+        // Re-fetch all data from the database to ensure UI consistency
         await fetchAndRenderAllOrders();
+
+        // Find the freshly updated order from the new data
+        const freshlyUpdatedOrder = allUserOrders.find(o => o.id === orderId);
+
+        // If the order still exists, refresh the modal. Otherwise, it was cancelled, so do nothing.
+        if (freshlyUpdatedOrder) {
+            populateAndShowModal(freshlyUpdatedOrder);
+        } else {
+            closeOrderDetailsModal.click();
+        }
     });
 
     // --- Confirmation Modal Logic ---
