@@ -6,7 +6,7 @@ import { supabase } from './supabase-config.js';
 import { getCart, clearCart } from './cartManager.js';
 import { getProducts } from './productsData.js';
 import { getDeliveryFee } from './delivery-zones.js';
-import { showToast, showWaitingModal, hideWaitingModal, showConfirmation, showAlertModal } from './uiUpdater.js';
+import { showToast, showWaitingModal, hideWaitingModal, showConfirmation, showAlertModal, closeConfirmation } from './uiUpdater.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     // DOM Elements
@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const checkoutForm = document.getElementById('checkoutForm');
     const placeOrderBtn = document.getElementById('placeOrderBtn');
     const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
+    const continueShoppingButton = document.getElementById('continueShoppingButton');
 
     let allProducts = [];
     let currentSubtotal = 0;
@@ -123,7 +124,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             } catch (error) {
                 console.error("Checkout error:", error);
-                showToast(`Error: ${error.message}`);
+                showAlertModal(error.message, "Payment Error", "error");
             } finally {
                 const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
                 if (paymentMethod !== 'mpesa') {
@@ -146,8 +147,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 orderDetails 
             }),
         });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'M-Pesa API request failed.');
+
+        const responseText = await response.text();
+
+        if (!response.ok) {
+            throw new Error(responseText || `M-Pesa API request failed with status ${response.status}`);
+        }
+
+        if (!responseText) {
+            throw new Error("Received an empty response from the payment function. Please check your .env file and server logs.");
+        }
+
+        const result = JSON.parse(responseText);
+        
+        if (result.error) {
+            throw new Error(result.error);
+        }
         
         waitForPaymentConfirmation(result.checkoutRequestID);
     }
@@ -262,6 +277,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 downloadReceiptBtn.disabled = false;
                 downloadReceiptBtn.innerHTML = originalText;
             }
+        });
+    }
+
+    // --- ADDED: Event listener for the new "Continue Shopping" button ---
+    if (continueShoppingButton) {
+        continueShoppingButton.addEventListener('click', () => {
+            closeConfirmation();
+            window.location.href = 'catalog.html';
         });
     }
 });
