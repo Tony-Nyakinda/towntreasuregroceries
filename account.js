@@ -2,7 +2,6 @@
 // This script handles the logic for the "My Account" page.
 // It fetches and displays unpaid orders and paid order history from Supabase.
 // It now includes logic to handle QR code scans for receipt verification.
-//......
 
 import { supabase } from './supabase-config.js';
 import { auth } from './firebase-config.js';
@@ -291,6 +290,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             const result = await response.json();
 
             if (result.genuine) {
+                // Temporarily change overlay for this specific modal
+                const alertModalCloseButton = document.getElementById('alertModalCloseButton');
+                overlay.classList.remove('bg-black', 'bg-opacity-50');
+                overlay.classList.add('bg-white');
+
+                const handleRedirect = () => {
+                    // Restore original overlay and redirect
+                    overlay.classList.add('bg-black', 'bg-opacity-50');
+                    overlay.classList.remove('bg-white');
+                    window.location.href = 'login.html';
+                    // Clean up the event listener to prevent it from firing on other alerts
+                    alertModalCloseButton.removeEventListener('click', handleRedirect);
+                };
+                
+                alertModalCloseButton.addEventListener('click', handleRedirect, { once: true });
+
                 showAlertModal(
                     `This is a genuine receipt for order #${orderNumberFromURL}. Please log in to the account that placed the order to view full details.`,
                     "Receipt Verified",
