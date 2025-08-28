@@ -125,9 +125,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.error("Checkout error:", error);
                 showToast(`Error: ${error.message}`);
             } finally {
-                // This block runs after try/catch, regardless of outcome.
-                // We only reset the button if the user isn't waiting for an M-Pesa prompt,
-                // as the M-Pesa polling logic handles its own UI states.
                 const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
                 if (paymentMethod !== 'mpesa') {
                      placeOrderBtn.disabled = false;
@@ -139,7 +136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // --- Payment Handlers ---
     async function handleMpesaPayment(orderDetails) {
-        const functionUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/initiateMpesaPayment";
+        const functionUrl = "/.netlify/functions/mpesa/initiateMpesaPayment";
         const response = await fetch(functionUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -177,7 +174,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- M-Pesa Polling ---
     function waitForPaymentConfirmation(checkoutRequestID) {
-        const pollUrl = "https://towntreasuregroceries.netlify.app/.netlify/functions/mpesa/getPaymentStatus";
+        const pollUrl = "/.netlify/functions/mpesa/getPaymentStatus";
         const POLLING_INTERVAL = 3000;
         const TIMEOUT_DURATION = 90000;
         let pollIntervalId, timeoutId;
@@ -188,7 +185,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             clearInterval(pollIntervalId);
             hideWaitingModal();
             showAlertModal("Payment timed out. Please try again or check your M-Pesa account.", "Payment Timeout", "error");
-            // Also reset the button on timeout
             placeOrderBtn.disabled = false;
             placeOrderBtn.innerHTML = 'Place Order';
         }, TIMEOUT_DURATION);
@@ -215,7 +211,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     clearTimeout(timeoutId);
                     hideWaitingModal();
                     showAlertModal(`Your payment was not completed: ${result.message || 'The transaction was cancelled.'}. Please try again.`, "Payment Unsuccessful", "error");
-                    // Reset button on failure/cancellation
                     placeOrderBtn.disabled = false;
                     placeOrderBtn.innerHTML = 'Place Order';
                 }
@@ -224,7 +219,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 clearTimeout(timeoutId);
                 hideWaitingModal();
                 showAlertModal(`An error occurred while checking payment status: ${error.message}`, "Error", "error");
-                // Reset button on error
                 placeOrderBtn.disabled = false;
                 placeOrderBtn.innerHTML = 'Place Order';
             }
@@ -235,6 +229,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (downloadReceiptBtn) {
         downloadReceiptBtn.addEventListener('click', async () => {
             const orderId = downloadReceiptBtn.dataset.orderId;
+            const orderNumber = downloadReceiptBtn.dataset.orderNumber;
             const originalText = downloadReceiptBtn.innerHTML;
             downloadReceiptBtn.disabled = true;
             downloadReceiptBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
@@ -243,17 +238,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const response = await fetch('/.netlify/functions/generate-receipt', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ orderId: orderId, source: 'paid' }) // Assuming paid for now
+                    body: JSON.stringify({ orderId: orderId })
                 });
 
-                if (!response.ok) throw new Error('Failed to generate receipt.');
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    throw new Error(errorBody.error || 'Failed to generate receipt.');
+                }
 
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.style.display = 'none';
                 a.href = url;
-                a.download = `receipt-${orderId}.pdf`;
+                a.download = `receipt-${orderNumber || orderId}.pdf`; // Use order number for filename
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
