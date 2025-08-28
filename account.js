@@ -402,21 +402,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             .from('unpaid_orders')
             .update({ items: newItems, total: newTotal, delivery_fee: deliveryFee })
             .eq('id', orderId)
-            .select()
-            .single();
+            .select();
 
         if (error) {
             showAlertModal(`Failed to update order: ${error.message}`, "Error", "error");
             return;
         }
+        
+        // Since we are updating by a unique ID, the returned data will be an array with one item.
+        const updatedOrder = data[0];
 
         showToast("Item removed successfully.");
         const orderIndex = allUserOrders.findIndex(o => o.id === orderId);
         if (orderIndex !== -1) {
-            allUserOrders[orderIndex] = data;
+            allUserOrders[orderIndex] = updatedOrder;
         }
         
-        populateAndShowModal(data); // Refresh modal with new data
+        populateAndShowModal(updatedOrder); // Refresh modal with new data
         await fetchAndRenderAllOrders(); // Refresh the main list
     });
 
