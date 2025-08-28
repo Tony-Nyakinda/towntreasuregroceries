@@ -113,17 +113,27 @@
         </div>
     </div>
 
+    <!-- UPDATED Order Confirmation Modal -->
     <div id="confirmationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
         <div class="bg-white rounded-lg w-11/12 max-w-md mx-auto p-6 sm:p-8 text-center">
             <div class="bg-green-100 p-4 sm:p-6 rounded-full inline-block mb-4 sm:mb-6">
                 <i class="fas fa-check-circle text-3xl sm:text-4xl text-green-600"></i>
             </div>
             <h2 class="text-lg sm:text-xl font-bold mb-2">Order Confirmed!</h2>
-            <p id="confirmationMessage" class="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">Thank you for your order.</p>
+            <p id="confirmationMessage" class="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">Thank you for your order. Your groceries will be delivered soon.</p>
             <p class="font-medium mb-1 text-sm sm:text-base">Order Number: <span id="orderNumber" class="text-green-600"></span></p>
-            <div class="flex flex-col space-y-3 mt-6">
-                <a href="account.html" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg transition duration-300">View My Orders</a>
-                <button id="downloadReceiptBtn" class="bg-white text-green-600 border-2 border-green-600 font-bold py-2 px-5 rounded-lg hover:bg-green-50 transition duration-300">Download Receipt</button>
+            <p class="text-gray-600 mb-6 sm:mb-8 text-sm sm:text-base">Estimated Delivery: <span class="font-medium">Today, within 2 hours</span></p>
+
+            <div class="flex flex-col space-y-3">
+                <a href="account.html" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg transition duration-300 text-sm sm:text-base">
+                    Track Order
+                </a>
+                <button id="downloadReceiptBtn" class="bg-white text-green-600 border-2 border-green-600 font-bold py-2 px-5 rounded-lg hover:bg-green-50 transition duration-300 text-sm sm:text-base">
+                    Download Receipt
+                </button>
+                <button id="continueShoppingButton" class="bg-white text-green-600 border-2 border-green-600 font-bold py-2 px-5 rounded-lg hover:bg-green-50 transition duration-300 text-sm sm:text-base">
+                    Continue Shopping
+                </button>
             </div>
         </div>
     </div>
