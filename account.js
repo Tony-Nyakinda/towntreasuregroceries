@@ -7,6 +7,7 @@ import { supabase } from './supabase-config.js';
 import { auth } from './firebase-config.js';
 import { getCurrentUserWithRole, logout } from './auth.js';
 import { showToast, showAlertModal, closeConfirmation } from './uiUpdater.js';
+import { getDeliveryFee } from './delivery-zones.js'; // Import for total recalculation
 
 document.addEventListener('DOMContentLoaded', async () => {
     let allUserOrders = []; 
@@ -236,11 +237,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         orderItems.forEach(item => {
             const itemDiv = document.createElement('div');
-            itemDiv.className = 'flex justify-between items-center text-sm py-1 border-b';
-            itemDiv.innerHTML = `
-                <span class="pr-4">${item.name} (x${item.quantity})</span>
-                <span class="text-gray-600 font-mono">KSh ${(item.price * item.quantity).toLocaleString()}</span>
+            itemDiv.className = 'flex justify-between items-center text-sm py-2 border-b';
+            let itemHTML = `
+                <div class="flex-grow">
+                    <p>${item.name}</p>
+                    <p class="text-xs text-gray-500">${item.quantity} x KSh ${item.price.toLocaleString()}</p>
+                </div>
+                <div class="flex items-center">
+                    <span class="text-gray-800 font-mono mr-4">KSh ${(item.price * item.quantity).toLocaleString()}</span>
             `;
+
+            // Add delete button ONLY for unpaid orders
+            if (statusText === 'unpaid') {
+                itemHTML += `<button class="delete-item-btn text-red-400 hover:text-red-600 transition-colors duration-200" data-item-id="${item.id}" data-order-id="${order.id}" title="Remove Item">
+                                <i class="fas fa-trash-alt"></i>
+                             </button>`;
+            }
+
+            itemHTML += `</div>`;
+            itemDiv.innerHTML = itemHTML;
             itemsContainer.appendChild(itemDiv);
         });
 
@@ -324,7 +339,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
     
-    // --- ADDED: Mobile Menu Toggle Logic ---
+    // --- Mobile Menu Toggle Logic ---
     function toggleMobileMenu() {
         const isActive = mobileMenu.classList.contains('is-active');
         if (isActive) {
@@ -357,6 +372,54 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
+
+    // --- Event Listener for Deleting Items in Modal ---
+    orderDetailsModal.addEventListener('click', async (event) => {
+        const target = event.target.closest('.delete-item-btn');
+        if (!target) return;
+
+        const itemId = target.dataset.itemId;
+        const orderId = target.dataset.orderId;
+
+        const orderToUpdate = allUserOrders.find(o => o.id === orderId);
+        if (!orderToUpdate) {
+            showAlertModal("Could not find the order to update.", "Error", "error");
+            return;
+        }
+
+        const newItems = orderToUpdate.items.filter(item => item.id.toString() !== itemId.toString());
+
+        if (newItems.length === 0) {
+            showCustomConfirm("Deleting the last item will cancel the entire order. Are you sure?", orderId);
+            return;
+        }
+
+        const newSubtotal = newItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const deliveryFee = getDeliveryFee(orderToUpdate.address);
+        const newTotal = newSubtotal + deliveryFee;
+
+        const { data, error } = await supabase
+            .from('unpaid_orders')
+            .update({ items: newItems, total: newTotal, delivery_fee: deliveryFee })
+            .eq('id', orderId)
+            .select()
+            .single();
+
+        if (error) {
+            showAlertModal(`Failed to update order: ${error.message}`, "Error", "error");
+            return;
+        }
+
+        showToast("Item removed successfully.");
+        const orderIndex = allUserOrders.findIndex(o => o.id === orderId);
+        if (orderIndex !== -1) {
+            allUserOrders[orderIndex] = data;
+        }
+        
+        populateAndShowModal(data); // Refresh modal with new data
+        await fetchAndRenderAllOrders(); // Refresh the main list
+    });
+
 
     // --- Other Functions (Confirmation Modals etc.) ---
     function showCustomConfirm(message, orderId) {
