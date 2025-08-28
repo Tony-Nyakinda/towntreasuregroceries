@@ -17,6 +17,14 @@
             padding: 0.75rem 0;
             border-bottom: 1px solid #e5e7eb;
         }
+        /* Styles for the autocomplete suggestions */
+        #addressSuggestions .suggestion-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+        }
+        #addressSuggestions .suggestion-item:hover {
+            background-color: #f3f4f6; /* gray-100 */
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -53,10 +61,14 @@
                         <div class="floating-label-group">
                             <label for="phone" class="floating-label">Phone Number</label>
                             <input type="tel" id="phone" class="floating-input w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder=" " required>
+                            
                         </div>
-                        <div class="floating-label-group">
+                        <!-- Address input with suggestions container -->
+                        <div class="floating-label-group relative">
                             <label for="address" class="floating-label">Delivery Address (e.g., Westlands, ABC Place)</label>
                             <textarea id="address" rows="3" class="floating-input w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder=" " required></textarea>
+                            
+                            <div id="addressSuggestions" class="absolute left-0 right-0 bg-white border border-gray-300 rounded-b-lg z-10 hidden max-h-48 overflow-y-auto shadow-lg"></div>
                         </div>
                     </div>
 
