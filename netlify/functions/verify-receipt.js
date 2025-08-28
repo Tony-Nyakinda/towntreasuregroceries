@@ -1,6 +1,7 @@
 // netlify/functions/verify-receipt.js
 // This function securely checks if an order number exists in the database
 // without returning any sensitive order details.
+//....
 
 const { createClient } = require('@supabase/supabase-js');
 
