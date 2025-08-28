@@ -2,6 +2,7 @@
 // This script handles the logic for the "My Account" page.
 // It fetches and displays unpaid orders and paid order history from Supabase.
 // It now includes logic to handle QR code scans for receipt verification.
+//......
 
 import { supabase } from './supabase-config.js';
 import { auth } from './firebase-config.js';
