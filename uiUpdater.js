@@ -201,9 +201,10 @@ async function showConfirmation(orderNum, fullOrderData = {}) {
     // CORRECTED LOGIC:
     // The generate-receipt function can find the order in either the 'paid_orders'
     // or 'unpaid_orders' table using its unique ID. We just need to ensure
-    // we pass this ID to the button's dataset.
+    // we pass this ID and the order number to the button's dataset.
     if (downloadReceiptBtn && fullOrderData && fullOrderData.id) {
         downloadReceiptBtn.dataset.orderId = fullOrderData.id;
+        downloadReceiptBtn.dataset.orderNumber = orderNum; // Pass the order number for the filename
         downloadReceiptBtn.classList.remove('hidden');
     } else if (downloadReceiptBtn) {
         // If for some reason we don't have an order ID, hide the button
