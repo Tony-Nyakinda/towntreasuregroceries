@@ -331,25 +331,28 @@ exports.handler = async function (event) {
     const boxW = labelW + valueW + 20;
     const boxX = pageMargin + contentWidth - boxW;
     let currentY = totalsY;
+    const lineHeight = 18;
 
     doc.font('Helvetica').fontSize(10).fillColor(brandDark);
+    
+    // Draw Sub Total
     doc.text('Sub Total:', boxX, currentY, { width: labelW, align: 'right' });
     doc.text(KES(subtotal), boxX + labelW, currentY, { width: valueW, align: 'right' });
-    currentY += 18;
+    currentY += lineHeight;
 
-    // --- ADDED DELIVERY FEE ---
+    // --- CORRECTED: Draw Delivery Fee if it exists ---
     if (order.delivery_fee && Number(order.delivery_fee) > 0) {
         doc.text('Delivery Fee:', boxX, currentY, { width: labelW, align: 'right' });
         doc.text(KES(order.delivery_fee), boxX + labelW, currentY, { width: valueW, align: 'right' });
-        currentY += 10;
+        currentY += lineHeight;
     }
-    // --- END OF ADDITION ---
 
-    const gtY = currentY + 8;
-    doc.rect(boxX, gtY, boxW, 28).fill(brandGreen);
+    // Draw Grand Total
+    const gtY = currentY;
+    doc.rect(boxX, gtY - 4, boxW, 28).fill(brandGreen);
     doc.font('Helvetica-Bold').fillColor('#FFFFFF');
-    doc.text('Grand Total:', boxX, gtY + 7, { width: labelW, align: 'right' });
-    doc.text(KES(order.total), boxX + labelW, gtY + 7, { width: valueW, align: 'right' });
+    doc.text('Grand Total:', boxX, gtY + 3, { width: labelW, align: 'right' });
+    doc.text(KES(order.total), boxX + labelW, gtY + 3, { width: valueW, align: 'right' });
     
     const finalContentY = gtY + 40;
 
