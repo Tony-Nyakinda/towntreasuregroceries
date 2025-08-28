@@ -398,19 +398,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         const deliveryFee = getDeliveryFee(orderToUpdate.address);
         const newTotal = newSubtotal + deliveryFee;
 
-        const { data, error } = await supabase
+        // CORRECTED LOGIC: Remove .select() and update the UI optimistically.
+        const { error } = await supabase
             .from('unpaid_orders')
             .update({ items: newItems, total: newTotal, delivery_fee: deliveryFee })
-            .eq('id', orderId)
-            .select();
+            .eq('id', orderId);
 
         if (error) {
             showAlertModal(`Failed to update order: ${error.message}`, "Error", "error");
             return;
         }
         
-        // Since we are updating by a unique ID, the returned data will be an array with one item.
-        const updatedOrder = data[0];
+        // Manually construct the updated order object on the client-side
+        const updatedOrder = {
+            ...orderToUpdate,
+            items: newItems,
+            total: newTotal,
+            delivery_fee: deliveryFee
+        };
 
         showToast("Item removed successfully.");
         const orderIndex = allUserOrders.findIndex(o => o.id === orderId);
