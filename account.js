@@ -467,6 +467,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    // --- CORRECTED: Dedicated Event Listener for Cancel Order Button ---
+    if (cancelOrderBtn) {
+        cancelOrderBtn.addEventListener('click', () => {
+            const orderId = cancelOrderBtn.dataset.orderId;
+            if (!orderId) {
+                showToast("Error: Could not find Order ID to cancel.");
+                return;
+            }
+            showCustomConfirm("Are you sure you want to cancel this order? This action cannot be undone.", orderId);
+        });
+    }
+
     // --- Download Receipt Logic ---
     if (downloadReceiptBtn) {
         downloadReceiptBtn.addEventListener('click', async () => {
