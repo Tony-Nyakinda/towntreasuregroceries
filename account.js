@@ -323,8 +323,42 @@ document.addEventListener('DOMContentLoaded', async () => {
             showAlertModal("An error occurred while trying to verify the receipt.", "Error", "error");
         }
     }
+    
+    // --- ADDED: Mobile Menu Toggle Logic ---
+    function toggleMobileMenu() {
+        const isActive = mobileMenu.classList.contains('is-active');
+        if (isActive) {
+            mobileMenu.classList.remove('is-active');
+            // Only hide overlay if no other modal is active
+            if (orderDetailsModal.classList.contains('hidden')) {
+               overlay.classList.add('hidden');
+               document.body.style.overflow = '';
+            }
+        } else {
+            mobileMenu.classList.add('is-active');
+            overlay.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+    }
 
-    // --- Other Functions (Mobile Menu, Confirmation Modals etc.) ---
+    if (mobileMenuButton && mobileMenu && closeMobileMenuButton && overlay) {
+        mobileMenuButton.addEventListener('click', toggleMobileMenu);
+        closeMobileMenuButton.addEventListener('click', toggleMobileMenu);
+        overlay.addEventListener('click', () => { 
+            // If the mobile menu is active, close it
+            if (mobileMenu.classList.contains('is-active')) {
+                toggleMobileMenu();
+            }
+            // If the order details modal is active, close it
+            if (!orderDetailsModal.classList.contains('hidden')) {
+                orderDetailsModal.classList.add('hidden');
+                overlay.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            }
+        });
+    }
+
+    // --- Other Functions (Confirmation Modals etc.) ---
     function showCustomConfirm(message, orderId) {
         const confirmModalMessage = document.getElementById('confirmModalMessage');
         if (confirmModalMessage) {
