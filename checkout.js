@@ -5,7 +5,7 @@ import { auth } from './firebase-config.js';
 import { supabase } from './supabase-config.js';
 import { getCart, clearCart } from './cartManager.js';
 import { getProducts } from './productsData.js';
-import { getDeliveryFee } from './delivery-zones.js';
+import { getDeliveryFee, zones } from './delivery-zones.js'; // Import zones for autocomplete
 import { showToast, showWaitingModal, hideWaitingModal, showConfirmation, showAlertModal, closeConfirmation } from './uiUpdater.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -18,10 +18,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const checkoutForm = document.getElementById('checkoutForm');
     const placeOrderBtn = document.getElementById('placeOrderBtn');
     const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
+    const addressSuggestionsContainer = document.getElementById('addressSuggestions');
     const continueShoppingButton = document.getElementById('continueShoppingButton');
+
 
     let allProducts = [];
     let currentSubtotal = 0;
+    
+    // --- Autocomplete Setup ---
+    // Flatten all locations from zones into a single array and remove duplicates
+    const allLocations = Object.values(zones || {}).flat();
+    const uniqueLocations = [...new Set(allLocations)];
 
     // 1. Authentication Check
     auth.onAuthStateChanged(async user => {
@@ -32,9 +39,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             }, 2000);
         } else {
             // Fetch products and render the initial summary
-            const productsData = await getProducts();
-            allProducts = productsData.all || [];
-            renderOrderSummary();
+            try {
+                const productsData = await getProducts();
+                allProducts = productsData.all || [];
+                renderOrderSummary();
+            } catch (error) {
+                console.error("Failed to load initial product data:", error);
+                showAlertModal("Could not load product data. Please try refreshing the page.", "Error");
+            }
         }
     });
 
@@ -83,9 +95,61 @@ document.addEventListener('DOMContentLoaded', async () => {
         summaryTotalEl.textContent = `KSh ${total.toLocaleString()}`;
     }
 
-    // 4. Event Listener for Address Input (Real-time Fee Update)
+    // 4. Address Autocomplete Logic
+    function handleAddressAutocomplete() {
+        const inputText = addressInput.value;
+        const lowerInputText = inputText.toLowerCase();
+
+        if (lowerInputText.length < 2) {
+            addressSuggestionsContainer.innerHTML = '';
+            addressSuggestionsContainer.classList.add('hidden');
+            return;
+        }
+
+        const matches = uniqueLocations.filter(location =>
+            location.toLowerCase().startsWith(lowerInputText)
+        );
+
+        if (matches.length > 0) {
+            const suggestionsHTML = matches.slice(0, 5) // Show max 5 suggestions
+                .map(match => {
+                    const matchText = match.substring(inputText.length);
+                    return `<div class="suggestion-item" data-full-text="${match}">
+                                <strong>${inputText}</strong><span class="text-gray-400">${matchText}</span>
+                            </div>`;
+                })
+                .join('');
+            addressSuggestionsContainer.innerHTML = suggestionsHTML;
+            addressSuggestionsContainer.classList.remove('hidden');
+        } else {
+            addressSuggestionsContainer.innerHTML = '';
+            addressSuggestionsContainer.classList.add('hidden');
+        }
+    }
+
     if (addressInput) {
-        addressInput.addEventListener('input', updateTotals);
+        addressInput.addEventListener('input', () => {
+            updateTotals();
+            handleAddressAutocomplete();
+        });
+
+        addressInput.addEventListener('blur', () => {
+            setTimeout(() => {
+                addressSuggestionsContainer.classList.add('hidden');
+            }, 150); // Delay to allow click on suggestion
+        });
+    }
+
+    if (addressSuggestionsContainer) {
+        addressSuggestionsContainer.addEventListener('click', (event) => {
+            const suggestionItem = event.target.closest('.suggestion-item');
+            if (suggestionItem) {
+                addressInput.value = suggestionItem.dataset.fullText;
+                addressSuggestionsContainer.classList.add('hidden');
+                updateTotals();
+                addressInput.focus();
+            }
+        });
     }
 
     // 5. Form Submission Logic
@@ -280,7 +344,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // --- ADDED: Event listener for the new "Continue Shopping" button ---
+    // --- Continue Shopping Button Logic ---
     if (continueShoppingButton) {
         continueShoppingButton.addEventListener('click', () => {
             closeConfirmation();
