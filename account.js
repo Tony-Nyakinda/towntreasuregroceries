@@ -1,13 +1,13 @@
 // account.js
 // This script handles the logic for the "My Account" page.
 // It fetches and displays unpaid orders and paid order history from Supabase.
-// It now includes logic to handle QR code scans for receipt verification.
+// It now handles M-Pesa payments for pending orders directly from this page.
 
 import { supabase } from './supabase-config.js';
 import { auth } from './firebase-config.js';
 import { getCurrentUserWithRole, logout } from './auth.js';
-import { showToast, showAlertModal, closeConfirmation } from './uiUpdater.js';
-import { getDeliveryFee } from './delivery-zones.js'; // Import for total recalculation
+import { showToast, showWaitingModal, hideWaitingModal, showConfirmation, closeConfirmation, showAlertModal } from './uiUpdater.js';
+import { getDeliveryFee } from './delivery-zones.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     let allUserOrders = []; 
@@ -39,18 +39,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Authentication Check ---
     auth.onAuthStateChanged(async (user) => {
         if (!user) {
-            // If no user is logged in, check for a QR code scan
             await handleQRCodeScan();
             loader.style.display = 'none';
             mainContent.classList.remove('hidden');
-            userProfileSection.classList.add('hidden'); // Hide profile section
+            userProfileSection.classList.add('hidden');
         } else {
             currentUser = user;
             loader.style.display = 'none';
             mainContent.classList.remove('hidden');
             displayUserProfile(currentUser);
             await fetchAndRenderAllOrders();
-            // After fetching orders, check for a QR scan
             await handleQRCodeScan();
         }
     });
@@ -146,10 +144,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <p class="font-bold text-lg text-gray-800">Order #${order.order_number}</p>
                 <p class="text-sm text-gray-500">Date: ${orderDate}</p>
                 <p class="font-semibold mt-2">Total Paid: KSh ${order.total.toLocaleString()}</p>
-                <div class="mt-2 md:hidden">
-                     <p class="text-sm font-medium text-gray-600">Status: <span class="text-green-600 font-bold capitalize">${order.payment_status}</span></p>
-                     <p class="text-sm text-gray-500">M-Pesa Receipt: <span class="font-mono">${order.mpesa_receipt_number || 'N/A'}</span></p>
-                </div>
             </div>
             <div class="hidden md:block text-right flex-shrink-0 mx-4">
                 <p class="text-sm font-medium text-gray-600">Status: <span class="text-green-600 font-bold capitalize">${order.payment_status}</span></p>
@@ -168,10 +162,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (target.classList.contains('pay-now-btn')) {
             const orderId = target.dataset.orderId;
             const orderToPay = allUserOrders.find(o => o.id === orderId && o.payment_status === 'unpaid');
-
             if (orderToPay) {
-                sessionStorage.setItem('checkoutOrder', JSON.stringify(orderToPay));
-                window.location.href = 'checkout.html';
+                // Directly initiate payment from the account page
+                await handleMpesaPayment(orderToPay);
             } else {
                 showAlertModal("Could not find the order to pay.", "Error", "error");
             }
@@ -188,28 +181,90 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    if (cancelOrderBtn) {
-        cancelOrderBtn.addEventListener('click', async () => {
-            const orderId = cancelOrderBtn.dataset.orderId;
-            if (!orderId) {
-                showToast("Error: Could not find Order ID to cancel.");
-                return;
+    // --- M-PESA PAYMENT LOGIC (ADAPTED FOR ACCOUNT PAGE) ---
+    async function handleMpesaPayment(order) {
+        const orderDetails = {
+            orderNumber: order.order_number,
+            userId: order.user_id,
+            fullName: order.full_name,
+            phone: order.phone,
+            address: order.address,
+            items: order.items,
+            total: order.total,
+            deliveryFee: order.delivery_fee
+        };
+
+        try {
+            const functionUrl = "/.netlify/functions/mpesa/initiateMpesaPayment";
+            const response = await fetch(functionUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    phone: orderDetails.phone, 
+                    amount: orderDetails.total, 
+                    orderDetails,
+                    unpaidOrderId: order.id // Pass the unpaid order ID to be deleted on success
+                }),
+            });
+
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'M-Pesa API request failed.');
+            
+            waitForPaymentConfirmation(result.checkoutRequestID);
+
+        } catch (error) {
+            console.error("M-Pesa Error:", error);
+            showAlertModal(error.message, "Payment Error", "error");
+        }
+    }
+
+    function waitForPaymentConfirmation(checkoutRequestID) {
+        const pollUrl = "/.netlify/functions/mpesa/getPaymentStatus";
+        const POLLING_INTERVAL = 3000;
+        const TIMEOUT_DURATION = 90000;
+        let pollIntervalId, timeoutId;
+
+        showWaitingModal();
+
+        timeoutId = setTimeout(() => {
+            clearInterval(pollIntervalId);
+            hideWaitingModal();
+            showAlertModal("Payment timed out. Please try again or check your M-Pesa account.", "Payment Timeout", "error");
+        }, TIMEOUT_DURATION);
+
+        pollIntervalId = setInterval(async () => {
+            try {
+                const response = await fetch(pollUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ checkoutRequestID }),
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Polling error.');
+
+                if (result.status === 'paid') {
+                    clearInterval(pollIntervalId);
+                    clearTimeout(timeoutId);
+                    hideWaitingModal();
+                    showToast("Payment successful!");
+                    await fetchAndRenderAllOrders(); // Refresh the order lists
+                    showConfirmation(result.finalOrder.order_number, result.finalOrder);
+                } else if (result.status === 'failed' || result.status === 'cancelled') {
+                    clearInterval(pollIntervalId);
+                    clearTimeout(timeoutId);
+                    hideWaitingModal();
+                    showAlertModal(`Your payment was not completed: ${result.message || 'The transaction was cancelled.'}. Please try again.`, "Payment Unsuccessful", "error");
+                }
+            } catch (error) {
+                clearInterval(pollIntervalId);
+                clearTimeout(timeoutId);
+                hideWaitingModal();
+                showAlertModal(`An error occurred while checking payment status: ${error.message}`, "Error", "error");
             }
-            showCustomConfirm("Are you sure you want to cancel this order? This action cannot be undone.", orderId);
-        });
+        }, POLLING_INTERVAL);
     }
 
-    if (downloadReceiptBtn) {
-        downloadReceiptBtn.addEventListener('click', async () => {
-            // Logic to download receipt from confirmation modal
-        });
-    }
-
-    if(continueShoppingButton) {
-        continueShoppingButton.addEventListener('click', closeConfirmation);
-    }
-
-    // --- Logic for the Order Details Modal ---
+    // --- MODAL AND UI LOGIC ---
     function populateAndShowModal(order) {
         if (!order) return;
 
@@ -247,7 +302,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <span class="text-gray-800 font-mono mr-4">KSh ${(item.price * item.quantity).toLocaleString()}</span>
             `;
 
-            // Add delete button ONLY for unpaid orders
             if (statusText === 'unpaid') {
                 itemHTML += `<button class="delete-item-btn text-red-400 hover:text-red-600 transition-colors duration-200" data-item-id="${item.id}" data-order-id="${order.id}" title="Remove Item">
                                 <i class="fas fa-trash-alt"></i>
@@ -271,31 +325,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.body.classList.remove('overflow-hidden');
         });
     }
-
+    
     // --- QR CODE SCAN HANDLING LOGIC ---
     async function handleQRCodeScan() {
         const params = new URLSearchParams(window.location.search);
         const orderNumberFromURL = params.get('order');
 
         if (!orderNumberFromURL) {
-            return; // No scan detected, do nothing.
+            return; 
         }
 
-        // Clean the URL to remove the query parameter for a cleaner user experience
         history.replaceState(null, '', window.location.pathname);
 
-        // Scenario 1: User is logged in
         if (currentUser) {
             const matchingOrder = allUserOrders.find(o => o.order_number === orderNumberFromURL);
             if (matchingOrder) {
-                // The logged-in user owns this order, show the details immediately.
                 populateAndShowModal(matchingOrder);
                 return;
             }
         }
 
-        // Scenario 2: User is a guest, or not the owner of the order.
-        // We must verify the receipt's genuineness publicly.
         try {
             const response = await fetch('/.netlify/functions/verify-receipt', {
                 method: 'POST',
@@ -305,17 +354,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             const result = await response.json();
 
             if (result.genuine) {
-                // Temporarily change overlay for this specific modal
                 const alertModalCloseButton = document.getElementById('alertModalCloseButton');
                 overlay.classList.remove('bg-black', 'bg-opacity-50');
                 overlay.classList.add('bg-white');
 
                 const handleRedirect = () => {
-                    // Restore original overlay and redirect
                     overlay.classList.add('bg-black', 'bg-opacity-50');
                     overlay.classList.remove('bg-white');
                     window.location.href = 'login.html';
-                    // Clean up the event listener to prevent it from firing on other alerts
                     alertModalCloseButton.removeEventListener('click', handleRedirect);
                 };
                 
@@ -338,13 +384,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             showAlertModal("An error occurred while trying to verify the receipt.", "Error", "error");
         }
     }
-    
+
     // --- Mobile Menu Toggle Logic ---
     function toggleMobileMenu() {
         const isActive = mobileMenu.classList.contains('is-active');
         if (isActive) {
             mobileMenu.classList.remove('is-active');
-            // Only hide overlay if no other modal is active
             if (orderDetailsModal.classList.contains('hidden')) {
                overlay.classList.add('hidden');
                document.body.style.overflow = '';
@@ -360,11 +405,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         mobileMenuButton.addEventListener('click', toggleMobileMenu);
         closeMobileMenuButton.addEventListener('click', toggleMobileMenu);
         overlay.addEventListener('click', () => { 
-            // If the mobile menu is active, close it
             if (mobileMenu.classList.contains('is-active')) {
                 toggleMobileMenu();
             }
-            // If the order details modal is active, close it
             if (!orderDetailsModal.classList.contains('hidden')) {
                 orderDetailsModal.classList.add('hidden');
                 overlay.classList.add('hidden');
@@ -373,7 +416,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // --- Event Listener for Deleting Items in Modal ---
+    // --- Item Deletion Logic ---
     orderDetailsModal.addEventListener('click', async (event) => {
         const target = event.target.closest('.delete-item-btn');
         if (!target) return;
@@ -398,7 +441,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const deliveryFee = getDeliveryFee(orderToUpdate.address);
         const newTotal = newSubtotal + deliveryFee;
 
-        // CORRECTED LOGIC: Remove .select() and update the UI optimistically.
         const { error } = await supabase
             .from('unpaid_orders')
             .update({ items: newItems, total: newTotal, delivery_fee: deliveryFee })
@@ -409,7 +451,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         
-        // Manually construct the updated order object on the client-side
         const updatedOrder = {
             ...orderToUpdate,
             items: newItems,
@@ -423,12 +464,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             allUserOrders[orderIndex] = updatedOrder;
         }
         
-        populateAndShowModal(updatedOrder); // Refresh modal with new data
-        await fetchAndRenderAllOrders(); // Refresh the main list
+        populateAndShowModal(updatedOrder);
+        await fetchAndRenderAllOrders();
     });
 
-
-    // --- Other Functions (Confirmation Modals etc.) ---
+    // --- Confirmation Modal Logic ---
     function showCustomConfirm(message, orderId) {
         const confirmModalMessage = document.getElementById('confirmModalMessage');
         if (confirmModalMessage) {
@@ -473,6 +513,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // --- Initial Data Fetch ---
     async function fetchAndRenderAllOrders() {
         if (!currentUser) return;
         const unpaidOrders = await fetchUnpaidOrders();
