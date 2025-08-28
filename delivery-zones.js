@@ -57,7 +57,7 @@ const zoneFees = {
 
 // A default fee for any location that is not found in our predefined zones.
 // This ensures that every customer gets a quote.
-const defaultFee = 500;
+const defaultFee = 0;
 
 /**
  * Calculates the delivery fee based on a user-provided address.
