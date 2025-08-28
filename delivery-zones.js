@@ -31,6 +31,9 @@ const zones = {
     "Zone 6": [
         "Thika", "Machakos", "Ngong", "Kiserian", "Limuru", "Kiambu"
     ],
+    "Zone 7": [
+              "Test"
+    ],          
     "Slums": [
         "Bahati", "Buruburu", "Gatwekera", "Huruma", "Kambi Muru", "Kiambiu", "Kibera",
         "Kichinjio", "Kisumu Ndogo", "Korogocho", "Kware", "Laini Saba", "Lindi",
@@ -48,6 +51,7 @@ const zoneFees = {
     "Zone 4": 450,
     "Zone 5": 600,
     "Zone 6": 800,
+    "Zone 7": 1,
     "Slums": 200, 
 };
 
