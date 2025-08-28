@@ -198,41 +198,17 @@ async function showConfirmation(orderNum, fullOrderData = {}) {
         orderNumberSpan.textContent = orderNum;
     }
 
-    if (downloadReceiptBtn) {
-        if (fullOrderData.id && fullOrderData.payment_status === 'paid') {
-            downloadReceiptBtn.dataset.orderId = fullOrderData.id;
-            delete downloadReceiptBtn.dataset.orderDetails;
-            downloadReceiptBtn.classList.remove('hidden');
-        } 
-        else {
-            let unpaidOrder = null;
-
-            if (fullOrderData.id && fullOrderData.paymentMethod === 'delivery') {
-                const { data, error } = await supabase
-                    .from('unpaid_orders')
-                    .select('*')
-                    .eq('id', fullOrderData.id)
-                    .single();
-                if (!error) unpaidOrder = data;
-            }
-
-            if (!unpaidOrder && orderNum) {
-                const { data, error } = await supabase
-                    .from('unpaid_orders')
-                    .select('*')
-                    .eq('order_number', orderNum)
-                    .single();
-                if (!error) unpaidOrder = data;
-            }
-
-            if (unpaidOrder) {
-                downloadReceiptBtn.dataset.orderDetails = JSON.stringify(unpaidOrder);
-                delete downloadReceiptBtn.dataset.orderId;
-                downloadReceiptBtn.classList.remove('hidden');
-            } else {
-                downloadReceiptBtn.classList.add('hidden');
-            }
-        }
+    // CORRECTED LOGIC:
+    // The generate-receipt function can find the order in either the 'paid_orders'
+    // or 'unpaid_orders' table using its unique ID. We just need to ensure
+    // we pass this ID to the button's dataset.
+    if (downloadReceiptBtn && fullOrderData && fullOrderData.id) {
+        downloadReceiptBtn.dataset.orderId = fullOrderData.id;
+        downloadReceiptBtn.classList.remove('hidden');
+    } else if (downloadReceiptBtn) {
+        // If for some reason we don't have an order ID, hide the button
+        // to prevent errors.
+        downloadReceiptBtn.classList.add('hidden');
     }
 
     confirmationModal.classList.remove('hidden');
