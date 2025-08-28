@@ -62,7 +62,7 @@ const zoneFees = {
     "Slums": 200, 
 };
 
-const defaultFee = 500;
+const defaultFee = 0;
 
 function getDeliveryFee(address) {
     if (!address || address.trim() === '') {
