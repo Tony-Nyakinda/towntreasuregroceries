@@ -78,7 +78,7 @@ const zones = {
     "Santack Road", "Savannah Estate", "Savannah High School", "Seasons Stage", "Shimo La Tewa Road", "Sunton", "Tassia",
     "Tena Estate", "Thika Superhighway", "Thome", "Thome Junction", "TRM Mall", "Umoja", "Umoja 1", "Umoja 2", "Umoja 3",
     "Umoja 4", "Umoja Innercore", "Umoja Outer Ring", "USIU Africa (Kasarani)", "Ziwani", "Imara Daima Close 489", "Donholm Road",
-    "Makadara Junction", "Jogoo Road Terminal", "TRM Mall Road", "Umoja Crossing 468",
+    "Makadara Junction", "Jogoo Road Terminal", "TRM Mall Road", "Umoja Crossing 468"
   ],
   "Zone 4": [
     "87 (Dagoretti)", "Bomas of Kenya", "Bomas Roundabout", "Bomas Junction", "Dagoretti", "Dagoretti Corner",
