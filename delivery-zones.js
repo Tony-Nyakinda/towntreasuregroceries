@@ -78,7 +78,7 @@ const zones = {
     "Santack Road", "Savannah Estate", "Savannah High School", "Seasons Stage", "Shimo La Tewa Road", "Sunton", "Tassia",
     "Tena Estate", "Thika Superhighway", "Thome", "Thome Junction", "TRM Mall", "Umoja", "Umoja 1", "Umoja 2", "Umoja 3",
     "Umoja 4", "Umoja Innercore", "Umoja Outer Ring", "USIU Africa (Kasarani)", "Ziwani", "Imara Daima Close 489", "Donholm Road",
-    "Makadara Junction", "Jogoo Road Terminal", "TRM Mall Road", "Umoja Crossing 468"
+    "Makadara Junction", "Jogoo Road Terminal", "TRM Mall Road", "Umoja Crossing 468",
   ],
   "Zone 4": [
     "87 (Dagoretti)", "Bomas of Kenya", "Bomas Roundabout", "Bomas Junction", "Dagoretti", "Dagoretti Corner",
@@ -99,7 +99,7 @@ const zones = {
     "Kamulu", "Kamulu Police Station", "Kamulu Shopping Centre", "Katani", "KBC Ruai", "Kitengela",
     "Kwa Njenga River Bank", "Mlolongo", "Mlolongo Weighbridge", "Njiru Shopping Centre",
     "Ongata Rongai", "Roma Stage (Ruai)", "Rongai", "Ruai", "Ruai Police", "Ruai Police Station", "Sabaki Mlolongo",
-    "Sewage Estate", "SGR Nairobi Terminus", "Syokimau", "Syokimau Railway Station", "Tala", "Utawala",
+    "Sewage Estate", "SGR Nairobi Terminus", "Syokimau", "Syokimau Railway Station", "Tala", "Utawala","Utawala Fagilia Stage","Utawala Kinka", "Ruai Bypass"
     "Utawala Airbase", "Utawala Benedicta", "Utawala Shooters", "Utawala Valley 13", "Utawala Phase 21",
     "Athi River Block 84", "Mlolongo Bypass", "Syokimau Phase 3", "Rongai West", "Kitengela Phase", "Ongata Rongai Road",
     "Ruai Bus Stage"
