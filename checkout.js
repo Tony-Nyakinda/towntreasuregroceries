@@ -14,19 +14,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     const summarySubtotalEl = document.getElementById('summarySubtotal');
     const summaryDeliveryFeeEl = document.getElementById('summaryDeliveryFee');
     const summaryTotalEl = document.getElementById('summaryTotal');
-    const addressInput = document.getElementById('address');
     const checkoutForm = document.getElementById('checkoutForm');
     const placeOrderBtn = document.getElementById('placeOrderBtn');
     const downloadReceiptBtn = document.getElementById('downloadReceiptBtn');
-    const addressSuggestionsContainer = document.getElementById('addressSuggestions');
     const continueShoppingButton = document.getElementById('continueShoppingButton');
 
+    // New location elements
+    const zoneInput = document.getElementById('zoneInput');
+    const zoneSuggestions = document.getElementById('zoneSuggestions');
+    const specificAddressInput = document.getElementById('specificAddressInput');
 
     let allProducts = [];
     let currentSubtotal = 0;
-    
+
     // --- Autocomplete Setup ---
-    // Flatten all locations from zones into a single array and remove duplicates
     const allLocations = Object.values(zones || {}).flat();
     const uniqueLocations = [...new Set(allLocations)];
 
@@ -38,14 +39,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 window.location.href = 'login.html';
             }, 2000);
         } else {
-            // Fetch products and render the initial summary
             try {
                 const productsData = await getProducts();
                 allProducts = productsData.all || [];
                 renderOrderSummary();
             } catch (error) {
-                console.error("Failed to load initial product data:", error);
-                showAlertModal("Could not load product data. Please try refreshing the page.", "Error");
+                console.error("Failed to load initial data:", error);
+                showAlertModal("Could not load page data. Please try refreshing.", "Error");
             }
         }
     });
@@ -58,16 +58,13 @@ document.addEventListener('DOMContentLoaded', async () => {
              setTimeout(() => window.location.href = 'catalog.html', 2000);
              return;
         }
-
         summaryItemsContainer.innerHTML = '';
         currentSubtotal = 0;
-
         cart.forEach(item => {
             const product = allProducts.find(p => p.id === item.id);
             if (product) {
                 const itemTotal = product.price * item.quantity;
                 currentSubtotal += itemTotal;
-
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'summary-item text-sm';
                 itemDiv.innerHTML = `
@@ -80,74 +77,76 @@ document.addEventListener('DOMContentLoaded', async () => {
                 summaryItemsContainer.appendChild(itemDiv);
             }
         });
-
         updateTotals();
     }
 
-    // 3. Update Totals (Subtotal, Delivery, Grand Total)
+    // 3. Update Totals
     function updateTotals() {
-        const deliveryAddress = addressInput.value;
-        const deliveryFee = getDeliveryFee(deliveryAddress);
+        const deliveryZone = zoneInput.value;
+        const deliveryFee = getDeliveryFee(deliveryZone);
         const total = currentSubtotal + deliveryFee;
-
         summarySubtotalEl.textContent = `KSh ${currentSubtotal.toLocaleString()}`;
-        summaryDeliveryFeeEl.textContent = `KSh ${deliveryFee.toLocaleString()}`;
+        summaryDeliveryFeeEl.textContent = deliveryFee > 0 ? `KSh ${deliveryFee.toLocaleString()}` : `KSh 0`;
         summaryTotalEl.textContent = `KSh ${total.toLocaleString()}`;
     }
 
-    // 4. Address Autocomplete Logic
-    function handleAddressAutocomplete() {
-        const inputText = addressInput.value;
-        const lowerInputText = inputText.toLowerCase();
+    // --- New Zone Validation Function ---
+    function validateZoneInput() {
+        const deliveryZone = zoneInput.value.trim();
+        const isValid = uniqueLocations.some(loc => loc.toLowerCase() === deliveryZone.toLowerCase());
 
-        if (lowerInputText.length < 2) {
-            addressSuggestionsContainer.innerHTML = '';
-            addressSuggestionsContainer.classList.add('hidden');
+        // An empty field shouldn't be red. Only show error if text is present but invalid.
+        if (deliveryZone && !isValid) {
+            zoneInput.classList.remove('border-gray-300', 'focus:ring-green-500');
+            zoneInput.classList.add('border-red-500', 'focus:ring-red-500');
+        } else {
+            zoneInput.classList.remove('border-red-500', 'focus:ring-red-500');
+            zoneInput.classList.add('border-gray-300', 'focus:ring-green-500');
+        }
+    }
+
+    // 4. Zone Autocomplete & Typing Logic
+    function handleZoneAutocomplete() {
+        const inputText = zoneInput.value;
+        if (inputText.length < 2) {
+            zoneSuggestions.innerHTML = '';
+            zoneSuggestions.classList.add('hidden');
             return;
         }
-
-        const matches = uniqueLocations.filter(location =>
-            location.toLowerCase().startsWith(lowerInputText)
-        );
-
+        const matches = uniqueLocations.filter(loc => loc.toLowerCase().includes(inputText.toLowerCase()));
         if (matches.length > 0) {
-            const suggestionsHTML = matches.slice(0, 5) // Show max 5 suggestions
-                .map(match => {
-                    const matchText = match.substring(inputText.length);
-                    return `<div class="suggestion-item" data-full-text="${match}">
-                                <strong>${inputText}</strong><span class="text-gray-400">${matchText}</span>
-                            </div>`;
-                })
-                .join('');
-            addressSuggestionsContainer.innerHTML = suggestionsHTML;
-            addressSuggestionsContainer.classList.remove('hidden');
+            zoneSuggestions.innerHTML = matches.slice(0, 5)
+                .map(match => `<div class="suggestion-item" data-full-text="${match}">${match}</div>`).join('');
+            zoneSuggestions.classList.remove('hidden');
         } else {
-            addressSuggestionsContainer.innerHTML = '';
-            addressSuggestionsContainer.classList.add('hidden');
+            zoneSuggestions.classList.add('hidden');
         }
     }
 
-    if (addressInput) {
-        addressInput.addEventListener('input', () => {
+    if (zoneInput) {
+        zoneInput.addEventListener('input', () => {
             updateTotals();
-            handleAddressAutocomplete();
+            handleZoneAutocomplete();
+            validateZoneInput();
         });
-
-        addressInput.addEventListener('blur', () => {
+        zoneInput.addEventListener('blur', () => {
+            // Delay hiding suggestions and validation to allow click event to fire
             setTimeout(() => {
-                addressSuggestionsContainer.classList.add('hidden');
-            }, 150); // Delay to allow click on suggestion
+                zoneSuggestions.classList.add('hidden');
+                validateZoneInput();
+            }, 200);
         });
     }
 
-    if (addressSuggestionsContainer) {
-        addressSuggestionsContainer.addEventListener('click', (event) => {
+    if (zoneSuggestions) {
+        zoneSuggestions.addEventListener('click', (event) => {
             const suggestionItem = event.target.closest('.suggestion-item');
             if (suggestionItem) {
-                addressInput.value = suggestionItem.dataset.fullText;
-                addressSuggestionsContainer.classList.add('hidden');
+                zoneInput.value = suggestionItem.dataset.fullText;
+                zoneSuggestions.classList.add('hidden');
                 updateTotals();
-                addressInput.focus();
+                validateZoneInput(); // Re-validate after selection
+                zoneInput.focus();
             }
         });
     }
@@ -158,11 +157,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             e.preventDefault();
             placeOrderBtn.disabled = true;
             placeOrderBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-
             try {
                 const cart = getCart();
-                const deliveryAddress = addressInput.value;
-                const deliveryFee = getDeliveryFee(deliveryAddress);
+                const deliveryZone = zoneInput.value;
+                const specificAddress = specificAddressInput.value;
+
+                if (!deliveryZone || !specificAddress) {
+                    showAlertModal("Please provide both your zone/area and specific address.", "Incomplete Address");
+                    placeOrderBtn.disabled = false;
+                    placeOrderBtn.innerHTML = 'Place Order';
+                    return; 
+                }
+
+                // --- New Validation Check ---
+                if (!uniqueLocations.some(loc => loc.toLowerCase() === deliveryZone.toLowerCase())) {
+                    showAlertModal("Please select a valid delivery zone from the suggested list.", "Invalid Zone");
+                    placeOrderBtn.disabled = false;
+                    placeOrderBtn.innerHTML = 'Place Order';
+                    return;
+                }
+                
+                const fullAddress = `${specificAddress}, ${deliveryZone}`;
+                const deliveryFee = getDeliveryFee(deliveryZone);
                 const total = currentSubtotal + deliveryFee;
 
                 const orderDetails = {
@@ -170,7 +186,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     userId: auth.currentUser.uid,
                     fullName: document.getElementById('fullName').value,
                     phone: document.getElementById('phone').value,
-                    address: deliveryAddress,
+                    address: fullAddress,
                     items: cart.map(item => {
                         const product = allProducts.find(p => p.id === item.id);
                         return { ...item, name: product.name, price: product.price, unit: product.unit };
@@ -179,13 +195,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     paymentMethod: document.querySelector('input[name="paymentMethod"]:checked').value,
                     deliveryFee: deliveryFee
                 };
-
                 if (orderDetails.paymentMethod === 'mpesa') {
                     await handleMpesaPayment(orderDetails);
                 } else {
                     await handlePayOnDelivery(orderDetails);
                 }
-
             } catch (error) {
                 console.error("Checkout error:", error);
                 showAlertModal(error.message, "Payment Error", "error");
@@ -211,23 +225,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 orderDetails 
             }),
         });
-
         const responseText = await response.text();
-
-        if (!response.ok) {
-            throw new Error(responseText || `M-Pesa API request failed with status ${response.status}`);
-        }
-
-        if (!responseText) {
-            throw new Error("Received an empty response from the payment function. Please check your .env file and server logs.");
-        }
-
+        if (!response.ok) throw new Error(responseText || `M-Pesa API request failed`);
+        if (!responseText) throw new Error("Received an empty response from the payment function.");
         const result = JSON.parse(responseText);
-        
-        if (result.error) {
-            throw new Error(result.error);
-        }
-        
+        if (result.error) throw new Error(result.error);
         waitForPaymentConfirmation(result.checkoutRequestID);
     }
 
@@ -244,9 +246,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             payment_method: 'delivery',
             delivery_fee: orderDetails.deliveryFee
         }]).select().single();
-
         if (error) throw error;
-
         clearCart();
         showConfirmation(unpaidOrder.order_number, unpaidOrder);
     }
@@ -257,17 +257,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const POLLING_INTERVAL = 3000;
         const TIMEOUT_DURATION = 90000;
         let pollIntervalId, timeoutId;
-
         showWaitingModal();
-
         timeoutId = setTimeout(() => {
             clearInterval(pollIntervalId);
             hideWaitingModal();
-            showAlertModal("Payment timed out. Please try again or check your M-Pesa account.", "Payment Timeout", "error");
+            showAlertModal("Payment timed out. Please try again.", "Payment Timeout", "error");
             placeOrderBtn.disabled = false;
             placeOrderBtn.innerHTML = 'Place Order';
         }, TIMEOUT_DURATION);
-
         pollIntervalId = setInterval(async () => {
             try {
                 const response = await fetch(pollUrl, {
@@ -277,7 +274,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Polling error.');
-
                 if (result.status === 'paid') {
                     clearInterval(pollIntervalId);
                     clearTimeout(timeoutId);
@@ -289,7 +285,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     clearInterval(pollIntervalId);
                     clearTimeout(timeoutId);
                     hideWaitingModal();
-                    showAlertModal(`Your payment was not completed: ${result.message || 'The transaction was cancelled.'}. Please try again.`, "Payment Unsuccessful", "error");
+                    showAlertModal(`Payment was not completed: ${result.message || 'Cancelled.'}`, "Payment Unsuccessful", "error");
                     placeOrderBtn.disabled = false;
                     placeOrderBtn.innerHTML = 'Place Order';
                 }
@@ -297,7 +293,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 clearInterval(pollIntervalId);
                 clearTimeout(timeoutId);
                 hideWaitingModal();
-                showAlertModal(`An error occurred while checking payment status: ${error.message}`, "Error", "error");
+                showAlertModal(`Error checking payment status: ${error.message}`, "Error", "error");
                 placeOrderBtn.disabled = false;
                 placeOrderBtn.innerHTML = 'Place Order';
             }
@@ -312,25 +308,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             const originalText = downloadReceiptBtn.innerHTML;
             downloadReceiptBtn.disabled = true;
             downloadReceiptBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
-
             try {
                 const response = await fetch('/.netlify/functions/generate-receipt', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ orderId: orderId })
                 });
-
                 if (!response.ok) {
                     const errorBody = await response.json();
                     throw new Error(errorBody.error || 'Failed to generate receipt.');
                 }
-
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.style.display = 'none';
                 a.href = url;
-                a.download = `receipt-${orderNumber || orderId}.pdf`; // Use order number for filename
+                a.download = `receipt-${orderNumber || orderId}.pdf`;
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
@@ -352,3 +345,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 });
+
