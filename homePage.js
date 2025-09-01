@@ -6,7 +6,8 @@
 
 import { getProducts } from './productsData.js'; // Import the new getProducts function
 import { addToCart } from './cartManager.js'; // Import addToCart directly
-import { db, auth } from './firebase-config.js'; // Import db and auth for Firestore and Auth operations
+import { supabase } from './supabase-config.js'; // Import supabase
+import { auth } from './firebase-config.js'; // Import db and auth for Firestore and Auth operations
 import { showToast } from './uiUpdater.js'; // Import showToast for notifications
 
 let allProducts = []; // Will store all products fetched from Firestore (unique list)
@@ -124,7 +125,7 @@ async function displayWholesaleProducts() {
 const testimonialsGrid = document.getElementById('testimonialsGrid');
 
 /**
- * Fetches testimonials from Firestore and renders them on the homepage.
+ * Fetches testimonials from Supabase and renders them on the homepage.
  */
 async function loadTestimonials() {
     if (!testimonialsGrid) {
@@ -140,17 +141,32 @@ async function loadTestimonials() {
     `;
 
     try {
-        const testimonialsCollectionRef = firebase.firestore().collection('testimonials');
-        const testimonialSnapshot = await testimonialsCollectionRef.get();
-        const testimonials = [];
-        testimonialSnapshot.forEach(doc => {
-            testimonials.push({ id: doc.id, ...doc.data() });
-        });
+        const { data: testimonials, error } = await supabase
+            .from('testimonials')
+            .select('*')
+            .order('createdAt', { ascending: false });
+
+        if (error) throw error;
 
         renderTestimonials(testimonials);
 
+        // Re-initialize swiper after testimonials are loaded
+        new Swiper('.testimonial-swiper', {
+            slidesPerView: 1,
+            spaceBetween: 20,
+            loop: true,
+            pagination: {
+                el: '.swiper-pagination',
+                clickable: true,
+            },
+            breakpoints: {
+                640: { slidesPerView: 2 },
+                1024: { slidesPerView: 3 },
+            }
+        });
+
     } catch (error) {
-        console.error("Error loading testimonials:", error);
+        console.error("Error loading testimonials from Supabase:", error);
         testimonialsGrid.innerHTML = `
             <div class="col-span-full text-center py-10 swiper-slide text-red-500">
                 <i class="fas fa-exclamation-circle text-5xl mb-4"></i>
@@ -159,6 +175,7 @@ async function loadTestimonials() {
         `;
     }
 }
+
 
 /**
  * Renders the fetched testimonials into the testimonials grid.
@@ -178,7 +195,7 @@ function renderTestimonials(testimonials) {
     }
 
     testimonials.forEach(testimonial => {
-        const testimonialDate = testimonial.createdAt ? new Date(testimonial.createdAt.seconds * 1000).toLocaleDateString() : 'N/A';
+        const testimonialDate = testimonial.createdAt ? new Date(testimonial.createdAt).toLocaleDateString() : 'N/A';
         const stars = Math.min(5, Math.max(0, Math.round(testimonial.rating || 0)));
         const starIcons = Array(stars).fill('<i class="fas fa-star text-yellow-400 text-xs"></i>').join('') +
                          Array(5 - stars).fill('<i class="far fa-star text-yellow-400 text-xs"></i>').join('');
@@ -233,6 +250,44 @@ function setupAddToCartListener(gridElement) {
 
 // --- Initial Load ---
 document.addEventListener('DOMContentLoaded', async () => {
+    // AMENDMENT: Handle Contact Form Submission with Supabase
+    const contactForm = document.getElementById('contactForm');
+    if (contactForm) {
+        const formButton = contactForm.querySelector('button[type="submit"]');
+        const originalButtonText = formButton.innerHTML;
+
+        contactForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            formButton.disabled = true;
+            formButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+            const formData = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                subject: document.getElementById('subject').value,
+                message: document.getElementById('message').value,
+            };
+
+            try {
+                const { data, error } = await supabase
+                    .from('messages')
+                    .insert([formData]);
+
+                if (error) throw error;
+
+                showToast('Message sent successfully!');
+                contactForm.reset();
+            } catch (error) {
+                console.error('Error sending message via Supabase:', error);
+                showToast(`Error: ${error.message}`, 'error');
+            } finally {
+                // This block ensures the button is always reset, regardless of success or failure.
+                formButton.disabled = false;
+                formButton.innerHTML = originalButtonText;
+            }
+        });
+    }
+    
     const fetchedProducts = await getProducts();
     allProducts = fetchedProducts.all;
     window.allProducts = allProducts; // Make available globally if needed
@@ -260,3 +315,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 });
+
