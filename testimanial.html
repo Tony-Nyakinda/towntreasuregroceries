@@ -691,425 +691,191 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     
-    <!-- Import firebase-config.js and auth.js as modules -->
+    <!-- Import project modules -->
     <script type="module" src="firebase-config.js"></script>
+    <script type="module" src="supabase-config.js"></script>
     <script type="module" src="auth.js"></script>
     <script type="module" src="uiUpdater.js"></script>
 
+    <!-- Embedded Testimonial Logic -->
     <script type="module">
-        // Removed: import { auth, db } from './firebase-config.js';
-        // Access firebase.auth() and firebase.firestore() directly as they are global from compat SDK
-        import { getCurrentUserWithRole, logout } from './auth.js';
-        import { updateCartUI, showToast, toggleCart } from './uiUpdater.js'; // Import showToast and toggleCart
+        import { auth } from './firebase-config.js';
+        import { supabase } from './supabase-config.js';
+        import { showToast } from './uiUpdater.js';
+        import { getCurrentUserWithRole } from './auth.js';
 
-        // DOM Elements
-        const testimonialsGrid = document.getElementById('testimonialsGrid');
-        const testimonialSubmissionSection = document.getElementById('testimonialSubmissionSection');
-        const loginPromptSection = document.getElementById('loginPromptSection'); // New element
-        const testimonialForm = document.getElementById('testimonialForm');
-        const testimonialCommentInput = document.getElementById('testimonialComment');
-        const customerRatingInputs = document.querySelectorAll('input[name="customerRating"]');
-        const currentUserIdInput = document.getElementById('currentUserId');
-        const currentUserNameInput = document.getElementById('currentUserName');
-        const currentUserImageInput = document.getElementById('currentUserImage');
+        document.addEventListener('DOMContentLoaded', async () => {
+            // DOM Elements
+            const testimonialsGrid = document.getElementById('testimonialsGrid');
+            const testimonialSubmissionSection = document.getElementById('testimonialSubmissionSection');
+            const loginPromptSection = document.getElementById('loginPromptSection');
+            const testimonialForm = document.getElementById('testimonialForm');
+            const testimonialCommentInput = document.getElementById('testimonialComment');
+            const currentUserIdInput = document.getElementById('currentUserId');
+            const currentUserNameInput = document.getElementById('currentUserName');
+            const currentUserImageInput = document.getElementById('currentUserImage');
 
-        // Navigation elements for dynamic login/logout/profile
-        const loginLink = document.getElementById('loginLink');
-        const userProfileButton = document.getElementById('userProfileButton');
-        const userProfilePic = document.getElementById('userProfilePic');
-        const userInitials = document.getElementById('userInitials');
-        const userNameDisplay = document.getElementById('userNameDisplay');
-        const userProfileDropdownContainer = document.getElementById('userProfileDropdownContainer');
-        const userDropdownMenu = document.getElementById('userDropdownMenu');
-        const dropdownUserName = document.getElementById('dropdownUserName');
-        const dropdownUserEmail = document.getElementById('dropdownUserEmail');
-        const dropdownUserProfilePic = document.getElementById('dropdownUserProfilePic'); // New
-        const dropdownUserInitials = document.getElementById('dropdownUserInitials');   // New
-        const logoutDropdownButton = document.getElementById('logoutDropdownButton');
-        const adminLink = document.getElementById('adminLink');
-        const myOrdersLink = document.getElementById('myOrdersLink'); // AMENDMENT: Get new link
-        const mobileMenuButton = document.getElementById('mobileMenuButton');
-        const mobileMenu = document.getElementById('mobileMenu');
-        const closeMobileMenuButton = document.getElementById('closeMobileMenuButton'); 
-        const mobileMenuOverlay = document.getElementById('mobileMenuOverlay'); 
-        const mobileLoginLink = document.getElementById('mobileLoginLink');
-        const mobileMyOrdersLink = document.getElementById('mobileMyOrdersLink'); // AMENDMENT: Get new mobile link
-        const mobileAdminLink = document.getElementById('mobileAdminLink');
-        const mobileLogoutButton = document.getElementById('mobileLogoutButton'); 
-        const mainCartButton = document.getElementById('mainCartButton');
-        const mobileCartButton = document.getElementById('mobileCartButton');
-
-        const mobileUserProfileSection = document.getElementById('mobileUserProfileSection'); // New
-        const mobileUserProfilePic = document.getElementById('mobileUserProfilePic'); // New
-        const mobileUserInitials = document.getElementById('mobileUserInitials'); // New
-        const mobileUserNameDisplay = document.getElementById('mobileUserNameDisplay'); // New
-        const mobileUserEmailDisplay = document.getElementById('mobileUserEmailDisplay'); // New
-
-        const mobileAccountButton = document.getElementById('mobileAccountButton'); // New
-        const mobileBottomProfilePic = document.getElementById('mobileBottomProfilePic'); // New
-        const mobileBottomUserInitials = document.getElementById('mobileBottomUserInitials'); // New
-        const mobileBottomUserName = document.getElementById('mobileBottomUserName'); // New
-
-
-        // Function to get initials from name or email
-        function getInitials(name, email) {
-            if (name && name.trim() !== '') {
-                const parts = name.trim().split(' ');
-                if (parts.length > 1) {
-                    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+            /**
+             * Fetches testimonials from Supabase and renders them on the page.
+             */
+            async function loadTestimonials() {
+                if (!testimonialsGrid) {
+                    console.warn("Testimonials grid element not found.");
+                    return;
                 }
-                return parts[0][0].toUpperCase();
-            }
-            if (email && email.trim() !== '') {
-                return email.trim()[0].toUpperCase();
-            }
-            return '?';
-        }
 
-        // Function to get first name from display name or email
-        function getFirstName(displayName, email) {
-            if (displayName && displayName.trim() !== '') {
-                return displayName.trim().split(' ')[0];
-            }
-            if (email && email.trim() !== '') {
-                return email.trim().split('@')[0];
-            }
-            return 'User';
-        }
+                testimonialsGrid.innerHTML = `
+                    <div class="col-span-full text-center py-10">
+                        <i class="fas fa-spinner fa-spin text-4xl text-green-600 mb-4"></i>
+                        <p class="text-gray-500">Loading testimonials...</p>
+                    </div>
+                `;
 
-        // Function to toggle the user profile dropdown
-        function toggleUserDropdown() {
-            if (userDropdownMenu) {
-                userDropdownMenu.classList.toggle('hidden');
-                userDropdownMenu.classList.toggle('active');
-            }
-        }
+                try {
+                    const { data: testimonials, error } = await supabase
+                        .from('testimonials')
+                        .select('*')
+                        .order('createdAt', { ascending: false });
 
-        /**
-         * Fetches testimonials from Firestore and renders them on the page.
-         */
-        async function loadTestimonials() {
-            if (!testimonialsGrid) {
-                console.warn("Testimonials grid element not found.");
-                return;
-            }
-
-            testimonialsGrid.innerHTML = `
-                <div class="col-span-full text-center py-10">
-                    <i class="fas fa-spinner fa-spin text-4xl text-green-600 mb-4"></i>
-                    <p class="text-gray-500">Loading testimonials...</p>
-                </div>
-            `; // Show loading spinner
-
-            try {
-                // Fetch testimonials, ordered by creation date (newest first)
-                // Use onSnapshot for real-time updates
-                firebase.firestore().collection('testimonials').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
-                    const testimonials = [];
-                    snapshot.forEach(doc => {
-                        testimonials.push({ id: doc.id, ...doc.data() });
-                    });
+                    if (error) throw error;
+                    
                     renderTestimonials(testimonials);
-                }, (error) => {
-                    console.error("Error listening to testimonials:", error);
+
+                } catch (error) {
+                    console.error("Error loading testimonials from Supabase:", error);
                     testimonialsGrid.innerHTML = `
                         <div class="col-span-full text-center py-10 text-red-500">
                             <i class="fas fa-exclamation-circle text-5xl mb-4"></i>
                             <p class="text-lg">Failed to load testimonials. Please try again later.</p>
                         </div>
                     `;
-                    showToast('Failed to load testimonials.');
-                });
-
-            } catch (error) {
-                console.error("Error setting up testimonial listener:", error);
-                testimonialsGrid.innerHTML = `
-                    <div class="col-span-full text-center py-10 text-red-500">
-                        <i class="fas fa-exclamation-circle text-5xl mb-4"></i>
-                        <p class="text-lg">An unexpected error occurred while loading testimonials.</p>
-                    </div>
-                `;
-                showToast('An unexpected error occurred.');
-            }
-        }
-
-        /**
-         * Renders the fetched testimonials into the testimonials grid.
-         * @param {Array<Object>} testimonials - An array of testimonial objects.
-         */
-        function renderTestimonials(testimonials) {
-            testimonialsGrid.innerHTML = ''; // Clear existing content
-
-            if (testimonials.length === 0) {
-                testimonialsGrid.innerHTML = `
-                    <div class="col-span-full text-center py-10 text-gray-500">
-                        <i class="fas fa-comment-alt text-5xl mb-4"></i>
-                        <p class="text-lg">No testimonials available yet. Be the first to leave one!</p>
-                    </div>
-                `;
-                return;
+                    showToast('Failed to load testimonials.', 'error');
+                }
             }
 
-            testimonials.forEach(testimonial => {
-                const testimonialDate = testimonial.createdAt ? new Date(testimonial.createdAt.seconds * 1000).toLocaleDateString() : 'N/A';
-                const stars = Math.min(5, Math.max(0, Math.round(testimonial.rating || 0)));
-                const starIcons = Array(stars).fill('<i class="fas fa-star text-yellow-400 text-xs"></i>').join('') +
-                                 Array(5 - stars).fill('<i class="far fa-star text-yellow-400 text-xs"></i>').join('');
+            /**
+             * Renders the fetched testimonials into the testimonials grid.
+             * @param {Array<Object>} testimonials - An array of testimonial objects.
+             */
+            function renderTestimonials(testimonials) {
+                if (!testimonialsGrid) return;
+                testimonialsGrid.innerHTML = '';
 
-                const testimonialCard = document.createElement('div');
-                testimonialCard.classList.add('testimonial-card', 'bg-white', 'p-6', 'rounded-xl', 'shadow-md'); /* Responsive padding */
-                testimonialCard.innerHTML = `
-                    <div class="flex items-center mb-4">
-                        <div class="flex-shrink-0">
-                            <img src="${testimonial.userImage || 'https://randomuser.me/api/portraits/lego/1.jpg'}" alt="${testimonial.userName || 'Anonymous'}" class="w-10 h-10 rounded-full border-2 border-white object-cover">
+                if (testimonials.length === 0) {
+                    testimonialsGrid.innerHTML = `
+                        <div class="col-span-full text-center py-10 text-gray-500">
+                            <i class="fas fa-comment-alt text-5xl mb-4"></i>
+                            <p class="text-lg">No testimonials available yet. Be the first to leave one!</p>
                         </div>
-                        <div class="ml-3">
-                            <h4 class="font-bold text-gray-800 text-base sm:text-lg">${testimonial.userName || 'Anonymous'}</h4> <!-- Responsive text size -->
-                            <div class="flex rating-stars">
-                                ${starIcons}
+                    `;
+                    return;
+                }
+
+                testimonials.forEach(testimonial => {
+                    const testimonialDate = testimonial.createdAt ? new Date(testimonial.createdAt).toLocaleDateString() : 'N/A';
+                    const stars = Math.min(5, Math.max(0, Math.round(testimonial.rating || 0)));
+                    const starIcons = Array(stars).fill('<i class="fas fa-star text-yellow-400 text-xs"></i>').join('') +
+                                     Array(5 - stars).fill('<i class="far fa-star text-yellow-400 text-xs"></i>').join('');
+
+                    const testimonialCard = document.createElement('div');
+                    testimonialCard.classList.add('testimonial-card', 'bg-white', 'p-6', 'rounded-xl', 'shadow-md');
+                    testimonialCard.innerHTML = `
+                        <div class="flex items-center mb-4">
+                            <div class="flex-shrink-0">
+                                <img src="${testimonial.userImage || 'https://randomuser.me/api/portraits/lego/1.jpg'}" alt="${testimonial.userName || 'Anonymous'}" class="w-10 h-10 rounded-full border-2 border-white object-cover">
+                            </div>
+                            <div class="ml-3">
+                                <h4 class="font-bold text-gray-800 text-base sm:text-lg">${testimonial.userName || 'Anonymous'}</h4>
+                                <div class="flex rating-stars">
+                                    ${starIcons}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <p class="text-gray-600 italic mb-4 text-sm sm:text-base">"${testimonial.comment || 'No comment provided.'}"</p> <!-- Responsive text size -->
-                    <div class="flex items-center text-xs sm:text-sm text-gray-500"> <!-- Responsive text size -->
-                        <i class="fas fa-calendar-alt mr-2"></i>
-                        <span>${testimonialDate}</span>
-                    </div>
-                `;
-                testimonialsGrid.appendChild(testimonialCard);
-            });
-        }
-
-        /**
-         * Sets up the testimonial submission form or login prompt.
-         * @param {Object|null} user - The current authenticated user object, or null if not logged in.
-         */
-        function setupTestimonialSubmissionForm(user) {
-            if (user && testimonialSubmissionSection) {
-                testimonialSubmissionSection.classList.remove('hidden');
-                if (loginPromptSection) loginPromptSection.classList.add('hidden'); // Hide login prompt
-
-                // Pre-fill hidden fields with user data
-                currentUserIdInput.value = user.uid;
-                currentUserNameInput.value = user.displayName || user.email.split('@')[0];
-                currentUserImageInput.value = user.photoURL || ''; // Use user's photoURL or leave empty
-
-                // Ensure the event listener is only added once
-                if (!testimonialForm.dataset.listenerAdded) {
-                    testimonialForm.addEventListener('submit', async (event) => {
-                        event.preventDefault();
-
-                        const comment = testimonialCommentInput.value.trim();
-                        const rating = parseInt(document.querySelector('input[name="customerRating"]:checked')?.value || '0');
-
-                        if (!comment || isNaN(rating) || rating < 1 || rating > 5) {
-                            showToast('Please enter your comment and select a rating (1-5 stars).');
-                            return;
-                        }
-
-                        const testimonialData = {
-                            userId: currentUserIdInput.value,
-                            userName: currentUserNameInput.value,
-                            userImage: currentUserImageInput.value || 'https://randomuser.me/api/portraits/lego/1.jpg', // Default image if none
-                            comment: comment,
-                            rating: rating,
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        };
-
-                        try {
-                            await firebase.firestore().collection('testimonials').add(testimonialData);
-                            showToast('Thank you for your testimonial!');
-                            testimonialForm.reset(); // Clear the form
-                            // No need to clear radio buttons explicitly, as the form.reset() handles it
-                        } catch (error) {
-                            console.error("Error submitting testimonial:", error);
-                            showToast(`Failed to submit testimonial: ${error.message}`);
-                        }
-                    });
-                    testimonialForm.dataset.listenerAdded = 'true'; // Mark listener as added
-                }
-            } else {
-                // User is not logged in
-                if (testimonialSubmissionSection) testimonialSubmissionSection.classList.add('hidden'); // Hide form
-                if (loginPromptSection) loginPromptSection.classList.remove('hidden'); // Show login prompt
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', async () => {
-            // Mobile menu toggle logic (copied from index.html for consistency)
-            if (mobileMenuButton && mobileMenu && mobileMenuOverlay && closeMobileMenuButton) {
-                const showMobileMenu = () => {
-                    mobileMenu.classList.remove('hidden');
-                    void mobileMenu.offsetWidth; 
-                    mobileMenu.classList.add('translate-x-0');
-                    mobileMenuOverlay.classList.remove('hidden');
-                    document.body.style.overflow = 'hidden';
-                };
-
-                const hideMobileMenu = () => {
-                    mobileMenu.classList.remove('translate-x-0');
-                    mobileMenu.addEventListener('transitionend', function handler() {
-                        mobileMenu.classList.add('hidden');
-                        mobileMenu.removeEventListener('transitionend', handler);
-                    }, { once: true });
-                    mobileMenuOverlay.classList.add('hidden');
-                    document.body.style.overflow = '';
-                };
-
-                mobileMenuButton.addEventListener('click', showMobileMenu);
-                closeMobileMenuButton.addEventListener('click', hideMobileMenu);
-                mobileMenuOverlay.addEventListener('click', hideMobileMenu);
-            } else {
-                console.warn("Mobile menu elements not found. Mobile menu toggle may not function.");
+                        <p class="text-gray-600 italic mb-4 text-sm sm:text-base">"${testimonial.comment || 'No comment provided.'}"</p>
+                        <div class="flex items-center text-xs sm:text-sm text-gray-500">
+                            <i class="fas fa-calendar-alt mr-2"></i>
+                            <span>${testimonialDate}</span>
+                        </div>
+                    `;
+                    testimonialsGrid.appendChild(testimonialCard);
+                });
             }
 
-            // User authentication and UI update
-            firebase.auth().onAuthStateChanged(async (user) => {
-                const { user: currentUser, role } = await getCurrentUserWithRole();
+            /**
+             * Sets up the testimonial submission form or login prompt based on user auth state.
+             */
+            async function setupTestimonialSubmission() {
+                const { user } = await getCurrentUserWithRole();
 
-                if (currentUser) {
-                    // User is logged in
-                    if (loginLink) loginLink.classList.add('hidden');
-                    if (userProfileButton) userProfileButton.classList.remove('hidden');
+                if (user) {
+                    if (testimonialSubmissionSection) testimonialSubmissionSection.classList.remove('hidden');
+                    if (loginPromptSection) loginPromptSection.classList.add('hidden');
 
-                    const userFullName = currentUser.displayName || currentUser.email;
-                    const firstName = getFirstName(currentUser.displayName, currentUser.email);
-                    const userEmail = currentUser.email;
-                    const photoURL = currentUser.photoURL;
+                    currentUserIdInput.value = user.uid;
+                    currentUserNameInput.value = user.displayName || user.email.split('@')[0];
+                    currentUserImageInput.value = user.photoURL || '';
 
-                    if (userNameDisplay) userNameDisplay.textContent = firstName;
-                    if (dropdownUserName) dropdownUserName.textContent = userFullName;
-                    if (dropdownUserEmail) dropdownUserEmail.textContent = userEmail;
-
-                    if (photoURL) {
-                        if (userProfilePic) {
-                            userProfilePic.src = photoURL;
-                            userProfilePic.classList.remove('hidden');
-                        }
-                        if (userInitials) userInitials.classList.add('hidden');
-
-                        if (dropdownUserProfilePic) {
-                            dropdownUserProfilePic.src = photoURL;
-                            dropdownUserProfilePic.classList.remove('hidden');
-                        }
-                        if (dropdownUserInitials) dropdownUserInitials.classList.add('hidden');
-                    } else {
-                        if (userInitials) {
-                            userInitials.textContent = getInitials(currentUser.displayName, currentUser.email);
-                            userInitials.classList.remove('hidden');
-                        }
-                        if (userProfilePic) userProfilePic.classList.add('hidden');
-
-                        if (dropdownUserInitials) {
-                            dropdownUserInitials.textContent = getInitials(currentUser.displayName, currentUser.email);
-                            dropdownUserInitials.classList.remove('hidden');
-                        }
-                        if (dropdownUserProfilePic) dropdownUserProfilePic.classList.add('hidden');
+                    if (testimonialForm && !testimonialForm.dataset.listenerAdded) {
+                        testimonialForm.addEventListener('submit', handleTestimonialSubmit);
+                        testimonialForm.dataset.listenerAdded = 'true';
                     }
-
-                    if (myOrdersLink) myOrdersLink.classList.remove('hidden'); // AMENDMENT: Show My Orders link
-                    if (mobileMyOrdersLink) mobileMyOrdersLink.classList.remove('hidden'); // AMENDMENT: Show mobile My Orders link
-
-                    if (userProfileButton) userProfileButton.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        toggleUserDropdown();
-                    });
-
-                    document.addEventListener('click', (e) => {
-                        if (userProfileDropdownContainer && !userProfileDropdownContainer.contains(e.target)) {
-                            if (userDropdownMenu && userDropdownMenu.classList.contains('active')) {
-                                toggleUserDropdown();
-                            }
-                        }
-                    });
-
-                    if (logoutDropdownButton) {
-                        logoutDropdownButton.addEventListener('click', async (e) => {
-                            e.preventDefault();
-                            await logout();
-                            window.location.reload();
-                        });
-                    }
-
-                    if (mobileLogoutButton) {
-                        mobileLogoutButton.classList.remove('hidden');
-                        mobileLogoutButton.addEventListener('click', async (e) => {
-                            e.preventDefault();
-                            await logout();
-                            window.location.reload();
-                        });
-                    }
-
-                    if (role === 'admin') {
-                        if (adminLink) adminLink.classList.remove('hidden');
-                        if (mobileAdminLink) mobileAdminLink.classList.remove('hidden');
-                    } else {
-                        if (adminLink) adminLink.classList.add('hidden');
-                        if (mobileAdminLink) mobileAdminLink.classList.add('hidden');
-                    }
-
-                    // Mobile Bottom Navigation "Account" button
-                    if (mobileAccountButton) {
-                        if (photoURL) {
-                            if (mobileBottomProfilePic) {
-                                mobileBottomProfilePic.src = photoURL;
-                                mobileBottomProfilePic.classList.remove('hidden');
-                            }
-                            if (mobileBottomUserInitials) mobileBottomUserInitials.classList.add('hidden');
-                        } else {
-                            if (mobileBottomUserInitials) {
-                                mobileBottomUserInitials.textContent = getInitials(currentUser.displayName, currentUser.email);
-                                mobileBottomUserInitials.classList.remove('hidden');
-                            }
-                            if (mobileBottomProfilePic) mobileBottomProfilePic.classList.add('hidden');
-                        }
-                        if (mobileBottomUserName) mobileBottomUserName.textContent = firstName;
-                        mobileAccountButton.href = "#"; // Change to a profile page if one exists
-                    }
-
-
-                    // Setup testimonial submission form for logged-in users
-                    setupTestimonialSubmissionForm(currentUser);
-
                 } else {
-                    // User is not logged in
-                    if (loginLink) loginLink.classList.remove('hidden');
-                    if (userProfileButton) userProfileButton.classList.add('hidden');
-                    if (userDropdownMenu) userDropdownMenu.classList.add('hidden');
-                    if (myOrdersLink) myOrdersLink.classList.add('hidden'); // AMENDMENT: Hide My Orders link
-                    if (mobileMyOrdersLink) mobileMyOrdersLink.classList.add('hidden'); // AMENDMENT: Hide mobile My Orders link
-                    if (mobileLogoutButton) mobileLogoutButton.classList.add('hidden');
-
-                    if (adminLink) adminLink.classList.remove('hidden');
-                    if (mobileLoginLink) mobileLoginLink.classList.remove('hidden');
-                    if (mobileAdminLink) mobileAdminLink.classList.remove('hidden');
-
-                    // Mobile Bottom Navigation "Account" button
-                    if (mobileAccountButton) {
-                        if (mobileBottomProfilePic) mobileBottomProfilePic.classList.add('hidden');
-                        if (mobileBottomUserInitials) mobileBottomUserInitials.classList.add('hidden');
-                        if (mobileBottomUserName) mobileBottomUserName.textContent = "Account";
-                        mobileAccountButton.href = "login.html"; // Link to login page
-                    }
-
-                    // Show login prompt if not logged in
-                    setupTestimonialSubmissionForm(null);
+                    if (testimonialSubmissionSection) testimonialSubmissionSection.classList.add('hidden');
+                    if (loginPromptSection) loginPromptSection.classList.remove('hidden');
                 }
-            });
+            }
 
-            // Attach event listeners for cart functionality (from index.html)
-            if (mainCartButton) mainCartButton.addEventListener('click', toggleCart);
-            if (mobileCartButton) mobileCartButton.addEventListener('click', toggleCart);
-            // Assuming fabCartButton and overlay are not present on this page, or handled by uiUpdater.js
-            // if (fabCartButton) fabCartButton.addEventListener('click', toggleCart);
-            // if (overlay) overlay.addEventListener('click', toggleCart); 
+            /**
+             * Handles the form submission event for new testimonials.
+             * @param {Event} event - The form submission event.
+             */
+            async function handleTestimonialSubmit(event) {
+                event.preventDefault();
+                const formButton = testimonialForm.querySelector('button[type="submit"]');
+                const originalButtonText = formButton.innerHTML;
+                formButton.disabled = true;
+                formButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
 
-            // Initial cart UI update on page load
-            updateCartUI();
-            
-            // Load testimonials when the DOM is ready
-            loadTestimonials();
+                const comment = testimonialCommentInput.value.trim();
+                const rating = parseInt(document.querySelector('input[name="customerRating"]:checked')?.value || '0');
+
+                if (!comment || isNaN(rating) || rating < 1 || rating > 5) {
+                    showToast('Please enter your comment and select a rating (1-5 stars).', 'error');
+                    formButton.disabled = false;
+                    formButton.innerHTML = originalButtonText;
+                    return;
+                }
+
+                const testimonialData = {
+                    userId: currentUserIdInput.value,
+                    userName: currentUserNameInput.value,
+                    userImage: currentUserImageInput.value || 'https://randomuser.me/api/portraits/lego/1.jpg',
+                    comment: comment,
+                    rating: rating
+                };
+
+                try {
+                    const { error } = await supabase.from('testimonials').insert([testimonialData]);
+                    if (error) throw error;
+                    
+                    showToast('Thank you for your testimonial!');
+                    testimonialForm.reset();
+                    loadTestimonials(); // Refresh the list
+
+                } catch (error) {
+                    console.error("Error submitting testimonial to Supabase:", error);
+                    showToast(`Failed to submit testimonial: ${error.message}`, 'error');
+                } finally {
+                    formButton.disabled = false;
+                    formButton.innerHTML = originalButtonText;
+                }
+            }
+
+            // Initial page load
+            await loadTestimonials();
+            await setupTestimonialSubmission();
         });
     </script>
 </body>
 </html>
+
