@@ -139,7 +139,7 @@
                         </tfoot>
                     </table>
                     <div class="footer">
-                        <p>Thank you for shopping with Town Treasure Groceries!</p>
+                        <p>Thank you for partnering with Town Treasure Groceries!</p>
                     </div>
                 </div>
             </body>
